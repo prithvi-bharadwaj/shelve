@@ -1,22 +1,37 @@
-# Tab Organizer AI
+# Regroup
 
-One click: understands your open tabs and sorts them into named Chrome tab groups using Claude.
+One click: understands your open tabs and sorts them into named Chrome tab groups using your choice of OpenAI, Anthropic, Gemini, or local Ollama.
 
-Works in Chrome, Brave, Edge, Arc, Vivaldi — any Chromium browser (Manifest V3).
+Works in Chrome, Brave, Edge, Arc, Vivaldi — any Chromium browser that supports Manifest V3 tab groups.
 
 ## Features
 
-- **Organize tabs** — sends tab titles + URLs to Claude, which groups them by what you're actually doing (two YouTube tabs about different topics land in different groups). Groups get short, specific names and colors.
-- **Hybrid context** — if a title/URL is too ambiguous (e.g. `twitter.com/home`), the extension reads a snippet of that page's content for a second pass. Page access is an *optional* permission; decline it and everything still works on titles/URLs.
-- **Merge windows** — pulls every window's tabs into the current one, keeping existing tab groups and pinned tabs intact.
-- **Review mode** (optional) — see proposed groups with checkboxes before anything moves.
-- Loose one-off tabs (messaging, random browsing) are left alone by default. Configurable.
+- **Organize tabs** — groups loose tabs by task and intent, adds relevant tabs to existing groups, and orders focused work before entertainment.
+- **Hybrid context** — optionally reads a short page snippet when a title and URL are too ambiguous to classify. Declining page access still leaves title/URL organization fully usable.
+- **Quick actions** — ungroup everything, close duplicate URLs, merge windows, or undo the last organize/ungroup/cleanup action from the popup.
+- **Duplicate protection** — keeps pinned tabs and the active tab, otherwise retaining the most recently accessed copy. Cleanup can run automatically before organization.
+- **Review mode** — inspect proposed groups and choose which ones to apply.
+- **Auto-organize** — show a badge when loose tabs cross a threshold, or organize automatically at most once every five minutes.
+- **Budget cap** — estimates provider spend from reported token usage and stops requests at your configured limit. Ollama remains free.
+- **Import and export** — copy/download the current window's groups as JSON and recreate them later.
+- **Flexible grouping** — choose a minimum group size or group every loose tab.
 
-## Setup
+## Provider setup
 
-1. Get an Anthropic API key at [console.anthropic.com](https://console.anthropic.com).
-2. Install the extension (below), click the puzzle-piece icon → pin **Tab Organizer AI**.
-3. Click the icon → gear → paste your API key → Save. The model list loads live from your account.
+Open the extension popup, choose the gear, then select a provider and model:
+
+- **OpenAI** — create an API key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys) and paste it into Settings. The default is `gpt-5.6-luna` with low reasoning effort.
+- **Anthropic** — create an API key at [console.anthropic.com](https://console.anthropic.com), then paste it into Settings. The default is `claude-haiku-4-5`.
+- **Gemini** — create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then paste it into Settings. The default is `gemini-2.5-flash-lite`.
+- **Ollama** — install a model locally, set the Ollama URL (default `http://localhost:11434`), and allow extension origins when starting the server:
+
+  ```sh
+  OLLAMA_ORIGINS="chrome-extension://*" ollama serve
+  ```
+
+  Regroup selects the first installed model if none has been chosen. If Ollama is already running as a desktop app or service, restart it with the same `OLLAMA_ORIGINS` environment setting.
+
+Model lists are fetched live after provider settings are saved, with built-in fallbacks for hosted providers.
 
 ## Install from source
 
@@ -27,23 +42,27 @@ pnpm build
 
 Then in your browser:
 
-1. Open `chrome://extensions` (or `brave://extensions`).
-2. Enable **Developer mode** (top right).
-3. Click **Load unpacked** → select the `dist/` folder.
+1. Open `chrome://extensions` (or your browser's equivalent).
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select the `dist/` folder.
+4. Pin **Regroup** from the extensions menu.
 
 ## Development
 
 ```sh
-pnpm dev   # rebuilds on change; click the reload icon on chrome://extensions to pick up changes
+pnpm dev
 ```
 
-Stack: React 19, TypeScript, Tailwind v4, shadcn-style components, Vite. The service worker (`public/background.js`) is dependency-free plain JS.
+This rebuilds on changes. Reload the extension from the browser's extensions page to pick up a new build.
+
+Stack: React 19, TypeScript, Tailwind v4, shadcn-style components, Radix primitives, and Vite. The service worker (`public/background.js`) is dependency-free plain JavaScript.
 
 ## Privacy
 
-- Your API key is stored in `chrome.storage.local` (this browser only, never synced) and sent only to `api.anthropic.com`.
-- Tab titles and URLs are sent to the Anthropic API when you click **Organize** — the popup discloses this and asks once before the first run. Page content is only read for tabs the model flags as ambiguous, and only if you granted the optional permission.
-- Nothing is sent anywhere else. There is no backend, no analytics, no tracking.
+- API keys are stored in `chrome.storage.local` in this browser and are never synced.
+- When you organize, tab titles and URLs are sent only to the provider selected in Settings. Page snippets are sent only for ambiguous tabs, only if you grant the optional page-access permission.
+- Ollama requests stay on the configured Ollama server, which is local by default.
+- Group exports are created locally. There is no Regroup backend, analytics, or tracking.
 
 ## License
 

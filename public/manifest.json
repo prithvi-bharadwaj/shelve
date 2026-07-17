@@ -1,11 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Regroup",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "One click: understands your open tabs and sorts them into named Chrome tab groups.",
   "permissions": ["tabs", "tabGroups", "storage"],
   "optional_permissions": ["scripting"],
-  "host_permissions": ["https://api.anthropic.com/*"],
+  "host_permissions": [
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
   "optional_host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
