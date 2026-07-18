@@ -9,6 +9,9 @@ export type ProposedGroup = {
 
 export type OrganizeResponse = {
   error?: string;
+  jobId?: string;
+  running?: boolean;
+  job?: OrganizeJob;
   review?: boolean;
   groups?: ProposedGroup[];
   done?: boolean;
@@ -16,6 +19,19 @@ export type OrganizeResponse = {
   tabCount?: number;
   windowId?: number;
   minSize?: number;
+};
+
+export type OrganizeStage = "collecting" | "classifying" | "reading" | "applying";
+
+export type OrganizeJob = {
+  id: string;
+  status: "running" | "done" | "error";
+  stage: OrganizeStage;
+  startedAt: number;
+  updatedAt: number;
+  tabCount: number;
+  result?: OrganizeResponse;
+  error?: string;
 };
 
 export type MergeResponse = {
@@ -40,6 +56,7 @@ export type Settings = {
   groupEverything: boolean;
   reviewFirst: boolean;
   dedupeOnOrganize: boolean;
+  customInstructions: string;
   auto: "off" | "badge" | "auto";
   autoThreshold: number;
   budgetUsd: number;
@@ -61,6 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   groupEverything: false,
   reviewFirst: false,
   dedupeOnOrganize: false,
+  customInstructions: "",
   auto: "off",
   autoThreshold: 15,
   budgetUsd: 1,
