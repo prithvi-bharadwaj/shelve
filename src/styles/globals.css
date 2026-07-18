@@ -70,6 +70,138 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.popup-shell {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --muted: oklch(0.205 0 0);
+  --muted-foreground: oklch(0.705 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --primary: oklch(0.704 0.191 263.3);
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.704 0.191 263.3);
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  color-scheme: dark;
+}
+
+.tab-rail {
+  position: relative;
+  height: 64px;
+  overflow: hidden;
+}
+
+.tab-rail-line {
+  position: absolute;
+  top: 31px;
+  right: 62px;
+  left: 8px;
+  height: 1px;
+  background: color-mix(in oklch, var(--muted-foreground) 32%, transparent);
+}
+
+.tab-rail-item {
+  position: absolute;
+  top: 20px;
+  left: 8px;
+  width: 30px;
+  height: 22px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 75%, transparent);
+  border-radius: 5px;
+  background: var(--background);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: tab-travel 2.32s linear infinite;
+}
+
+.tab-rail-item:nth-of-type(even) {
+  border-color: var(--primary);
+}
+
+.tab-rail-notch {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  width: 8px;
+  height: 1px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.tab-rail-arrow {
+  position: absolute;
+  top: 18px;
+  right: 46px;
+  color: var(--muted-foreground);
+  font-size: 20px;
+  font-weight: 300;
+}
+
+.tab-rail-groups {
+  position: absolute;
+  top: 8px;
+  right: 2px;
+  width: 36px;
+  height: 48px;
+  animation: rail-group-pulse 2.32s linear infinite;
+}
+
+.tab-rail-groups > span {
+  position: absolute;
+  right: 0;
+  width: 34px;
+  height: 22px;
+  border: 1px solid var(--foreground);
+  border-radius: 5px;
+}
+
+.tab-rail-groups > span::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 4px;
+  width: 12px;
+  height: 4px;
+  border: 1px solid var(--foreground);
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  background: var(--background);
+}
+
+.tab-rail-groups > span:first-child { top: 1px; }
+.tab-rail-groups > span:last-child { bottom: 1px; }
+
+@keyframes tab-travel {
+  0% {
+    opacity: 0;
+    transform: translate3d(-18px, 0, 0) scale(0.88);
+  }
+  10% {
+    opacity: 0.72;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  76% {
+    opacity: 1;
+    transform: translate3d(198px, 0, 0) scale(1);
+  }
+  88%, 100% {
+    opacity: 0;
+    transform: translate3d(218px, 0, 0) scale(0.82);
+  }
+}
+
+@keyframes rail-group-pulse {
+  0%, 76% { opacity: 0.55; }
+  88% { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+
 /* Review-list entrance: subtle rise, staggered 40ms per item, well under 300ms */
 .review-item {
   opacity: 0;
@@ -91,5 +223,23 @@ body {
   }
   @keyframes fade {
     to { opacity: 1; }
+  }
+
+  .tab-rail-item,
+  .tab-rail-groups {
+    animation: none;
+  }
+
+  .tab-rail-item {
+    opacity: 0.7;
+  }
+
+  .tab-rail-item:nth-of-type(1) { transform: translate3d(20px, 0, 0); }
+  .tab-rail-item:nth-of-type(2) { transform: translate3d(72px, 0, 0); }
+  .tab-rail-item:nth-of-type(3) { transform: translate3d(124px, 0, 0); }
+  .tab-rail-item:nth-of-type(4) { transform: translate3d(176px, 0, 0); }
+
+  .popup-shell .animate-spin {
+    animation: none;
   }
 }

@@ -1,5 +1,25 @@
 import type { SVGProps } from "react";
 
+export function RegroupLogo({ className, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.65"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+      {...props}
+    >
+      <path d="M5.5 20V7.5A2.5 2.5 0 0 1 8 5h4.25a4.25 4.25 0 0 1 0 8.5H5.5" />
+      <path d="m12 13.5 6.5 6.5" />
+      <path d="M5.5 3.5h6" opacity=".55" />
+    </svg>
+  );
+}
+
 export function UngroupIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
     <svg

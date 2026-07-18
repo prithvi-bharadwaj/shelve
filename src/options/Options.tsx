@@ -123,6 +123,7 @@ export function Options() {
       modelByProvider: Object.fromEntries(
         Object.entries(settings.modelByProvider).map(([provider, model]) => [provider, model.trim()])
       ) as Settings["modelByProvider"],
+      customInstructions: settings.customInstructions.trim().slice(0, 2000),
       minGroupSize: clamp(settings.minGroupSize, 1, 6),
       autoThreshold: clamp(settings.autoThreshold, 1, 999),
       budgetUsd: Math.max(0, Number(settings.budgetUsd) || 0),
@@ -299,6 +300,26 @@ export function Options() {
               value={settings.minGroupSize}
               onChange={(event) => set("minGroupSize", clamp(parseInt(event.target.value, 10), 1, 6))}
             />
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-end justify-between gap-4">
+              <Label htmlFor="customInstructions">Custom instructions</Label>
+              <span className="text-[11px] tabular-nums text-muted-foreground">
+                {settings.customInstructions.length}/2000
+              </span>
+            </div>
+            <textarea
+              id="customInstructions"
+              rows={4}
+              maxLength={2000}
+              value={settings.customInstructions}
+              onChange={(event) => set("customInstructions", event.target.value)}
+              placeholder={'Example: Put all Wikipedia tabs in one group named "wowow".'}
+              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+            />
+            <p className="text-xs text-muted-foreground">
+              Applied to group names and grouping decisions every time you organize.
+            </p>
           </div>
           <label htmlFor="dedupe" className="flex cursor-pointer items-start gap-3">
             <Checkbox

@@ -1,5 +1,5 @@
 // Generates the extension icons as PNGs with zero dependencies.
-// A dark rounded square with a 2x2 grid of tab-group-colored tiles.
+// A dark rounded square with the Regroup monoline R mark.
 // Run: node scripts/gen-icons.mjs
 
 import { deflateSync } from "node:zlib";
@@ -7,12 +7,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 const SIZES = [16, 32, 48, 128];
 
-const BG = [10, 15, 28];
-const BARS = [
-  [96, 165, 250], // blue
-  [74, 222, 128], // green
-  [250, 250, 250], // white-ish
-];
+const BG = [9, 9, 11];
+const MARK = [250, 250, 250];
+const ACCENT = [129, 140, 248];
 
 function sdRoundRect(px, py, cx, cy, hw, hh, r) {
   const qx = Math.abs(px - cx) - hw + r;
@@ -20,23 +17,31 @@ function sdRoundRect(px, py, cx, cy, hw, hh, r) {
   return Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - r;
 }
 
+function segmentDistance(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = lengthSquared ? Math.min(1, Math.max(0, ((px - ax) * dx + (py - ay) * dy) / lengthSquared)) : 0;
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
 function render(size) {
   const px = new Uint8Array(size * size * 4);
   const c = size / 2;
   const bgHalf = size / 2 - size * 0.02;
-  const bgR = size * 0.29;
-
-  // A descending, right-aligned stack: tabs snapping into a tidy order.
-  const barHeight = size * 0.145;
-  const gap = size * 0.08;
-  const barR = barHeight * 0.36;
-  const right = c + size * 0.29;
-  const widths = [size * 0.6, size * 0.49, size * 0.38];
-  const bars = widths.map((width, row) => ({
-    cx: right - width / 2,
-    cy: c + (row - 1) * (barHeight + gap),
-    width,
-  }));
+  const bgR = size * 0.24;
+  const stroke = size * 0.068;
+  const point = ([x, y]) => [x * size, y * size];
+  const markSegments = [
+    [[0.3, 0.75], [0.3, 0.31]],
+    [[0.3, 0.31], [0.51, 0.31]],
+    [[0.51, 0.31], [0.62, 0.38]],
+    [[0.62, 0.38], [0.62, 0.48]],
+    [[0.62, 0.48], [0.51, 0.55]],
+    [[0.51, 0.55], [0.3, 0.55]],
+    [[0.49, 0.55], [0.71, 0.76]],
+  ].map(([a, b]) => [point(a), point(b)]);
+  const accentSegment = [point([0.3, 0.2]), point([0.51, 0.2])];
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -47,24 +52,19 @@ function render(size) {
       if (bgA <= 0) continue;
 
       let [r, g, b] = BG;
-      for (let row = 0; row < bars.length; row++) {
-        const bar = bars[row];
-        const dBar = sdRoundRect(
-          x + 0.5,
-          y + 0.5,
-          bar.cx,
-          bar.cy,
-          bar.width / 2,
-          barHeight / 2,
-          barR,
-        );
-        const barA = aa(dBar);
-        if (barA > 0) {
-          r = r + (BARS[row][0] - r) * barA;
-          g = g + (BARS[row][1] - g) * barA;
-          b = b + (BARS[row][2] - b) * barA;
-        }
-      }
+      const markDistance = Math.min(...markSegments.map(([[ax, ay], [bx, by]]) =>
+        segmentDistance(x + 0.5, y + 0.5, ax, ay, bx, by)
+      ));
+      const markA = aa(markDistance - stroke / 2);
+      r += (MARK[0] - r) * markA;
+      g += (MARK[1] - g) * markA;
+      b += (MARK[2] - b) * markA;
+
+      const [[accentAx, accentAy], [accentBx, accentBy]] = accentSegment;
+      const accentA = aa(segmentDistance(x + 0.5, y + 0.5, accentAx, accentAy, accentBx, accentBy) - stroke / 2) * 0.9;
+      r += (ACCENT[0] - r) * accentA;
+      g += (ACCENT[1] - g) * accentA;
+      b += (ACCENT[2] - b) * accentA;
       px[i] = Math.round(r);
       px[i + 1] = Math.round(g);
       px[i + 2] = Math.round(b);
