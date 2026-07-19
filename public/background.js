@@ -9,7 +9,7 @@ const PROVIDER_TIMEOUT_MS = 45 * 1000;
 const OLLAMA_TIMEOUT_MS = 90 * 1000;
 const SNIPPET_TIMEOUT_MS = 8 * 1000;
 const ORGANIZE_STALE_MS = 2 * 60 * 1000;
-const MONITOR_NOTIFICATION_PREFIX = "regroup-tab-monitor:";
+const MONITOR_NOTIFICATION_PREFIX = "focused-tab-monitor:";
 
 const DEFAULT_MODELS = {
   openai: "gpt-5.6-luna",
@@ -793,7 +793,7 @@ function notifyAutoFiled(result) {
   chrome.notifications.create({
     type: "basic",
     iconUrl: "icons/icon128.png",
-    title: "Regroup",
+    title: "Focused",
     message
   }, () => chrome.runtime.lastError);
 }
@@ -1028,7 +1028,7 @@ async function exportGroups(windowId) {
 async function importGroups(payload, windowId) {
   const data = typeof payload === "string" ? JSON.parse(payload) : payload;
   if (!data || data.version !== 1 || !Array.isArray(data.groups)) {
-    return { error: "Invalid Regroup JSON." };
+    return { error: "Invalid Focused JSON." };
   }
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
   let groupCount = 0;
@@ -1493,9 +1493,9 @@ async function refreshAutoState() {
       const created = await chrome.notifications.create(notificationId, {
         type: "basic",
         iconUrl: chrome.runtime.getURL("icons/icon128.png"),
-        title: "Regroup",
+        title: "Focused",
         message: `Hey, you have ${count} tabs open. Do you want to organize it?`,
-        buttons: [{ title: "Open Regroup" }],
+        buttons: [{ title: "Open Focused" }],
         priority: 1
       }).then(() => true).catch(() => false);
       if (created) alerted[key] = true;
