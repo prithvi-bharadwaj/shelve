@@ -330,8 +330,12 @@ export function Popup() {
     }
     setStashBusy(groupId);
     setStatus(null);
-    const res = await chrome.runtime.sendMessage({ type: "stashGroup", windowId, groupId });
-    setStashBusy(null);
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "stashGroup", windowId, groupId });
+    } finally {
+      setStashBusy(null);
+    }
     await refreshPanels();
     setStatus(
       res?.error
@@ -343,8 +347,12 @@ export function Popup() {
   const resumeStash = async (stashId: string) => {
     setStashBusy(stashId);
     setStatus(null);
-    const res = await chrome.runtime.sendMessage({ type: "resumeStash", stashId, windowId });
-    setStashBusy(null);
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "resumeStash", stashId, windowId });
+    } finally {
+      setStashBusy(null);
+    }
     await refreshPanels();
     setStatus(
       res?.error
