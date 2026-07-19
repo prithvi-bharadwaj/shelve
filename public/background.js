@@ -1098,8 +1098,11 @@ Rules:
     const target = Number.isInteger(result.tabId) ? tabById.get(result.tabId) : null;
     const reply = String(result.reply || "").trim().slice(0, 500);
     if (result.action === "open_tab" && target) {
-      await focusTab(target.id);
-      return { done: true, action: "open_tab", reply, tabId: target.id, tabTitle: target.title || "" };
+      const focused = await focusTab(target.id);
+      if (!focused.error) {
+        return { done: true, action: "open_tab", reply, tabId: target.id, tabTitle: target.title || "" };
+      }
+      return { done: true, action: "not_found", reply: "Found a match, but that tab just closed." };
     }
     if (result.action === "answer" && reply) {
       return {
@@ -1152,7 +1155,7 @@ let stashQueue = Promise.resolve();
 // All stash writes go through one queue so a brief arriving mid-delete cannot
 // clobber the list.
 function mutateStashes(mutator) {
-  stashQueue = stashQueue.then(async () => {
+  stashQueue = stashQueue.catch(() => undefined).then(async () => {
     const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
     const next = mutator(Array.isArray(stored[STASH_KEY]) ? stored[STASH_KEY] : []);
     await chrome.storage.local.set({ [STASH_KEY]: next });
@@ -1221,11 +1224,12 @@ async function stashGroup(windowId, groupId) {
   };
   await mutateStashes((list) => [stash, ...list]);
 
-  // Closing the group's tabs must not close the whole window.
-  if (groupTabs.length === allTabs.length) {
+  // Close only the tabs that were saved; a chrome:// or file:// tab in the
+  // group would otherwise be lost. Closing must not close the whole window.
+  if (savable.length === allTabs.length) {
     await chrome.tabs.create({ windowId: group.windowId }).catch(() => undefined);
   }
-  await chrome.tabs.remove(groupTabs.map((tab) => tab.id));
+  await chrome.tabs.remove(savable.map((tab) => tab.id));
   scheduleAutoCheck();
   generateStashBrief(stash, snippets).catch(() => undefined);
   return { done: true, stash: publicStash(stash) };
@@ -1268,7 +1272,17 @@ Rules:
 async function listStashes() {
   const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
   const stashes = Array.isArray(stored[STASH_KEY]) ? stored[STASH_KEY] : [];
-  return { stashes: stashes.map(publicStash) };
+  return {
+    stashes: stashes.map((stash) => {
+      const pub = publicStash(stash);
+      // A worker killed mid-brief leaves "pending" behind forever; stop showing
+      // a spinner for briefs that can no longer arrive.
+      if (pub.briefStatus === "pending" && Date.now() - pub.createdAt > 3 * 60 * 1000) {
+        pub.briefStatus = "unavailable";
+      }
+      return pub;
+    })
+  };
 }
 
 async function resumeStash(stashId, windowId) {

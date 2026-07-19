@@ -12,10 +12,20 @@ export function CommandBar({ windowId, disabled }: { windowId?: number; disabled
     if (!trimmed || running || disabled) return;
     setRunning(true);
     setResult(null);
-    const hasContentPermission = await chrome.permissions.contains({
+    let hasContentPermission = await chrome.permissions.contains({
       permissions: ["scripting"],
       origins: ["<all_urls>"],
     });
+    if (!hasContentPermission) {
+      try {
+        hasContentPermission = await chrome.permissions.request({
+          permissions: ["scripting"],
+          origins: ["<all_urls>"],
+        });
+      } catch {
+        hasContentPermission = false;
+      }
+    }
     try {
       const res: CommandResponse = await chrome.runtime.sendMessage({
         type: "command",

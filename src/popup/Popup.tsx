@@ -225,6 +225,7 @@ export function Popup() {
     setRunning(null);
     setGroups([]);
     await refreshUndo();
+    await refreshPanels();
     await consumeJob(organizeJob?.id ?? handledJobId.current ?? undefined);
     setStatus(
       res?.error
@@ -239,6 +240,7 @@ export function Popup() {
     const res = await chrome.runtime.sendMessage({ type: "ungroupAll", windowId });
     setRunning(null);
     await refreshUndo();
+    await refreshPanels();
     setStatus(res?.error ? { text: res.error, error: true } : { text: `${res.tabCount} tab${res.tabCount === 1 ? "" : "s"} ungrouped` });
   };
 
@@ -248,6 +250,7 @@ export function Popup() {
     const res = await chrome.runtime.sendMessage({ type: "cleanDuplicates", windowId });
     setRunning(null);
     await refreshUndo();
+    await refreshPanels();
     setStatus(
       res?.error
         ? { text: res.error, error: true }
@@ -265,6 +268,7 @@ export function Popup() {
       return;
     }
     setWindowCount(1);
+    await refreshPanels();
     setStatus({ text: `Merged ${res.windows} window${res.windows === 1 ? "" : "s"} · ${res.tabs} tabs` });
   };
 
