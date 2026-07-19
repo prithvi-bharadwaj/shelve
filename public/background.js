@@ -9,7 +9,7 @@ const PROVIDER_TIMEOUT_MS = 45 * 1000;
 const OLLAMA_TIMEOUT_MS = 90 * 1000;
 const SNIPPET_TIMEOUT_MS = 8 * 1000;
 const ORGANIZE_STALE_MS = 2 * 60 * 1000;
-const AUTO_GUARD_MS = 5 * 60 * 1000;
+const MONITOR_NOTIFICATION_PREFIX = "regroup-tab-monitor:";
 
 const DEFAULT_MODELS = {
   openai: "gpt-5.6-luna",
@@ -25,6 +25,7 @@ const DEFAULT_PREFS = {
   groupEverything: false,
   reviewFirst: false,
   dedupeOnOrganize: false,
+  mergeOnOrganize: false,
   customInstructions: "",
   auto: "off",
   autoThreshold: 15,
@@ -357,6 +358,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     hasUndo: () => hasUndo(),
     mergeWindows: () => mergeWindows(msg.windowId),
     windowCount: () => windowCount(),
+    monitorState: () => getMonitorState(msg.windowId),
     listModels: () => listModels(msg.provider),
     exportGroups: () => exportGroups(msg.windowId),
     importGroups: () => importGroups(msg.payload, msg.windowId),
@@ -396,6 +398,12 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
   };
   organizeJobs.set(targetWindowId, job);
   await persistOrganizeJob(job);
+  // Captured before the badge logic clears it mid-run; a monitor-prompted
+  // organize gets a "Filed N tabs" notification on completion.
+  const monitorAlerted = Boolean(
+    (await chrome.storage.local.get({ monitorAlertedWindows: {} })).monitorAlertedWindows[String(targetWindowId)]
+  );
+  await chrome.notifications.clear(`${MONITOR_NOTIFICATION_PREFIX}${targetWindowId}`).catch(() => undefined);
 
   const stopKeepalive = startKeepalive();
 
@@ -406,6 +414,10 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
       return finishOrganizeJob(job, result);
     }
     settings = await ensureModel(settings);
+
+    if (settings.mergeOnOrganize) {
+      await mergeWindows(targetWindowId);
+    }
 
     let dedupeMutated = false;
     if (settings.dedupeOnOrganize) {
@@ -464,7 +476,7 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
 
     updateOrganizeJob(job, { stage: "applying" });
     const result = await applyPlan(groups, minSize, { windowId: targetWindowId, snapshot: !dedupeMutated });
-    if (automatic && result.done) notifyAutoFiled(result);
+    if ((automatic || monitorAlerted) && result.done) notifyAutoFiled(result);
     return finishOrganizeJob(job, result);
   } catch (error) {
     const message = error?.name === "TimeoutError"
@@ -1357,6 +1369,20 @@ async function windowCount() {
   return { count: windows.filter((window) => window.incognito === current.incognito).length };
 }
 
+async function getMonitorState(windowId) {
+  const settings = await getSettings();
+  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  const tabs = await chrome.tabs.query({ windowId: targetWindowId });
+  const count = countOrganizableTabs(tabs);
+  const threshold = Math.max(1, Number(settings.autoThreshold) || 15);
+  return {
+    count,
+    threshold,
+    enabled: settings.auto !== "off",
+    shouldPrompt: settings.auto !== "off" && count >= threshold
+  };
+}
+
 // Merge every other same-profile window into the popup's window and retain whole groups.
 async function mergeWindows(targetWindowId) {
   const current = targetWindowId ? await chrome.windows.get(targetWindowId) : await chrome.windows.getCurrent();
@@ -1423,27 +1449,62 @@ async function refreshAutoState() {
   const settings = await getSettings();
   const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
   const threshold = Math.max(1, Number(settings.autoThreshold) || 15);
-  let lastAutoRun = (await chrome.storage.local.get({ lastAutoRun: 0 })).lastAutoRun;
+  const local = await chrome.storage.local.get({ monitorAlertedWindows: {} });
+  const alerted = { ...(local.monitorAlertedWindows || {}) };
+  const openWindowIds = new Set(windows.map((window) => String(window.id)));
 
   for (const window of windows) {
     const tabs = await chrome.tabs.query({ windowId: window.id });
-    const count = tabs.filter((tab) => tab.groupId === -1 && tab.url && /^https?:/.test(tab.url)).length;
-    const showBadge = settings.auto !== "off" && count >= threshold;
+    const count = countOrganizableTabs(tabs);
+    const organizing = organizeJobs.get(window.id)?.status === "running";
+    const showBadge = !organizing && settings.auto !== "off" && count >= threshold;
     await Promise.all(
       tabs.map((tab) => chrome.action.setBadgeText({ tabId: tab.id, text: showBadge ? String(count) : "" }).catch(() => undefined))
     );
 
-    if (settings.auto !== "auto" || count < threshold || Date.now() - lastAutoRun < AUTO_GUARD_MS) continue;
-    if (!hasProviderAccess(settings)) continue;
-    lastAutoRun = Date.now();
-    await chrome.storage.local.set({ lastAutoRun });
-    const hasContentPermission = await chrome.permissions.contains({
-      permissions: ["scripting"],
-      origins: ["<all_urls>"]
-    });
-    await organize(hasContentPermission, { automatic: true, windowId: window.id }).catch(() => undefined);
+    const key = String(window.id);
+    const notificationId = `${MONITOR_NOTIFICATION_PREFIX}${window.id}`;
+    if (showBadge && !alerted[key]) {
+      const created = await chrome.notifications.create(notificationId, {
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("icons/icon128.png"),
+        title: "Regroup",
+        message: `Hey, you have ${count} tabs open. Do you want to organize it?`,
+        buttons: [{ title: "Open Regroup" }],
+        priority: 1
+      }).then(() => true).catch(() => false);
+      if (created) alerted[key] = true;
+    } else if (!showBadge && alerted[key]) {
+      delete alerted[key];
+      await chrome.notifications.clear(notificationId).catch(() => undefined);
+    }
   }
+
+  for (const key of Object.keys(alerted)) {
+    if (!openWindowIds.has(key)) delete alerted[key];
+  }
+  await chrome.storage.local.set({ monitorAlertedWindows: alerted });
 }
+
+function countOrganizableTabs(tabs) {
+  return tabs.filter((tab) => !tab.pinned && tab.groupId === -1 && tab.url && /^https?:/.test(tab.url)).length;
+}
+
+async function openMonitorPrompt(notificationId) {
+  if (!notificationId.startsWith(MONITOR_NOTIFICATION_PREFIX)) return;
+  const windowId = Number(notificationId.slice(MONITOR_NOTIFICATION_PREFIX.length));
+  if (!Number.isInteger(windowId)) return;
+  await chrome.windows.update(windowId, { focused: true }).catch(() => undefined);
+  await chrome.action.openPopup({ windowId }).catch(() => undefined);
+  await chrome.notifications.clear(notificationId).catch(() => undefined);
+}
+
+chrome.notifications.onClicked.addListener((notificationId) => {
+  openMonitorPrompt(notificationId).catch(() => undefined);
+});
+chrome.notifications.onButtonClicked.addListener((notificationId) => {
+  openMonitorPrompt(notificationId).catch(() => undefined);
+});
 
 chrome.tabs.onCreated.addListener(scheduleAutoCheck);
 chrome.tabs.onRemoved.addListener(scheduleAutoCheck);

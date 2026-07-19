@@ -15,7 +15,8 @@ Works in Chrome, Brave, Edge, Arc, Vivaldi — any Chromium browser that support
 - **Review mode** — inspect proposed groups and choose which ones to apply.
 - **Custom instructions** — save personal grouping and naming rules, such as keeping every Wikipedia tab in a group called "wowow".
 - **Persistent progress** — close and reopen the popup without losing the active organize state or result.
-- **Auto-organize** — show a badge when loose tabs cross a threshold, or organize automatically at most once every five minutes with a "Filed N tabs → Group" notification.
+- **Tab monitor** — show a badge and notification when loose tabs cross a threshold, then ask before organizing.
+- **Merge while organizing** — optionally combine browser windows before sorting so related tabs can be grouped together.
 - **Budget cap** — estimates provider spend from reported token usage and stops requests at your configured limit. Ollama remains free.
 - **Import and export** — copy/download the current window's groups as JSON and recreate them later.
 - **Flexible grouping** — choose a minimum group size or group every loose tab.
