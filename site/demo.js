@@ -373,7 +373,7 @@ $("open-video").addEventListener("click", (event) => {
       iframe.src = url;
       iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
       iframe.allowFullscreen = true;
-      iframe.title = "Regroup demo video";
+      iframe.title = "Focused demo video";
       videoFrame.replaceChildren(iframe);
     }
   } else if (!url) {

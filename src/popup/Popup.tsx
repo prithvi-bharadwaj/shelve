@@ -10,7 +10,7 @@ import {
   Sparkles,
   Undo2,
 } from "lucide-react";
-import { RegroupLogo, UngroupIcon } from "@/components/icons";
+import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
@@ -124,7 +124,7 @@ export function Popup() {
       const monitor = await chrome.runtime.sendMessage({ type: "monitorState", windowId: window.id });
       setTabCount(Number(monitor?.count) || 0);
       setMonitorThreshold(clamp(monitor?.threshold ?? sync.autoThreshold, 1, 999));
-      await chrome.notifications.clear(`regroup-tab-monitor:${window.id}`).catch(() => undefined);
+      await chrome.notifications.clear(`focused-tab-monitor:${window.id}`).catch(() => undefined);
       if (sync.auto === "auto") await chrome.storage.sync.set({ auto: "badge" });
     })();
   }, []);
@@ -303,9 +303,9 @@ export function Popup() {
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-md border border-border bg-muted/50 text-foreground">
-            <RegroupLogo className="size-5" />
+            <img src="icons/icon48.png" alt="" className="size-5 rounded-[5px]" />
           </span>
-          <span className="text-sm font-semibold tracking-tight">Regroup</span>
+          <span className="text-sm font-semibold tracking-tight">Focused</span>
         </div>
         <button
           onClick={() => chrome.runtime.openOptionsPage()}

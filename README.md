@@ -1,4 +1,4 @@
-# Regroup
+# Focused
 
 One click: understands your open tabs and sorts them into named Chrome tab groups using your choice of OpenAI, Anthropic, Gemini, or local Ollama.
 
@@ -32,7 +32,7 @@ Open the extension popup, choose the gear, then select a provider and model:
   OLLAMA_ORIGINS="chrome-extension://*" ollama serve
   ```
 
-  Regroup selects the first installed model if none has been chosen. If Ollama is already running as a desktop app or service, restart it with the same `OLLAMA_ORIGINS` environment setting.
+  Focused selects the first installed model if none has been chosen. If Ollama is already running as a desktop app or service, restart it with the same `OLLAMA_ORIGINS` environment setting.
 
 Model lists are fetched live after provider settings are saved, with built-in fallbacks for hosted providers.
 
@@ -48,7 +48,7 @@ Then in your browser:
 1. Open `chrome://extensions` (or your browser's equivalent).
 2. Enable **Developer mode**.
 3. Click **Load unpacked** and select the `dist/` folder.
-4. Pin **Regroup** from the extensions menu.
+4. Pin **Focused** from the extensions menu.
 
 ## Development
 
@@ -65,7 +65,7 @@ Stack: React 19, TypeScript, Tailwind v4, shadcn-style components, Radix primiti
 - API keys are stored in `chrome.storage.local` in this browser and are never synced.
 - When you organize, tab titles and URLs are sent only to the provider selected in Settings. Page snippets are sent only for ambiguous tabs, only if you grant the optional page-access permission.
 - Ollama requests stay on the configured Ollama server, which is local by default.
-- Group exports are created locally. There is no Regroup backend, analytics, or tracking.
+- Group exports are created locally. There is no Focused backend, analytics, or tracking.
 
 ## License
 

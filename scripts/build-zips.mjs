@@ -1,6 +1,6 @@
 // Builds the extension and produces the two downloadable zips served by site/:
-//   site/regroup.zip         — clean OSS build, bring your own key
-//   site/regroup-judges.zip  — Gemini key baked in, provider defaulted to gemini
+//   site/focused.zip         — clean OSS build, bring your own key
+//   site/focused-judges.zip  — Gemini key baked in, provider defaulted to gemini
 //
 // Usage:
 //   node scripts/build-zips.mjs                          # OSS zip only
@@ -24,8 +24,8 @@ const run = (cmd, cwd) => execSync(cmd, { cwd, stdio: "inherit" });
 run("pnpm build", root);
 fs.mkdirSync(site, { recursive: true });
 
-const stage = fs.mkdtempSync(path.join(os.tmpdir(), "regroup-zip-"));
-const pkgDir = path.join(stage, "regroup");
+const stage = fs.mkdtempSync(path.join(os.tmpdir(), "focused-zip-"));
+const pkgDir = path.join(stage, "focused");
 
 function makeZip(name, mutate) {
   fs.rmSync(pkgDir, { recursive: true, force: true });
@@ -33,7 +33,7 @@ function makeZip(name, mutate) {
   if (mutate) mutate(pkgDir);
   const out = path.join(site, name);
   fs.rmSync(out, { force: true });
-  run(`zip -qr ${JSON.stringify(out)} regroup`, stage);
+  run(`zip -qr ${JSON.stringify(out)} focused`, stage);
   console.log(`wrote ${path.relative(root, out)}`);
 }
 
@@ -46,16 +46,16 @@ function replaceOnce(file, from, to) {
   fs.writeFileSync(file, text.replace(from, to));
 }
 
-makeZip("regroup.zip");
+makeZip("focused.zip");
 
 if (geminiKey) {
-  makeZip("regroup-judges.zip", (dir) => {
+  makeZip("focused-judges.zip", (dir) => {
     const worker = path.join(dir, "background.js");
     replaceOnce(worker, `provider: "openai",`, `provider: "gemini",`);
     replaceOnce(worker, `geminiKey: "",`, `geminiKey: ${JSON.stringify(geminiKey)},`);
   });
 } else {
-  console.log("no GEMINI_API_KEY / --key given — skipped regroup-judges.zip (the site's main download button points at it, so build it before deploying)");
+  console.log("no GEMINI_API_KEY / --key given — skipped focused-judges.zip (the site's main download button points at it, so build it before deploying)");
 }
 
 fs.rmSync(stage, { recursive: true, force: true });
