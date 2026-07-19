@@ -34,6 +34,32 @@ export type OrganizeJob = {
   error?: string;
 };
 
+export type GroupInfo = {
+  id: number;
+  title: string;
+  color: string;
+  tabCount: number;
+};
+
+export type Stash = {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: number;
+  tabCount: number;
+  brief: string;
+  briefStatus: "pending" | "ready" | "unavailable";
+};
+
+export type CommandResponse = {
+  error?: string;
+  done?: boolean;
+  action?: "open_tab" | "answer" | "not_found";
+  reply?: string;
+  tabId?: number | null;
+  tabTitle?: string;
+};
+
 export type MergeResponse = {
   error?: string;
   done?: boolean;
@@ -64,11 +90,11 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  provider: "openai",
+  provider: "gemini",
   modelByProvider: {
     openai: "gpt-5.6-luna",
     anthropic: "claude-haiku-4-5",
-    gemini: "gemini-2.5-flash-lite",
+    gemini: "gemini-3.1-flash-lite",
     ollama: "",
   },
   openaiKey: "",

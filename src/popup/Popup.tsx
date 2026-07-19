@@ -6,7 +6,6 @@ import {
   CopyX,
   LoaderCircle,
   Settings,
-  ShieldCheck,
   Sparkles,
   Undo2,
 } from "lucide-react";
@@ -14,24 +13,22 @@ import { RegroupLogo, UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
+import { CommandBar } from "@/popup/CommandBar";
+import { OrganizingRail } from "@/popup/OrganizingRail";
+import { ReviewGroups } from "@/popup/ReviewGroups";
+import { StashPanel } from "@/popup/StashPanel";
 import type {
+  GroupInfo,
   MergeResponse,
   OrganizeJob,
   OrganizeResponse,
-  OrganizeStage,
   ProposedGroup,
   Provider,
+  Stash,
 } from "@/types";
 
 type Action = "organize" | "ungroup" | "duplicates" | "merge" | "undo" | "apply";
 type Status = { text: string; error?: boolean } | null;
-
-const STAGES: Record<OrganizeStage, { label: string; progress: number }> = {
-  collecting: { label: "Reading titles", progress: 18 },
-  classifying: { label: "Finding themes", progress: 48 },
-  reading: { label: "Reading ambiguous pages", progress: 68 },
-  applying: { label: "Creating tab groups", progress: 88 },
-};
 
 export function Popup() {
   const [running, setRunning] = useState<Action | null>(null);
@@ -53,6 +50,10 @@ export function Popup() {
   const [monitorPromptDismissed, setMonitorPromptDismissed] = useState(false);
   const [acknowledged, setAcknowledged] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  const [groupList, setGroupList] = useState<GroupInfo[]>([]);
+  const [stashes, setStashes] = useState<Stash[]>([]);
+  const [stashBusy, setStashBusy] = useState<number | string | null>(null);
+  const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
   const ownsOrganizeRequest = useRef(false);
   const handledJobId = useRef<string | null>(null);
 
@@ -60,6 +61,26 @@ export function Popup() {
     const result = await chrome.runtime.sendMessage({ type: "hasUndo" });
     setHasUndo(Boolean(result?.hasUndo));
   }, []);
+
+  const refreshPanels = useCallback(async () => {
+    if (!windowId) return;
+    const [groupsRes, stashRes] = await Promise.all([
+      chrome.runtime.sendMessage({ type: "listGroups", windowId }),
+      chrome.runtime.sendMessage({ type: "listStashes" }),
+    ]);
+    if (groupsRes?.groups) setGroupList(groupsRes.groups);
+    if (stashRes?.stashes) setStashes(stashRes.stashes);
+  }, [windowId]);
+
+  useEffect(() => {
+    refreshPanels();
+    // Briefs finish after the stash call returns; storage is the source of truth.
+    const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === "local" && changes.stashes) refreshPanels();
+    };
+    chrome.storage.onChanged.addListener(onChanged);
+    return () => chrome.storage.onChanged.removeListener(onChanged);
+  }, [refreshPanels]);
 
   const refreshCounts = useCallback(async () => {
     const [windows, monitor] = await Promise.all([
@@ -95,7 +116,8 @@ export function Popup() {
     }
     setStatus({ text: `${res.groupCount} group${res.groupCount === 1 ? "" : "s"} · ${res.tabCount} tabs sorted` });
     await consumeJob(jobId);
-  }, [consumeJob, refreshCounts, refreshUndo]);
+    await refreshPanels();
+  }, [consumeJob, refreshCounts, refreshUndo, refreshPanels]);
 
   useEffect(() => {
     (async () => {
@@ -161,7 +183,7 @@ export function Popup() {
   const organize = async () => {
     setMonitorPromptDismissed(true);
     const [sync, local] = await Promise.all([
-      chrome.storage.sync.get({ provider: "openai" }),
+      chrome.storage.sync.get({ provider: "gemini" }),
       chrome.storage.local.get({ openaiKey: "", anthropicKey: "", geminiKey: "", apiKey: "" }),
     ]);
     const provider = sync.provider as Provider;
@@ -238,7 +260,7 @@ export function Popup() {
     });
     setRunning(null);
     setGroups([]);
-    await Promise.all([refreshUndo(), refreshCounts()]);
+    await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
     await consumeJob(organizeJob?.id ?? handledJobId.current ?? undefined);
     setStatus(
       res?.error
@@ -252,7 +274,7 @@ export function Popup() {
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "ungroupAll", windowId });
     setRunning(null);
-    await Promise.all([refreshUndo(), refreshCounts()]);
+    await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
     setStatus(res?.error ? { text: res.error, error: true } : { text: `${res.tabCount} tab${res.tabCount === 1 ? "" : "s"} ungrouped` });
   };
 
@@ -261,7 +283,7 @@ export function Popup() {
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "cleanDuplicates", windowId });
     setRunning(null);
-    await Promise.all([refreshUndo(), refreshCounts()]);
+    await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
     setStatus(
       res?.error
         ? { text: res.error, error: true }
@@ -278,7 +300,7 @@ export function Popup() {
       setStatus({ text: res.error, error: true });
       return;
     }
-    await refreshCounts();
+    await Promise.all([refreshCounts(), refreshPanels()]);
     setStatus({ text: `Merged ${res.windows} window${res.windows === 1 ? "" : "s"} · ${res.tabs} tabs` });
   };
 
@@ -287,13 +309,67 @@ export function Popup() {
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "undo" });
     setRunning(null);
-    await Promise.all([refreshUndo(), refreshCounts()]);
+    await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
     setStatus(res?.error ? { text: res.error, error: true } : { text: "Previous tab layout restored" });
+  };
+
+  const acknowledgeNotice = useCallback(async () => {
+    setAcknowledged(true);
+    await chrome.storage.local.set({ dataNoticeAck: true });
+  }, []);
+
+  const stashGroup = async (groupId: number) => {
+    if (!acknowledged) {
+      if (confirmingStash !== groupId) {
+        setConfirmingStash(groupId);
+        setStatus({ text: "Stash briefs send tab titles & URLs (and, if allowed, page snippets) to your configured AI provider. Click again to continue." });
+        return;
+      }
+      setConfirmingStash(null);
+      await acknowledgeNotice();
+    }
+    setStashBusy(groupId);
+    setStatus(null);
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "stashGroup", windowId, groupId });
+    } finally {
+      setStashBusy(null);
+    }
+    await refreshPanels();
+    setStatus(
+      res?.error
+        ? { text: res.error, error: true }
+        : { text: `Stashed “${res.stash?.name}” · ${res.stash?.tabCount} tabs` }
+    );
+  };
+
+  const resumeStash = async (stashId: string) => {
+    setStashBusy(stashId);
+    setStatus(null);
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "resumeStash", stashId, windowId });
+    } finally {
+      setStashBusy(null);
+    }
+    await refreshPanels();
+    setStatus(
+      res?.error
+        ? { text: res.error, error: true }
+        : { text: `Restored ${res.tabCount} tab${res.tabCount === 1 ? "" : "s"}` }
+    );
+  };
+
+  const deleteStash = async (stashId: string) => {
+    await chrome.runtime.sendMessage({ type: "deleteStash", stashId });
+    await refreshPanels();
+    setStatus({ text: "Stash deleted" });
   };
 
   const reviewing = groups.length > 0;
   const organizing = running === "organize" || organizeJob?.status === "running";
-  const disabled = Boolean(running) || reviewing;
+  const disabled = Boolean(running) || reviewing || stashBusy !== null;
   const showMonitorPrompt = monitorEnabled && tabCount >= monitorThreshold && !monitorPromptDismissed;
   const icon = (action: Action, idle: ReactNode) =>
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
@@ -329,6 +405,8 @@ export function Popup() {
         />
       ) : (
         <>
+          <CommandBar windowId={windowId} disabled={disabled} acknowledged={acknowledged} onAcknowledge={acknowledgeNotice} />
+
           {showMonitorPrompt && (
             <section className="mt-5 rounded-lg border border-primary/35 bg-primary/10 p-3" aria-live="polite">
               <div className="flex items-start gap-2.5">
@@ -349,7 +427,7 @@ export function Popup() {
           <button
             onClick={organize}
             disabled={disabled}
-            className={`${showMonitorPrompt ? "mt-3" : "mt-5"} flex h-20 w-full flex-col items-center justify-center gap-2 rounded-lg border border-border bg-transparent text-sm font-medium text-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40`}
+            className="mt-3 flex h-20 w-full flex-col items-center justify-center gap-2 rounded-lg border border-border bg-transparent text-sm font-medium text-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
             aria-label="Organize tabs"
           >
             <Sparkles className="size-5 text-primary" />
@@ -427,6 +505,16 @@ export function Popup() {
               </div>
             )}
           </section>
+
+          <StashPanel
+            groups={groupList}
+            stashes={stashes}
+            busyId={stashBusy}
+            disabled={disabled}
+            onStash={stashGroup}
+            onResume={resumeStash}
+            onDelete={deleteStash}
+          />
         </>
       )}
 
@@ -439,104 +527,6 @@ export function Popup() {
         </p>
       )}
     </main>
-  );
-}
-
-function OrganizingRail({ job }: { job: OrganizeJob | null }) {
-  // A session-restored job from an older version may carry an unknown stage.
-  const stage = STAGES[job?.stage || "collecting"] ?? STAGES.collecting;
-  const tabCount = job?.tabCount || 0;
-  return (
-    <section className="mt-6" aria-live="polite" aria-label={`${stage.label}. Organizing tabs.`}>
-      <h1 className="text-xl font-semibold tracking-tight">
-        {tabCount ? `Organizing ${tabCount} tabs` : "Organizing tabs"}
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">{stage.label}</p>
-
-      <div className="tab-rail mt-6" aria-hidden="true">
-        <div className="tab-rail-line" />
-        {[0, 1, 2, 3].map((index) => (
-          <span key={index} className="tab-rail-item" style={{ animationDelay: `${index * -0.58}s` }}>
-            <span className="tab-rail-notch" />
-          </span>
-        ))}
-        <span className="tab-rail-arrow">→</span>
-        <span className="tab-rail-groups">
-          <span />
-          <span />
-        </span>
-      </div>
-
-      <div className="mt-5 flex items-center justify-between gap-3 text-xs">
-        <span className="text-muted-foreground">{stage.label}</span>
-        <span className="tabular-nums text-foreground">{stage.progress}%</span>
-      </div>
-      <div className="mt-2 h-0.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className="organize-progress h-full origin-left bg-primary transition-transform duration-500 [transition-timing-function:var(--ease-out-strong)]"
-          style={{ transform: `scaleX(${stage.progress / 100})` }}
-        />
-      </div>
-
-      <div className="mt-6 flex items-center gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
-        <ShieldCheck className="size-4 text-primary" />
-        <span>Safe to close — progress continues</span>
-      </div>
-    </section>
-  );
-}
-
-function ReviewGroups({
-  groups,
-  selected,
-  applying,
-  onSelectedChange,
-  onApply,
-}: {
-  groups: ProposedGroup[];
-  selected: Set<number>;
-  applying: boolean;
-  onSelectedChange: (selected: Set<number>) => void;
-  onApply: () => void;
-}) {
-  return (
-    <section className="mt-5">
-      <div className="mb-3">
-        <h1 className="text-base font-semibold tracking-tight">Review groups</h1>
-        <p className="mt-1 text-xs text-muted-foreground">Choose which suggestions to create.</p>
-      </div>
-      <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-        {groups.map((group, index) => (
-          <label
-            key={`${group.existingGroupId ?? "new"}-${index}`}
-            className="review-item flex cursor-pointer items-start gap-2.5 rounded-md p-2 hover:bg-accent"
-            style={{ animationDelay: `${index * 40}ms` }}
-          >
-            <Checkbox
-              className="mt-0.5"
-              checked={selected.has(index)}
-              disabled={applying}
-              onCheckedChange={(checked) => {
-                const next = new Set(selected);
-                checked ? next.add(index) : next.delete(index);
-                onSelectedChange(next);
-              }}
-            />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium leading-tight">
-                {group.name}
-                <span className="ml-1.5 font-normal text-muted-foreground">{group.tabIds.length}</span>
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">{group.tabTitles.join(" · ")}</span>
-            </span>
-          </label>
-        ))}
-      </div>
-      <Button onClick={onApply} disabled={!selected.size || applying} className="mt-3 w-full" size="sm">
-        {applying ? <LoaderCircle className="size-4 animate-spin" /> : null}
-        {applying ? "Applying…" : "Apply selected"}
-      </Button>
-    </section>
   );
 }
 
