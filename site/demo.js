@@ -46,6 +46,8 @@ function findTab(query) {
 
 function focusTab(tab) {
   for (const item of state.tabs) item.active = item === tab;
+  if (tab.group) state.collapsed.delete(tab.group); // jumping into a collapsed group expands it
+
   document.querySelector(".omnibox").textContent = tab.url;
   renderStrip();
 }
