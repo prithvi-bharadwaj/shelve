@@ -566,7 +566,7 @@ installModal.addEventListener("click", (event) => { if (event.target === install
 
 const videoModal = $("video-modal");
 const videoFrame = $("video-frame");
-$("open-video").addEventListener("click", (event) => {
+function openVideo(event) {
   event.preventDefault();
   const url = (videoFrame.dataset.videoUrl || "").trim();
   if (url && !videoFrame.dataset.loaded) {
@@ -588,6 +588,9 @@ $("open-video").addEventListener("click", (event) => {
     videoFrame.textContent = "Demo video coming soon.";
   }
   videoModal.showModal();
-});
+}
+$("open-video").addEventListener("click", openVideo);
+$("note-video").addEventListener("click", openVideo);
+$("note-install").addEventListener("click", () => installModal.showModal());
 $("close-video").addEventListener("click", () => videoModal.close());
 videoModal.addEventListener("click", (event) => { if (event.target === videoModal) videoModal.close(); });
