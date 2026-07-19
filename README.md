@@ -37,7 +37,11 @@ Open the extension popup, choose the gear, then select a provider and model:
 
 Model lists are fetched live after provider settings are saved, with built-in fallbacks for hosted providers.
 
-## Install from source
+## Install
+
+**Fast path:** download [`regroup.zip`](./regroup.zip), unzip it, and load the folder as an unpacked extension (steps below).
+
+**From source:**
 
 ```sh
 pnpm install
