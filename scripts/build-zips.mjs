@@ -50,8 +50,8 @@ makeZip("focused.zip");
 
 if (geminiKey) {
   makeZip("focused-judges.zip", (dir) => {
+    // Gemini is already the default provider; only the key needs baking in.
     const worker = path.join(dir, "background.js");
-    replaceOnce(worker, `provider: "openai",`, `provider: "gemini",`);
     replaceOnce(worker, `geminiKey: "",`, `geminiKey: ${JSON.stringify(geminiKey)},`);
   });
 } else {

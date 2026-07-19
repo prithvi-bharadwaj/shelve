@@ -8,3 +8,5 @@ skill-runs.jsonl
 
 # generated download bundles served by site/
 site/*.zip
+regroup.zip
+focused.zip

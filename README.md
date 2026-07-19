@@ -6,7 +6,9 @@ Works in Chrome, Brave, Edge, Arc, Vivaldi — any Chromium browser that support
 
 ## Features
 
-- **Organize tabs** — groups loose tabs by task and intent, adds relevant tabs to existing groups, and orders focused work before entertainment.
+- **Organize tabs** — groups loose tabs by task and intent, adds relevant tabs to existing groups, and orders focused work before entertainment. Tabs file into their groups as a visible ~2.5s cascade.
+- **Command bar** — type "open my LinkedIn tab where I was looking at Stanford's page" and Focused jumps to it, or ask "which tab had the pet-friendly place under $200?" and get a one-sentence answer with a Go-to-tab button. Reports clearly when nothing matches.
+- **Stash + resume briefs** — stash a whole group: its tabs close and Focused writes an AI "where you left off" brief (prices, options, what was still unchecked). Resume later and the group comes back exactly as it was.
 - **Hybrid context** — optionally reads a short page snippet when a title and URL are too ambiguous to classify. Declining page access still leaves title/URL organization fully usable.
 - **Quick actions** — ungroup everything, close duplicate URLs, merge windows, or undo the last organize/ungroup/cleanup action from the popup.
 - **Duplicate protection** — keeps pinned tabs and the active tab, otherwise retaining the most recently accessed copy. Cleanup can run automatically before organization.
@@ -25,7 +27,7 @@ Open the extension popup, choose the gear, then select a provider and model:
 
 - **OpenAI** — create an API key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys) and paste it into Settings. The default is `gpt-5.6-luna` with low reasoning effort.
 - **Anthropic** — create an API key at [console.anthropic.com](https://console.anthropic.com), then paste it into Settings. The default is `claude-haiku-4-5`.
-- **Gemini** — create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then paste it into Settings. The default is `gemini-2.5-flash-lite`.
+- **Gemini** — create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then paste it into Settings. The default is `gemini-3.1-flash-lite`.
 - **Ollama** — install a model locally, set the Ollama URL (default `http://localhost:11434`), and allow extension origins when starting the server:
 
   ```sh
@@ -36,7 +38,11 @@ Open the extension popup, choose the gear, then select a provider and model:
 
 Model lists are fetched live after provider settings are saved, with built-in fallbacks for hosted providers.
 
-## Install from source
+## Install
+
+**Fast path:** run `node scripts/build-zips.mjs`, unzip `site/focused.zip`, and load the folder as an unpacked extension (steps below).
+
+**From source:**
 
 ```sh
 pnpm install
@@ -63,7 +69,8 @@ Stack: React 19, TypeScript, Tailwind v4, shadcn-style components, Radix primiti
 ## Privacy
 
 - API keys are stored in `chrome.storage.local` in this browser and are never synced.
-- When you organize, tab titles and URLs are sent only to the provider selected in Settings. Page snippets are sent only for ambiguous tabs, only if you grant the optional page-access permission.
+- When you organize, use the command bar, or stash a group (for its brief), tab titles and URLs are sent only to the provider selected in Settings. Page snippets are sent only for ambiguous or stashed tabs, only if you grant the optional page-access permission. Each of these features asks you to acknowledge this once before the first request.
+- Stashing is disabled in incognito windows: extension storage is shared with regular browsing, so nothing from private windows is ever saved.
 - Ollama requests stay on the configured Ollama server, which is local by default.
 - Group exports are created locally. There is no Focused backend, analytics, or tracking.
 
