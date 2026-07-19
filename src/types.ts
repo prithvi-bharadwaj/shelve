@@ -34,6 +34,23 @@ export type OrganizeJob = {
   error?: string;
 };
 
+export type GroupInfo = {
+  id: number;
+  title: string;
+  color: string;
+  tabCount: number;
+};
+
+export type Stash = {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: number;
+  tabCount: number;
+  brief: string;
+  briefStatus: "pending" | "ready" | "unavailable";
+};
+
 export type MergeResponse = {
   error?: string;
   done?: boolean;
