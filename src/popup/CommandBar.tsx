@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight, CornerDownLeft, LoaderCircle } from "lucide-react";
+import { ArrowRight, LoaderCircle, SendHorizontal } from "lucide-react";
 import type { CommandResponse } from "@/types";
 
 export function CommandBar({
@@ -74,14 +74,23 @@ export function CommandBar({
             if (event.key === "Enter") submit();
           }}
           disabled={disabled || running}
-          placeholder="Find or ask: “open the LinkedIn tab with Stanford”"
+          placeholder="What do you want to do?"
           aria-label="Command"
           className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground disabled:opacity-50"
         />
         {running ? (
           <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
         ) : (
-          <CornerDownLeft className="size-3.5 shrink-0 text-muted-foreground/60" />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={disabled || !query.trim()}
+            title="Send"
+            aria-label="Send"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 [&:not(:disabled)]:text-primary"
+          >
+            <SendHorizontal className="size-3.5" />
+          </button>
         )}
       </div>
 

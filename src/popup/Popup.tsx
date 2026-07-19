@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { CommandBar } from "@/popup/CommandBar";
 import { OrganizingRail } from "@/popup/OrganizingRail";
+import { PinPrompt } from "@/popup/PinPrompt";
 import { ReviewGroups } from "@/popup/ReviewGroups";
 import { StashPanel } from "@/popup/StashPanel";
 import type {
@@ -48,6 +49,7 @@ export function Popup() {
   const [tabCount, setTabCount] = useState(0);
   const [basicSettingsOpen, setBasicSettingsOpen] = useState(false);
   const [monitorPromptDismissed, setMonitorPromptDismissed] = useState(false);
+  const [showPinPrompt, setShowPinPrompt] = useState(false);
   const [acknowledged, setAcknowledged] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [groupList, setGroupList] = useState<GroupInfo[]>([]);
@@ -132,8 +134,14 @@ export function Popup() {
           auto: "off",
           autoThreshold: 15,
         }),
-        chrome.storage.local.get({ dataNoticeAck: false }),
+        chrome.storage.local.get({ dataNoticeAck: false, pinPromptDismissed: false }),
       ]);
+      try {
+        const userSettings = await chrome.action.getUserSettings();
+        setShowPinPrompt(!userSettings.isOnToolbar && !local.pinPromptDismissed);
+      } catch {
+        // Not every Chromium fork exposes getUserSettings; skip the prompt there.
+      }
       setWindowId(window.id);
       if (windows?.count) setWindowCount(windows.count);
       setHasUndo(Boolean(undoState?.hasUndo));
@@ -405,6 +413,15 @@ export function Popup() {
         />
       ) : (
         <>
+          {showPinPrompt && (
+            <PinPrompt
+              onDismiss={() => {
+                setShowPinPrompt(false);
+                chrome.storage.local.set({ pinPromptDismissed: true });
+              }}
+            />
+          )}
+
           <CommandBar windowId={windowId} disabled={disabled} acknowledged={acknowledged} onAcknowledge={acknowledgeNotice} />
 
           {showMonitorPrompt && (
