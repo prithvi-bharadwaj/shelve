@@ -4,3 +4,7 @@ dist/
 .DS_Store
 skill-runs.jsonl
 .claude/
+.gstack/
+
+# generated download bundles served by site/
+site/*.zip

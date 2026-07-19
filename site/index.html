@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Regroup — one click, every tab in its place</title>
+  <meta name="description" content="Regroup understands your open tabs and sorts them into named Chrome tab groups. One click. Bring your own AI key, or run it free with Ollama." />
+  <link rel="icon" href="icon128.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="nav">
+    <div class="nav-brand">
+      <img src="icon128.png" alt="" width="28" height="28" />
+      <span>Regroup</span>
+    </div>
+    <nav class="nav-links">
+      <a href="#demo">Demo</a>
+      <a href="#video">Video</a>
+      <a href="#features">Features</a>
+      <a href="https://github.com/prithvi-bharadwaj/regroup" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="hero-kicker">A Chrome extension for people with 40 tabs open</p>
+      <h1>One click.<br />Every tab in its place.</h1>
+      <p class="hero-sub">
+        Regroup reads your open tabs, understands what you're actually doing, and sorts them
+        into named Chrome tab groups — work first, entertainment last. No account, no backend,
+        no tracking.
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="open-install">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download for Chrome
+        </button>
+        <a class="btn btn-secondary" href="#demo">
+          Try the interactive demo
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
+      <p class="hero-note">Open source · MIT · works in Chrome, Brave, Edge, Arc &amp; Vivaldi</p>
+    </section>
+
+    <section class="demo" id="demo">
+      <div class="section-head">
+        <h2>See it work</h2>
+        <p>A simulation of what Regroup does to a real window. In the extension, this is your actual tab strip.</p>
+      </div>
+
+      <div class="browser" id="mock-browser" aria-label="Simulated browser window">
+        <div class="browser-toolbar">
+          <span class="traffic"><i></i><i></i><i></i></span>
+          <div class="urlbar">chrome://your-actual-chaos</div>
+          <img class="browser-ext-icon" src="icon128.png" alt="Regroup icon" width="20" height="20" />
+        </div>
+        <div class="tabstrip" id="tabstrip"></div>
+        <div class="browser-body">
+          <div class="popup-card" id="popup-card">
+            <div class="popup-head">
+              <img src="icon128.png" alt="" width="18" height="18" />
+              <span>Regroup</span>
+              <span class="popup-count" id="popup-count"></span>
+            </div>
+            <button class="btn btn-primary popup-organize" id="organize-btn">Organize tabs</button>
+            <div class="popup-status" id="popup-status" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+      <p class="demo-caption">This demo is scripted — no AI calls happen on this page. The download runs the real thing.</p>
+    </section>
+
+    <section class="video" id="video">
+      <div class="section-head">
+        <h2>Watch the real extension</h2>
+        <p>90 seconds, unedited, on a genuinely embarrassing tab count.</p>
+      </div>
+      <!-- Set data-video-url to a YouTube embed URL (https://www.youtube.com/embed/VIDEO_ID) or an .mp4 file -->
+      <div class="video-frame" id="video-frame" data-video-url=""></div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="section-head">
+        <h2>More than a sorter</h2>
+        <p>Everything runs locally in the extension. Your tabs go to the AI provider you pick — nowhere else.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature">
+          <h3>Groups by intent, not domain</h3>
+          <p>Two YouTube tabs about different topics land in different groups. Names are specific — “O1 Visa”, not “Research”.</p>
+        </div>
+        <div class="feature">
+          <h3>Work first, fun last</h3>
+          <p>Groups are ranked by importance and ordered on the tab strip: deep work on the left, entertainment on the right.</p>
+        </div>
+        <div class="feature">
+          <h3>Bring your own AI</h3>
+          <p>OpenAI, Anthropic, Gemini, or a local Ollama model for completely free, completely private organizing.</p>
+        </div>
+        <div class="feature">
+          <h3>Budget cap built in</h3>
+          <p>Tracks estimated spend from real token usage and refuses to call the API past your limit. Default cap: $1.</p>
+        </div>
+        <div class="feature">
+          <h3>Undo everything</h3>
+          <p>Organize, dedupe, merge windows, ungroup — one undo restores groups, order, pins, even reopens closed duplicates.</p>
+        </div>
+        <div class="feature">
+          <h3>Tab-count watchdog</h3>
+          <p>Cross your threshold and Regroup badges the icon and offers to clean up. It nags so your coworkers don't have to.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>MIT licensed · no backend, no analytics</span>
+    <a href="https://github.com/prithvi-bharadwaj/regroup" target="_blank" rel="noopener">Source on GitHub</a>
+  </footer>
+
+  <dialog class="modal" id="install-modal">
+    <div class="modal-head">
+      <h2>Install Regroup</h2>
+      <button class="modal-close" id="close-install" aria-label="Close">✕</button>
+    </div>
+
+    <div class="disclaimer">
+      <strong>Judge build — API key included.</strong>
+      This download ships with a Gemini API key baked in so you can try it with zero setup.
+      The key is rate-limited and spend-capped, so please be kind to it. Regroup is open source
+      and designed for you to bring your own key (OpenAI, Anthropic, Gemini) — or run it free
+      and fully local with Ollama.
+    </div>
+
+    <ol class="install-steps">
+      <li><a class="btn btn-primary btn-sm" href="regroup-judges.zip" download>Download regroup-judges.zip</a> and unzip it.</li>
+      <li>Open <code>chrome://extensions</code> in Chrome (or Brave / Edge / Arc).</li>
+      <li>Turn on <strong>Developer mode</strong> (top-right toggle).</li>
+      <li>Click <strong>Load unpacked</strong> and select the unzipped <code>regroup</code> folder.</li>
+      <li>Pin <strong>Regroup</strong> from the puzzle-piece menu, open a messy window, and hit <strong>Organize tabs</strong>.</li>
+    </ol>
+
+    <p class="modal-alt">
+      Prefer your own keys? <a href="regroup.zip" download>Download the clean build</a> (no key inside)
+      or install from <a href="https://github.com/prithvi-bharadwaj/regroup" target="_blank" rel="noopener">source</a>,
+      then add a key in the extension's Settings.
+    </p>
+  </dialog>
+
+  <script src="demo.js"></script>
+</body>
+</html>
