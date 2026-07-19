@@ -51,6 +51,15 @@ export type Stash = {
   briefStatus: "pending" | "ready" | "unavailable";
 };
 
+export type CommandResponse = {
+  error?: string;
+  done?: boolean;
+  action?: "open_tab" | "answer" | "not_found";
+  reply?: string;
+  tabId?: number | null;
+  tabTitle?: string;
+};
+
 export type MergeResponse = {
   error?: string;
   done?: boolean;

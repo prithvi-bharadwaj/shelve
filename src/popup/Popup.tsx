@@ -10,6 +10,7 @@ import {
 import { RegroupLogo, UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { CommandBar } from "@/popup/CommandBar";
 import { OrganizingRail } from "@/popup/OrganizingRail";
 import { ReviewGroups } from "@/popup/ReviewGroups";
 import { StashPanel } from "@/popup/StashPanel";
@@ -346,7 +347,9 @@ export function Popup() {
         />
       ) : (
         <>
-          <Button onClick={organize} disabled={disabled} className="mt-5 h-10 w-full" aria-label="Organize tabs">
+          <CommandBar windowId={windowId} disabled={disabled} />
+
+          <Button onClick={organize} disabled={disabled} className="mt-3 h-10 w-full" aria-label="Organize tabs">
             <Sparkles className="size-4" />
             {confirming ? "Continue organizing" : "Organize tabs"}
           </Button>
