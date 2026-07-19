@@ -93,7 +93,7 @@ export const DEFAULT_SETTINGS: Settings = {
   modelByProvider: {
     openai: "gpt-5.6-luna",
     anthropic: "claude-haiku-4-5",
-    gemini: "gemini-2.5-flash-lite",
+    gemini: "gemini-3.1-flash-lite",
     ollama: "",
   },
   openaiKey: "",

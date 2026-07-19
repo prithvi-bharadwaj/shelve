@@ -24,8 +24,6 @@ const FALLBACK_MODELS: Record<Provider, Model[]> = {
     { id: "claude-fable-5", name: "Claude Fable 5" },
   ],
   gemini: [
-    { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite" },
-    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
     { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite" },
     { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash" },
     { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
@@ -83,6 +81,8 @@ export function Options() {
       ]);
       const modelByProvider = { ...DEFAULT_SETTINGS.modelByProvider, ...(sync.modelByProvider || {}) };
       if (sync.model && !sync.modelByProvider?.anthropic) modelByProvider.anthropic = sync.model;
+      // Old default; carry users forward to the current fast model.
+      if (modelByProvider.gemini === "gemini-2.5-flash-lite") modelByProvider.gemini = "gemini-3.1-flash-lite";
       const loaded: Settings = {
         ...DEFAULT_SETTINGS,
         ...sync,

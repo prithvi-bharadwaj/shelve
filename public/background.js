@@ -14,7 +14,7 @@ const AUTO_GUARD_MS = 5 * 60 * 1000;
 const DEFAULT_MODELS = {
   openai: "gpt-5.6-luna",
   anthropic: "claude-haiku-4-5",
-  gemini: "gemini-2.5-flash-lite",
+  gemini: "gemini-3.1-flash-lite",
   ollama: ""
 };
 
@@ -232,13 +232,18 @@ const PROVIDERS = {
       );
       if (!resp.ok) return [];
       const data = await resp.json();
+      // The raw list is full of aliases (-001, -latest), previews, and
+      // non-chat models (image/tts/embedding); keep one entry per real model.
+      const noise = /(preview|exp|latest|image|imagen|tts|audio|live|embed|gemma|learnlm|aqa|thinking|robotics|-\d{3}$|-8b)/;
+      const version = (id) => parseFloat(id.match(/^gemini-(\d+(?:\.\d+)?)/)?.[1] || "0");
       return (data.models || [])
         .filter((model) => model.supportedGenerationMethods?.includes("generateContent"))
         .map((model) => {
           const id = model.name.replace(/^models\//, "");
           return { id, name: model.displayName || id };
         })
-        .sort((a, b) => a.id.localeCompare(b.id));
+        .filter((model) => model.id.startsWith("gemini-") && !noise.test(model.id))
+        .sort((a, b) => version(b.id) - version(a.id) || a.id.localeCompare(b.id));
     },
 
     async classify(settings, system, user, schema) {
@@ -328,6 +333,8 @@ async function getSettings() {
   ]);
   const modelByProvider = { ...DEFAULT_MODELS, ...(prefs.modelByProvider || {}) };
   if (prefs.model && !prefs.modelByProvider?.anthropic) modelByProvider.anthropic = prefs.model;
+  // Old default; carry users forward to the current fast model.
+  if (modelByProvider.gemini === "gemini-2.5-flash-lite") modelByProvider.gemini = "gemini-3.1-flash-lite";
   return {
     ...DEFAULT_PREFS,
     ...prefs,
