@@ -89,7 +89,7 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  provider: "openai",
+  provider: "gemini",
   modelByProvider: {
     openai: "gpt-5.6-luna",
     anthropic: "claude-haiku-4-5",

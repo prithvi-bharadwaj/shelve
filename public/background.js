@@ -19,7 +19,7 @@ const DEFAULT_MODELS = {
 };
 
 const DEFAULT_PREFS = {
-  provider: "openai",
+  provider: "gemini",
   modelByProvider: DEFAULT_MODELS,
   minGroupSize: 2,
   groupEverything: false,

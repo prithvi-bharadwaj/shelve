@@ -42,7 +42,7 @@ const PROVIDER_NAMES: Record<Provider, string> = {
 
 export function Options() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [models, setModels] = useState<Model[]>(FALLBACK_MODELS.openai);
+  const [models, setModels] = useState<Model[]>(FALLBACK_MODELS.gemini);
   const [spentUsd, setSpentUsd] = useState(0);
   const [saved, setSaved] = useState(false);
   const [modelStatus, setModelStatus] = useState("");

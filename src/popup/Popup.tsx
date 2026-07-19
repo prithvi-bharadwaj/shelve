@@ -147,7 +147,7 @@ export function Popup() {
 
   const organize = async () => {
     const [sync, local] = await Promise.all([
-      chrome.storage.sync.get({ provider: "openai" }),
+      chrome.storage.sync.get({ provider: "gemini" }),
       chrome.storage.local.get({ openaiKey: "", anthropicKey: "", geminiKey: "", apiKey: "" }),
     ]);
     const provider = sync.provider as Provider;
