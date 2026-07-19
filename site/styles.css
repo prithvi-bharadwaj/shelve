@@ -402,6 +402,69 @@ a:hover { text-decoration: underline; }
   background: linear-gradient(135deg, #8ab4f8, #c58af9);
 }
 
+/* --- onboarding overlay --- */
+
+.onboard {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: oklch(0 0 0 / 55%);
+  backdrop-filter: blur(1.5px);
+}
+
+.onboard-tip {
+  position: absolute;
+  top: 104px;
+  right: 22px;
+  width: 300px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: oklch(0.185 0 0);
+  border: 1px solid color-mix(in oklch, var(--primary) 45%, transparent);
+  box-shadow: 0 20px 50px oklch(0 0 0 / 55%);
+  animation: popup-in 260ms var(--ease-out-strong);
+}
+
+.onboard-tip::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  right: 24px;
+  width: 13px;
+  height: 13px;
+  transform: rotate(45deg);
+  background: oklch(0.185 0 0);
+  border-top: 1px solid color-mix(in oklch, var(--primary) 45%, transparent);
+  border-left: 1px solid color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+.onboard-tip p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.onboard-tip strong { display: block; color: var(--foreground); font-size: 14.5px; margin-bottom: 4px; }
+
+.onboard-tip button {
+  margin-top: 12px;
+  padding: 7px 16px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--primary);
+  color: oklch(0.145 0 0);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.onboard-tip button:hover { background: oklch(0.75 0.17 263.3); }
+
+/* the extension icon stays above the overlay, spotlighted */
+.ext-icon { z-index: 6; }
+.onboard-active .ext-icon { background: oklch(1 0 0 / 14%); box-shadow: 0 0 0 4px oklch(0.704 0.191 263.3 / 35%); }
+
 /* --- page area --- */
 
 .chrome-page {
@@ -931,6 +994,10 @@ button:disabled { cursor: default; }
   padding: 1px 6px;
   font-size: 13px;
 }
+
+.install-steps a code { color: var(--primary); cursor: pointer; }
+.copy-hint { font-size: 12px; color: var(--muted-foreground); }
+.copy-hint.copied { color: var(--g-green); }
 
 .modal-alt {
   margin: 20px 0 0;

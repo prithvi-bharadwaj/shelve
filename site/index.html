@@ -26,8 +26,7 @@
       </button>
     </div>
     <p class="landing-foot">
-      <a href="https://github.com/prithvi-bharadwaj/regroup" target="_blank" rel="noopener">Open source</a>
-      <span>·</span> MIT
+      <span>Works with Chrome, Firefox, Brave, Edge, Arc &amp; many more</span>
       <span>·</span> <a href="#" id="open-video">Watch the video</a>
     </p>
   </section>
@@ -54,6 +53,12 @@
           </button>
           <span class="profile-dot"></span>
         </span>
+      </div>
+      <div class="onboard" id="onboard">
+        <div class="onboard-tip">
+          <p><strong>Try it yourself</strong>Click the glowing Focused icon up here to open the extension — then press every button. Organize, stash, ask the command bar anything.</p>
+          <button id="onboard-skip">Got it</button>
+        </div>
       </div>
       <div class="chrome-page">
         <div class="page-hint" id="page-hint">
@@ -208,22 +213,21 @@
       <button class="modal-close" id="close-install" aria-label="Close">✕</button>
     </div>
     <div class="disclaimer">
-      <strong>Judge build — API key included.</strong>
-      This download ships with a Gemini API key baked in so you can try it with zero setup.
-      The key is rate-limited and spend-capped. Focused is open source and designed for you to
-      bring your own key (OpenAI, Anthropic, Gemini) — or run it free and fully local with Ollama.
+      <strong>Works straight out of the box.</strong>
+      There's a Gemini API key already inside, so no accounts, no setup — just install and hit
+      Organize. (It's shared with everyone trying it, so be gentle.) You can always swap in your
+      own key in Settings, or run it free with local Ollama.
     </div>
     <ol class="install-steps">
       <li><a class="step-download" href="focused-judges.zip" download>Download focused-judges.zip</a> and unzip it.</li>
-      <li>Open <code>chrome://extensions</code> in Chrome (or Brave / Edge / Arc).</li>
+      <li>Open <a href="chrome://extensions" id="chrome-url"><code>chrome://extensions</code></a> <span class="copy-hint" id="copy-hint">(click to copy)</span> — Chrome, Firefox, Brave, Edge, Arc all work.</li>
       <li>Turn on <strong>Developer mode</strong> (top-right toggle).</li>
       <li>Click <strong>Load unpacked</strong> and select the unzipped <code>focused</code> folder.</li>
       <li>Pin <strong>Focused</strong> from the puzzle-piece menu, open a messy window, and hit <strong>Organize tabs</strong>.</li>
     </ol>
     <p class="modal-alt">
       Prefer your own keys? <a href="focused.zip" download>Download the clean build</a> (no key inside)
-      or install from <a href="https://github.com/prithvi-bharadwaj/regroup" target="_blank" rel="noopener">source</a>,
-      then add a key in Settings.
+      and add one in Settings.
     </p>
   </dialog>
 
@@ -237,6 +241,7 @@
     <div class="video-frame" id="video-frame" data-video-url=""></div>
   </dialog>
 
+  <script src="sim.js"></script>
   <script src="demo.js"></script>
 </body>
 </html>
