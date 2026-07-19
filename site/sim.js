@@ -61,6 +61,7 @@ const state = {
   tabs: INITIAL_TABS.map((t) => makeTab(...t)),
   otherWindow: OTHER_WINDOW_TABS.map((t) => makeTab(...t)),
   appliedGroups: [], // ordered keys of GROUP_DEFS
+  collapsed: new Set(), // group keys collapsed in the tab strip (UI-only, not undoable)
   stashes: [], // { key, name, color, tabCount, tabs, brief, ago }
   windowCount: 2,
   minGroup: 2,
@@ -92,8 +93,32 @@ function tabEl(tab) {
   return el;
 }
 
+function toggleGroupCollapse(key) {
+  if (state.collapsed.has(key)) {
+    state.collapsed.delete(key);
+  } else {
+    state.collapsed.add(key);
+    // Chrome never leaves the active tab inside a collapsed group
+    const active = state.tabs.find((tab) => tab.active);
+    if (active?.group === key) {
+      const fallback = state.tabs.find(
+        (tab) => !(state.appliedGroups.includes(tab.group) && state.collapsed.has(tab.group))
+      );
+      if (fallback) {
+        active.active = false;
+        fallback.active = true;
+        document.querySelector(".omnibox").textContent = fallback.url;
+      }
+    }
+  }
+  renderStrip();
+}
+
 function renderStrip({ flip = true } = {}) {
   const doFlip = flip && !prefersReducedMotion;
+  for (const key of [...state.collapsed]) {
+    if (!state.appliedGroups.includes(key)) state.collapsed.delete(key);
+  }
   const before = new Map();
   if (doFlip) {
     for (const [id, el] of tabEls) {
@@ -109,12 +134,17 @@ function renderStrip({ flip = true } = {}) {
     const members = state.tabs.filter((tab) => tab.group === key);
     if (!members.length) continue;
     const def = GROUP_DEFS[key];
+    const collapsed = state.collapsed.has(key);
     const wrap = document.createElement("div");
-    wrap.className = "tgroup";
+    wrap.className = "tgroup" + (collapsed ? " collapsed" : "");
     wrap.style.setProperty("--group-color", def.color);
-    const chip = document.createElement("span");
+    const chip = document.createElement("button");
+    chip.type = "button";
     chip.className = "tgroup-chip" + (doFlip ? " arriving" : "");
     chip.textContent = def.name;
+    chip.title = collapsed ? `Expand “${def.name}”` : `Collapse “${def.name}”`;
+    chip.setAttribute("aria-expanded", String(!collapsed));
+    chip.addEventListener("click", () => toggleGroupCollapse(key));
     const inner = document.createElement("div");
     inner.className = "tgroup-tabs";
     members.forEach((tab) => inner.appendChild(tabEl(tab)));
@@ -132,6 +162,8 @@ function renderStrip({ flip = true } = {}) {
       const old = before.get(id);
       if (!old || !el.isConnected) continue;
       const now = el.getBoundingClientRect();
+      // zero-size rects mean the tab was (or now is) inside a collapsed group
+      if (!old.width || !now.width) continue;
       const dx = old.left - now.left;
       const dy = old.top - now.top;
       if (!dx && !dy) continue;
@@ -208,6 +240,7 @@ function renderPanels() {
 
   const applied = state.appliedGroups.filter((key) => state.tabs.some((tab) => tab.group === key));
   groupsPanel.hidden = !applied.length;
+  $("groups-count").textContent = applied.length ? ` · ${applied.length}` : "";
   groupsList.replaceChildren(...applied.map((key) => {
     const def = GROUP_DEFS[key];
     const count = state.tabs.filter((tab) => tab.group === key).length;
@@ -268,6 +301,7 @@ async function resumeStash(stash) {
     setTimeout(() => el.classList.remove("arriving"), 400);
   }
   if (!state.appliedGroups.includes(stash.key)) state.appliedGroups.push(stash.key);
+  state.collapsed.delete(stash.key);
   renderStrip();
   renderPanels();
   setStatus(`Restored ${stash.tabCount} tab${stash.tabCount === 1 ? "" : "s"}`);

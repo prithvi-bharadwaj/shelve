@@ -1,4 +1,5 @@
-import { Archive, ArchiveRestore, LoaderCircle, X } from "lucide-react";
+import { useState } from "react";
+import { Archive, ArchiveRestore, ChevronDown, LoaderCircle, X } from "lucide-react";
 import type { GroupInfo, Stash } from "@/types";
 
 const GROUP_DOT: Record<string, string> = {
@@ -39,13 +40,26 @@ export function StashPanel({
   onResume: (stashId: string) => void;
   onDelete: (stashId: string) => void;
 }) {
+  const [groupsOpen, setGroupsOpen] = useState(false);
   if (!groups.length && !stashes.length) return null;
   return (
     <>
       {groups.length > 0 && (
         <section className="mt-4" aria-label="Tab groups in this window">
-          <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Groups</h2>
-          <div className="mt-1.5 flex flex-col">
+          <button
+            type="button"
+            onClick={() => setGroupsOpen((open) => !open)}
+            aria-expanded={groupsOpen}
+            aria-controls="groups-list"
+            className="flex h-7 w-full items-center justify-between rounded-md px-1.5 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Groups · {groups.length}
+            </span>
+            <ChevronDown className={`size-3.5 text-muted-foreground transition-transform duration-200 [transition-timing-function:var(--ease-out-strong)] ${groupsOpen ? "rotate-180" : ""}`} />
+          </button>
+          {groupsOpen && (
+          <div id="groups-list" className="mt-1 flex flex-col">
             {groups.map((group) => (
               <div key={group.id} className="flex h-8 items-center gap-2 rounded-md px-1.5 hover:bg-muted/50">
                 <span className={`size-2 shrink-0 rounded-full ${GROUP_DOT[group.color] ?? GROUP_DOT.grey}`} />
@@ -61,6 +75,7 @@ export function StashPanel({
               </div>
             ))}
           </div>
+          )}
         </section>
       )}
 

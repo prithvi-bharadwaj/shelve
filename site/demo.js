@@ -46,6 +46,8 @@ function findTab(query) {
 
 function focusTab(tab) {
   for (const item of state.tabs) item.active = item === tab;
+  if (tab.group) state.collapsed.delete(tab.group); // jumping into a collapsed group expands it
+
   document.querySelector(".omnibox").textContent = tab.url;
   renderStrip();
 }
@@ -53,12 +55,12 @@ function focusTab(tab) {
 async function runCommand() {
   const query = cmdInput.value.trim();
   if (!query || state.organizing) return;
-  $("cmd-enter").hidden = true;
+  $("cmd-send").hidden = true;
   $("cmd-spinner").hidden = false;
   cmdResult.hidden = true;
   cmdInput.disabled = true;
   await wait(1100);
-  $("cmd-enter").hidden = false;
+  $("cmd-send").hidden = false;
   $("cmd-spinner").hidden = true;
   cmdInput.disabled = false;
 
@@ -86,6 +88,7 @@ async function runCommand() {
 }
 
 cmdInput.addEventListener("keydown", (event) => { if (event.key === "Enter") runCommand(); });
+$("cmd-send").addEventListener("click", runCommand);
 cmdGoto.addEventListener("click", () => {
   if (!cmdTargetTab) return;
   focusTab(cmdTargetTab);
@@ -234,6 +237,12 @@ $("qa-undo").addEventListener("click", undo);
 $("gear-btn").addEventListener("click", () =>
   setStatus("Full settings (provider, model, API keys, budget) live in the real extension.")
 );
+
+$("groups-toggle").addEventListener("click", () => {
+  const list = $("groups-list");
+  list.hidden = !list.hidden;
+  $("groups-toggle").setAttribute("aria-expanded", String(!list.hidden));
+});
 
 $("bs-toggle").addEventListener("click", () => {
   const body = $("bs-body");
