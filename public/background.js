@@ -1054,7 +1054,7 @@ async function runCommand(rawQuery, windowId, hasContentPermission) {
 
     const currentWindow = windowId ? await chrome.windows.get(windowId) : await chrome.windows.getCurrent();
     const [allTabs, allGroups] = await Promise.all([
-      chrome.tabs.query({ windowTypes: ["normal"] }),
+      chrome.tabs.query({ windowType: "normal" }),
       chrome.tabGroups.query({})
     ]);
     const groupTitle = new Map(allGroups.map((group) => [group.id, group.title || "Untitled"]));
