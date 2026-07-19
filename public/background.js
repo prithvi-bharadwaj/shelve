@@ -346,6 +346,11 @@ async function getSettings() {
   };
 }
 
+async function hasDataNoticeAck() {
+  const stored = await chrome.storage.local.get({ dataNoticeAck: false });
+  return Boolean(stored.dataNoticeAck);
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const handlers = {
     organize: () => organize(msg.hasContentPermission, { windowId: msg.windowId }),
@@ -1069,6 +1074,7 @@ async function runCommand(rawQuery, windowId, hasContentPermission) {
   try {
     let settings = await getSettings();
     if (!hasProviderAccess(settings)) return { error: missingCredentialMessage(settings.provider) };
+    if (!(await hasDataNoticeAck())) return { error: "Acknowledge the AI data notice in the popup first." };
     settings = await ensureModel(settings);
 
     const currentWindow = windowId ? await chrome.windows.get(windowId) : await chrome.windows.getCurrent();
@@ -1216,20 +1222,37 @@ async function listGroups(windowId) {
 async function stashGroup(windowId, groupId) {
   const group = await chrome.tabGroups.get(groupId).catch(() => null);
   if (!group) return { error: "That group no longer exists." };
-  const allTabs = await chrome.tabs.query({ windowId: group.windowId });
-  const groupTabs = allTabs.filter((tab) => tab.groupId === groupId).sort((a, b) => a.index - b.index);
-  const savable = groupTabs.filter((tab) => tab.url && /^https?:/.test(tab.url));
+  const groupWindow = await chrome.windows.get(group.windowId).catch(() => null);
+  if (!groupWindow) return { error: "That group no longer exists." };
+  // chrome.storage.local is shared between regular and incognito contexts, so
+  // a stash would leak private browsing history into normal windows.
+  if (groupWindow.incognito) return { error: "Stashing isn't available in incognito windows." };
+  const savableIn = (tabs) =>
+    tabs
+      .filter((tab) => tab.groupId === groupId && tab.url && /^https?:/.test(tab.url))
+      .sort((a, b) => a.index - b.index);
+  const savable = savableIn(await chrome.tabs.query({ windowId: group.windowId }));
   if (!savable.length) return { error: "No saveable web tabs in that group." };
 
   // Read page snippets before the tabs close so the brief can cite real details.
   let snippets = {};
+  const urlById = Object.fromEntries(savable.map((tab) => [tab.id, tab.url]));
   const hasContentPermission = await chrome.permissions.contains({
     permissions: ["scripting"],
     origins: ["<all_urls>"]
   }).catch(() => false);
   if (hasContentPermission) {
-    const urlById = Object.fromEntries(savable.map((tab) => [tab.id, tab.url]));
     snippets = await collectSnippets(savable.slice(0, 4).map((tab) => tab.id), urlById);
+  }
+
+  // Snippet collection can wait several seconds; re-read the group so a tab
+  // that navigated or closed meanwhile is saved (and closed) as it is now,
+  // not as it was.
+  const allTabs = await chrome.tabs.query({ windowId: group.windowId }).catch(() => []);
+  const freshSavable = savableIn(allTabs);
+  if (!freshSavable.length) return { error: "No saveable web tabs in that group." };
+  for (const tab of freshSavable) {
+    if (urlById[tab.id] && urlById[tab.id] !== tab.url) delete snippets[tab.id];
   }
 
   const stash = {
@@ -1237,7 +1260,7 @@ async function stashGroup(windowId, groupId) {
     name: (group.title || "Stashed tabs").slice(0, 80),
     color: group.color,
     createdAt: Date.now(),
-    tabs: savable.map((tab) => ({ id: tab.id, url: tab.url, title: tab.title || "" })),
+    tabs: freshSavable.map((tab) => ({ id: tab.id, url: tab.url, title: tab.title || "" })),
     brief: "",
     briefStatus: "pending"
   };
@@ -1245,10 +1268,10 @@ async function stashGroup(windowId, groupId) {
 
   // Close only the tabs that were saved; a chrome:// or file:// tab in the
   // group would otherwise be lost. Closing must not close the whole window.
-  if (savable.length === allTabs.length) {
+  if (freshSavable.length === allTabs.length) {
     await chrome.tabs.create({ windowId: group.windowId }).catch(() => undefined);
   }
-  await chrome.tabs.remove(savable.map((tab) => tab.id));
+  await chrome.tabs.remove(freshSavable.map((tab) => tab.id));
   scheduleAutoCheck();
   generateStashBrief(stash, snippets).catch(() => undefined);
   return { done: true, stash: publicStash(stash) };
@@ -1258,7 +1281,7 @@ async function generateStashBrief(stash, snippets) {
   const stopKeepalive = startKeepalive();
   try {
     let settings = await getSettings();
-    if (!hasProviderAccess(settings)) {
+    if (!hasProviderAccess(settings) || !(await hasDataNoticeAck())) {
       await mutateStashes((list) => list.map((item) => (item.id === stash.id ? { ...item, briefStatus: "unavailable" } : item)));
       return;
     }

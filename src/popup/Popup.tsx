@@ -53,6 +53,7 @@ export function Popup() {
   const [groupList, setGroupList] = useState<GroupInfo[]>([]);
   const [stashes, setStashes] = useState<Stash[]>([]);
   const [stashBusy, setStashBusy] = useState<number | string | null>(null);
+  const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
   const ownsOrganizeRequest = useRef(false);
   const handledJobId = useRef<string | null>(null);
 
@@ -312,7 +313,21 @@ export function Popup() {
     setStatus(res?.error ? { text: res.error, error: true } : { text: "Previous tab layout restored" });
   };
 
+  const acknowledgeNotice = useCallback(async () => {
+    setAcknowledged(true);
+    await chrome.storage.local.set({ dataNoticeAck: true });
+  }, []);
+
   const stashGroup = async (groupId: number) => {
+    if (!acknowledged) {
+      if (confirmingStash !== groupId) {
+        setConfirmingStash(groupId);
+        setStatus({ text: "Stash briefs send tab titles & URLs (and, if allowed, page snippets) to your configured AI provider. Click again to continue." });
+        return;
+      }
+      setConfirmingStash(null);
+      await acknowledgeNotice();
+    }
     setStashBusy(groupId);
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "stashGroup", windowId, groupId });
@@ -346,7 +361,7 @@ export function Popup() {
 
   const reviewing = groups.length > 0;
   const organizing = running === "organize" || organizeJob?.status === "running";
-  const disabled = Boolean(running) || reviewing;
+  const disabled = Boolean(running) || reviewing || stashBusy !== null;
   const showMonitorPrompt = monitorEnabled && tabCount >= monitorThreshold && !monitorPromptDismissed;
   const icon = (action: Action, idle: ReactNode) =>
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
@@ -382,7 +397,7 @@ export function Popup() {
         />
       ) : (
         <>
-          <CommandBar windowId={windowId} disabled={disabled} />
+          <CommandBar windowId={windowId} disabled={disabled} acknowledged={acknowledged} onAcknowledge={acknowledgeNotice} />
 
           {showMonitorPrompt && (
             <section className="mt-5 rounded-lg border border-primary/35 bg-primary/10 p-3" aria-live="polite">
@@ -487,7 +502,7 @@ export function Popup() {
             groups={groupList}
             stashes={stashes}
             busyId={stashBusy}
-            disabled={disabled || stashBusy !== null}
+            disabled={disabled}
             onStash={stashGroup}
             onResume={resumeStash}
             onDelete={deleteStash}

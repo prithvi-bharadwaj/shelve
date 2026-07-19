@@ -2,14 +2,34 @@ import { useState } from "react";
 import { ArrowRight, CornerDownLeft, LoaderCircle } from "lucide-react";
 import type { CommandResponse } from "@/types";
 
-export function CommandBar({ windowId, disabled }: { windowId?: number; disabled: boolean }) {
+export function CommandBar({
+  windowId,
+  disabled,
+  acknowledged,
+  onAcknowledge,
+}: {
+  windowId?: number;
+  disabled: boolean;
+  acknowledged: boolean;
+  onAcknowledge: () => Promise<void>;
+}) {
   const [query, setQuery] = useState("");
   const [running, setRunning] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState<CommandResponse | null>(null);
 
   const submit = async () => {
     const trimmed = query.trim();
     if (!trimmed || running || disabled) return;
+    if (!acknowledged && !confirming) {
+      setConfirming(true);
+      setResult(null);
+      return;
+    }
+    if (confirming) {
+      setConfirming(false);
+      await onAcknowledge();
+    }
     setRunning(true);
     setResult(null);
     let hasContentPermission = await chrome.permissions.contains({
@@ -64,6 +84,12 @@ export function CommandBar({ windowId, disabled }: { windowId?: number; disabled
           <CornerDownLeft className="size-3.5 shrink-0 text-muted-foreground/60" />
         )}
       </div>
+
+      {confirming && (
+        <p className="mt-2 text-xs leading-snug text-muted-foreground" aria-live="polite">
+          Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider. Press Enter again to continue.
+        </p>
+      )}
 
       {result && (
         <div

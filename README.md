@@ -69,7 +69,8 @@ Stack: React 19, TypeScript, Tailwind v4, shadcn-style components, Radix primiti
 ## Privacy
 
 - API keys are stored in `chrome.storage.local` in this browser and are never synced.
-- When you organize, tab titles and URLs are sent only to the provider selected in Settings. Page snippets are sent only for ambiguous tabs, only if you grant the optional page-access permission.
+- When you organize, use the command bar, or stash a group (for its brief), tab titles and URLs are sent only to the provider selected in Settings. Page snippets are sent only for ambiguous or stashed tabs, only if you grant the optional page-access permission. Each of these features asks you to acknowledge this once before the first request.
+- Stashing is disabled in incognito windows: extension storage is shared with regular browsing, so nothing from private windows is ever saved.
 - Ollama requests stay on the configured Ollama server, which is local by default.
 - Group exports are created locally. There is no Regroup backend, analytics, or tracking.
 
