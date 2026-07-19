@@ -208,6 +208,7 @@ function renderPanels() {
 
   const applied = state.appliedGroups.filter((key) => state.tabs.some((tab) => tab.group === key));
   groupsPanel.hidden = !applied.length;
+  $("groups-count").textContent = applied.length ? ` · ${applied.length}` : "";
   groupsList.replaceChildren(...applied.map((key) => {
     const def = GROUP_DEFS[key];
     const count = state.tabs.filter((tab) => tab.group === key).length;
