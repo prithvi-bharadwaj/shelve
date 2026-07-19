@@ -457,6 +457,7 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
 
     updateOrganizeJob(job, { stage: "applying" });
     const result = await applyPlan(groups, minSize, { windowId: targetWindowId, snapshot: !dedupeMutated });
+    if (automatic && result.done) notifyAutoFiled(result);
     return finishOrganizeJob(job, result);
   } catch (error) {
     const message = error?.name === "TimeoutError"
@@ -709,30 +710,68 @@ async function applyPlan(groups, minSize = 1, { windowId, snapshot = true } = {}
 
   if (snapshot) await storeUndoSnapshot(await captureSnapshot(targetWindowId));
 
-  const applied = await Promise.all(prepared.map(async (group) => {
-    if (group.existingGroupId !== null) {
-      await chrome.tabs.group({ tabIds: group.tabIds, groupId: group.existingGroupId });
-      return { tabCount: group.tabIds.length };
-    } else {
-      const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
-      await chrome.tabGroups.update(groupId, {
-        title: group.name,
-        color: GROUP_COLORS.includes(group.color) ? group.color : "grey"
-      });
-      return {
-        tabCount: group.tabIds.length,
-        newGroup: { id: groupId, importance: clamp(Number(group.importance) || 3, 1, 5) }
-      };
+  // Tabs file into groups one at a time so the sort is visible as a ~2.5s
+  // cascade instead of one instant snap.
+  const totalTabs = prepared.reduce((total, group) => total + group.tabIds.length, 0);
+  const perTabDelay = clamp(Math.floor(2500 / Math.max(totalTabs, 1)), 50, 220);
+  const applied = [];
+  for (const group of prepared) {
+    let groupId = group.existingGroupId;
+    let tabCount = 0;
+    for (const id of group.tabIds) {
+      try {
+        if (groupId === null) {
+          groupId = await chrome.tabs.group({ tabIds: [id] });
+          await chrome.tabGroups.update(groupId, {
+            title: group.name,
+            color: GROUP_COLORS.includes(group.color) ? group.color : "grey"
+          });
+        } else {
+          await chrome.tabs.group({ tabIds: [id], groupId });
+        }
+        tabCount++;
+        await sleep(perTabDelay);
+      } catch {
+        // The tab closed mid-cascade; keep filing the rest.
+      }
     }
-  }));
+    if (!tabCount) continue;
+    applied.push({
+      tabCount,
+      name: group.name,
+      newGroup: group.existingGroupId === null && groupId !== null
+        ? { id: groupId, importance: clamp(Number(group.importance) || 3, 1, 5) }
+        : null
+    });
+  }
+  if (!applied.length) return { error: "Tabs closed or moved before groups could be created." };
   const newGroups = applied.map((item) => item.newGroup).filter(Boolean);
   await orderTabStrip(targetWindowId, newGroups);
   scheduleAutoCheck();
   return {
     done: true,
     groupCount: applied.length,
-    tabCount: applied.reduce((total, item) => total + item.tabCount, 0)
+    tabCount: applied.reduce((total, item) => total + item.tabCount, 0),
+    groupNames: applied.map((item) => item.name)
   };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function notifyAutoFiled(result) {
+  if (!chrome.notifications) return;
+  const names = result.groupNames || [];
+  const message = names.length === 1
+    ? `Filed ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"} → ${names[0]}`
+    : `Filed ${result.tabCount} tabs into ${result.groupCount} groups`;
+  chrome.notifications.create({
+    type: "basic",
+    iconUrl: "icons/icon128.png",
+    title: "Regroup",
+    message
+  }, () => chrome.runtime.lastError);
 }
 
 async function orderTabStrip(windowId, newGroups) {
