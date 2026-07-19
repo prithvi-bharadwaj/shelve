@@ -40,10 +40,28 @@ const STAGES = [
   { label: "Creating tab groups", progress: 88, ms: 600 },
 ];
 
+// Canned "where you left off" briefs, one per group — in the real extension the AI writes these on stash.
+const BRIEFS = {
+  visa: "You were comparing attorney fees in the Notion table ($4k–$8k range), had the USCIS criteria page open, and the evidence checklist still has 3 unchecked items. The reddit thread's consensus: 8 strong letters.",
+  react: "Halfway through the re-renders guide; useMemo docs open at dependency arrays. You hadn't profiled the slow list with DevTools yet.",
+  tokyo: "Flights SFO→NRT not booked yet. Two Shinjuku hotels shortlisted on Booking. The 5-day itinerary still has day 3 unplanned.",
+};
+
+// Canned command-bar answers per topic — the real extension asks the model across tab contents.
+const ANSWERS = {
+  visa: { text: "The Notion fee table — attorney quotes range $4k–$8k, flat fee. The evidence checklist is the tab you left unfinished.", url: "notion.so/o1-fees" },
+  react: { text: "The re-renders guide — you stopped at the memoization section; the profiler walkthrough is in the DevTools tab.", url: "react-rerenders.dev" },
+  tokyo: { text: "The Booking.com tab — Shinjuku Granbell, ¥14,200/night, pet-friendly, free cancellation until day before.", url: "booking.com/shinjuku" },
+};
+
+// Chrome group palette as solid dot colors (StashPanel's GROUP_DOT)
+const DOT = { visa: "#3b82f6", react: "#facc15", tokyo: "#22c55e" };
+
 const state = {
   tabs: INITIAL_TABS.map((t) => makeTab(...t)),
   otherWindow: OTHER_WINDOW_TABS.map((t) => makeTab(...t)),
   appliedGroups: [], // ordered keys of GROUP_DEFS
+  stashes: [], // { key, name, color, tabCount, tabs, brief, ago }
   windowCount: 2,
   minGroup: 2,
   dedupe: false,
@@ -169,11 +187,190 @@ function snapshot() {
   undoStack.push(JSON.stringify({
     tabs: state.tabs,
     appliedGroups: state.appliedGroups,
+    stashes: state.stashes,
     windowCount: state.windowCount,
     otherWindow: state.otherWindow,
   }));
   syncButtons();
 }
+
+/* ---------- groups + stash panels ---------- */
+
+const ICON_STASH = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>`;
+const ICON_RESUME = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/></svg>`;
+const ICON_X = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+
+function renderPanels() {
+  const groupsPanel = $("groups-panel");
+  const stashPanel = $("stash-panel");
+  const groupsList = $("groups-list");
+  const stashList = $("stash-list");
+
+  const applied = state.appliedGroups.filter((key) => state.tabs.some((tab) => tab.group === key));
+  groupsPanel.hidden = !applied.length;
+  groupsList.replaceChildren(...applied.map((key) => {
+    const def = GROUP_DEFS[key];
+    const count = state.tabs.filter((tab) => tab.group === key).length;
+    const row = document.createElement("div");
+    row.className = "panel-row";
+    row.innerHTML = `<span class="panel-dot" style="background:${DOT[key]}"></span><span class="panel-name"></span><span class="panel-count">${count}</span><button class="icon-btn" title="Stash “${def.name}”">${ICON_STASH}</button>`;
+    row.querySelector(".panel-name").textContent = def.name;
+    row.querySelector("button").addEventListener("click", () => stashGroup(key));
+    return row;
+  }));
+
+  stashPanel.hidden = !state.stashes.length;
+  stashList.replaceChildren(...state.stashes.map((stash) => {
+    const card = document.createElement("div");
+    card.className = "stash-card";
+    card.innerHTML = `<div class="panel-row"><span class="panel-dot" style="background:${DOT[stash.key]}"></span><span class="panel-name"></span><span class="panel-count">${stash.tabCount} · ${stash.ago}</span><button class="icon-btn" title="Resume">${ICON_RESUME}</button><button class="icon-btn" title="Delete stash">${ICON_X}</button></div><p class="stash-brief${stash.brief ? "" : " pending"}"></p>`;
+    card.querySelector(".panel-name").textContent = stash.name;
+    card.querySelector(".stash-brief").textContent = stash.brief || "Writing where-you-left-off brief…";
+    const [resumeBtn, deleteBtn] = card.querySelectorAll("button");
+    resumeBtn.addEventListener("click", () => resumeStash(stash));
+    deleteBtn.addEventListener("click", () => deleteStash(stash));
+    return card;
+  }));
+}
+
+async function stashGroup(key) {
+  if (state.organizing) return;
+  snapshot();
+  const def = GROUP_DEFS[key];
+  const members = state.tabs.filter((tab) => tab.group === key);
+  for (const tab of members) tabEls.get(tab.id)?.classList.add("closing");
+  await wait(300);
+  const memberIds = new Set(members.map((tab) => tab.id));
+  state.tabs = state.tabs.filter((tab) => !memberIds.has(tab.id));
+  for (const id of memberIds) { tabEls.get(id)?.remove(); tabEls.delete(id); }
+  state.appliedGroups = state.appliedGroups.filter((k) => k !== key);
+  const stash = { key, name: def.name, tabCount: members.length, tabs: members, brief: null, ago: "just now" };
+  state.stashes.unshift(stash);
+  renderStrip();
+  renderPanels();
+  setStatus(`Stashed “${def.name}” · ${members.length} tabs`);
+  // the brief "arrives" like the real async AI write
+  setTimeout(() => {
+    stash.brief = BRIEFS[key] || "Brief unavailable.";
+    renderPanels();
+  }, 1600);
+}
+
+async function resumeStash(stash) {
+  if (state.organizing) return;
+  snapshot();
+  state.stashes = state.stashes.filter((item) => item !== stash);
+  for (const tab of stash.tabs) {
+    state.tabs.push(tab);
+    const el = tabEl(tab);
+    el.classList.remove("closing");
+    el.classList.add("arriving");
+    setTimeout(() => el.classList.remove("arriving"), 400);
+  }
+  if (!state.appliedGroups.includes(stash.key)) state.appliedGroups.push(stash.key);
+  renderStrip();
+  renderPanels();
+  setStatus(`Restored ${stash.tabCount} tab${stash.tabCount === 1 ? "" : "s"}`);
+}
+
+function deleteStash(stash) {
+  snapshot();
+  state.stashes = state.stashes.filter((item) => item !== stash);
+  renderPanels();
+  setStatus("Stash deleted");
+}
+
+/* ---------- command bar ---------- */
+
+const cmdInput = $("cmd-input");
+const cmdResult = $("cmd-result");
+const cmdResultText = $("cmd-result-text");
+const cmdGoto = $("cmd-goto");
+let cmdTargetTab = null;
+
+// Topic fallback so paraphrased queries ("the pet-friendly place") still resolve,
+// approximating what the model does with full tab context.
+const TOPIC_WORDS = {
+  tokyo: ["hotel", "pet", "place", "stay", "night", "tokyo", "flight", "ramen", "japan", "trip", "airbnb"],
+  visa: ["visa", "attorney", "fee", "lawyer", "letter", "immigration", "uscis", "evidence"],
+  react: ["react", "render", "memo", "profil", "perf", "devtools", "slow", "component"],
+};
+
+function topicFor(query) {
+  const lower = query.toLowerCase();
+  for (const [topic, words] of Object.entries(TOPIC_WORDS)) {
+    if (words.some((word) => lower.includes(word))) return topic;
+  }
+  return null;
+}
+
+const STOP_WORDS = new Set([
+  "the", "and", "with", "that", "this", "tab", "tabs", "open", "which", "what", "where",
+  "who", "how", "had", "have", "has", "was", "were", "for", "you", "your", "did", "does",
+  "one", "its", "about", "show", "find", "goto",
+]);
+
+function findTab(query) {
+  const words = query.toLowerCase().split(/[^a-z0-9]+/)
+    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
+  let best = null;
+  let bestScore = 0;
+  for (const tab of state.tabs) {
+    const haystack = `${tab.title} ${tab.url}`.toLowerCase();
+    const score = words.reduce((total, word) => total + (haystack.includes(word) ? 1 : 0), 0);
+    if (score > bestScore) { best = tab; bestScore = score; }
+  }
+  return best;
+}
+
+function focusTab(tab) {
+  for (const item of state.tabs) item.active = item === tab;
+  document.querySelector(".omnibox").textContent = tab.url;
+  renderStrip();
+}
+
+async function runCommand() {
+  const query = cmdInput.value.trim();
+  if (!query || state.organizing) return;
+  $("cmd-enter").hidden = true;
+  $("cmd-spinner").hidden = false;
+  cmdResult.hidden = true;
+  cmdInput.disabled = true;
+  await wait(1100);
+  $("cmd-enter").hidden = false;
+  $("cmd-spinner").hidden = true;
+  cmdInput.disabled = false;
+
+  const topic = topicFor(query);
+  const match = findTab(query) || (topic ? state.tabs.find((tab) => tab.group === topic) : null);
+  const isQuestion = /\?|^(which|what|where|who|how)\b/i.test(query);
+  cmdResult.hidden = false;
+  cmdGoto.hidden = true;
+  cmdResult.classList.remove("error");
+  if (!match) {
+    cmdResult.classList.add("error");
+    cmdResultText.textContent = "No open tab matches that.";
+    return;
+  }
+  if (isQuestion) {
+    // topic beats title-word overlap for questions — the model answers from content
+    const answer = ANSWERS[topic || match.group];
+    cmdTargetTab = (answer && findTab(answer.url)) || match;
+    cmdResultText.textContent = answer ? answer.text : `Closest match: “${match.title}”.`;
+    cmdGoto.hidden = false;
+  } else {
+    focusTab(match);
+    cmdResultText.textContent = `Jumped to “${match.title}”`;
+  }
+}
+
+cmdInput.addEventListener("keydown", (event) => { if (event.key === "Enter") runCommand(); });
+cmdGoto.addEventListener("click", () => {
+  if (!cmdTargetTab) return;
+  focusTab(cmdTargetTab);
+  cmdResultText.textContent = `Jumped to “${cmdTargetTab.title}”`;
+  cmdGoto.hidden = true;
+});
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, prefersReducedMotion ? Math.min(ms, 250) : ms));
 
@@ -206,12 +403,18 @@ async function organize() {
   const keys = Object.keys(GROUP_DEFS).filter(
     (key) => state.tabs.filter((tab) => tab.group === key).length >= state.minGroup
   );
-  state.appliedGroups = keys;
-  renderStrip();
+  // filing cascade: groups snap in one after another, like the real apply animation
+  state.appliedGroups = [];
+  for (const key of keys) {
+    state.appliedGroups.push(key);
+    renderStrip();
+    await wait(280);
+  }
 
   const sorted = state.tabs.filter((tab) => keys.includes(tab.group)).length;
   state.organizing = false;
   showView(false);
+  renderPanels();
   setStatus(`${keys.length} group${keys.length === 1 ? "" : "s"} · ${sorted} tabs sorted`);
   syncButtons();
 }
@@ -222,6 +425,7 @@ function ungroup() {
   snapshot();
   state.appliedGroups = [];
   renderStrip();
+  renderPanels();
   setStatus(`${count} tab${count === 1 ? "" : "s"} ungrouped`);
 }
 
@@ -256,6 +460,7 @@ async function duplicatesAction() {
     syncButtons();
     return setStatus("No duplicate tabs found");
   }
+  renderPanels();
   setStatus(`Closed ${closed} duplicate tab${closed === 1 ? "" : "s"}`);
 }
 
@@ -279,6 +484,7 @@ async function mergeAction() {
   snapshot();
   const moved = await mergeTabsIn();
   syncButtons();
+  renderPanels();
   setStatus(`Merged 1 window · ${moved} tabs`);
 }
 
@@ -288,9 +494,11 @@ function undo() {
   const restored = JSON.parse(prev);
   state.tabs = restored.tabs;
   state.appliedGroups = restored.appliedGroups;
+  state.stashes = restored.stashes || [];
   state.windowCount = restored.windowCount;
   state.otherWindow = restored.otherWindow;
   renderStrip();
+  renderPanels();
   syncButtons();
   setStatus("Previous tab layout restored");
 }

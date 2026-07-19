@@ -78,6 +78,18 @@
 
         <!-- idle view -->
         <div id="popup-idle">
+          <div class="cmdbar">
+            <input id="cmd-input" placeholder="Find or ask: “open the LinkedIn tab with Stanford”" aria-label="Command" />
+            <svg id="cmd-enter" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+            <svg id="cmd-spinner" class="cmd-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" hidden><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          </div>
+          <div class="cmd-result" id="cmd-result" hidden>
+            <p id="cmd-result-text"></p>
+            <button id="cmd-goto" hidden>Go to tab
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+
           <button class="organize-btn" id="organize-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sparkle"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
             <span>Organize tabs</span>
@@ -126,6 +138,16 @@
                 <span><strong>Autonomous tab monitor</strong><em>Notifies you at 15 tabs and always asks first.</em></span>
               </label>
             </div>
+          </section>
+
+          <section class="panel" id="groups-panel" hidden>
+            <h3>Groups</h3>
+            <div id="groups-list"></div>
+          </section>
+
+          <section class="panel" id="stash-panel" hidden>
+            <h3>Stashed</h3>
+            <div id="stash-list"></div>
           </section>
 
           <p class="popup-status" id="popup-status" aria-live="polite"></p>
