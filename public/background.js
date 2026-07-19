@@ -1096,15 +1096,15 @@ async function refreshAutoState() {
     const key = String(window.id);
     const notificationId = `${MONITOR_NOTIFICATION_PREFIX}${window.id}`;
     if (showBadge && !alerted[key]) {
-      await chrome.notifications.create(notificationId, {
+      const created = await chrome.notifications.create(notificationId, {
         type: "basic",
         iconUrl: chrome.runtime.getURL("icons/icon128.png"),
         title: "Regroup",
         message: `Hey, you have ${count} tabs open. Do you want to organize it?`,
         buttons: [{ title: "Open Regroup" }],
         priority: 1
-      }).catch(() => undefined);
-      alerted[key] = true;
+      }).then(() => true).catch(() => false);
+      if (created) alerted[key] = true;
     } else if (!showBadge && alerted[key]) {
       delete alerted[key];
       await chrome.notifications.clear(notificationId).catch(() => undefined);
