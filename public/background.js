@@ -1246,9 +1246,11 @@ async function stashGroup(windowId, groupId) {
   }
 
   // Snippet collection can wait several seconds; re-read the group so a tab
-  // that navigated or closed meanwhile is saved (and closed) as it is now,
-  // not as it was.
-  const allTabs = await chrome.tabs.query({ windowId: group.windowId }).catch(() => []);
+  // that navigated, closed, or moved windows meanwhile is saved (and closed)
+  // as it is now, not as it was.
+  const freshGroup = await chrome.tabGroups.get(groupId).catch(() => null);
+  if (!freshGroup) return { error: "That group no longer exists." };
+  const allTabs = await chrome.tabs.query({ windowId: freshGroup.windowId }).catch(() => []);
   const freshSavable = savableIn(allTabs);
   if (!freshSavable.length) return { error: "No saveable web tabs in that group." };
   for (const tab of freshSavable) {
