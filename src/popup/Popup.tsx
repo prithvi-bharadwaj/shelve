@@ -61,6 +61,15 @@ export function Popup() {
     setHasUndo(Boolean(result?.hasUndo));
   }, []);
 
+  const refreshCounts = useCallback(async () => {
+    const [windows, monitor] = await Promise.all([
+      chrome.runtime.sendMessage({ type: "windowCount" }),
+      windowId ? chrome.runtime.sendMessage({ type: "monitorState", windowId }) : null,
+    ]);
+    if (windows?.count) setWindowCount(windows.count);
+    if (monitor) setTabCount(Number(monitor.count) || 0);
+  }, [windowId]);
+
   const consumeJob = useCallback(async (jobId?: string) => {
     if (!windowId || !jobId) return;
     await chrome.runtime.sendMessage({ type: "consumeOrganizeResult", windowId, jobId });
@@ -71,7 +80,7 @@ export function Popup() {
     if (jobId && handledJobId.current === jobId) return;
     if (jobId) handledJobId.current = jobId;
     setRunning(null);
-    await refreshUndo();
+    await Promise.all([refreshUndo(), refreshCounts()]);
     if (!res || res.error) {
       setStatus({ text: res?.error ?? "Something went wrong.", error: true });
       await consumeJob(jobId);
@@ -86,7 +95,7 @@ export function Popup() {
     }
     setStatus({ text: `${res.groupCount} group${res.groupCount === 1 ? "" : "s"} · ${res.tabCount} tabs sorted` });
     await consumeJob(jobId);
-  }, [consumeJob, refreshUndo]);
+  }, [consumeJob, refreshCounts, refreshUndo]);
 
   useEffect(() => {
     (async () => {
@@ -229,7 +238,7 @@ export function Popup() {
     });
     setRunning(null);
     setGroups([]);
-    await refreshUndo();
+    await Promise.all([refreshUndo(), refreshCounts()]);
     await consumeJob(organizeJob?.id ?? handledJobId.current ?? undefined);
     setStatus(
       res?.error
@@ -243,7 +252,7 @@ export function Popup() {
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "ungroupAll", windowId });
     setRunning(null);
-    await refreshUndo();
+    await Promise.all([refreshUndo(), refreshCounts()]);
     setStatus(res?.error ? { text: res.error, error: true } : { text: `${res.tabCount} tab${res.tabCount === 1 ? "" : "s"} ungrouped` });
   };
 
@@ -252,7 +261,7 @@ export function Popup() {
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "cleanDuplicates", windowId });
     setRunning(null);
-    await refreshUndo();
+    await Promise.all([refreshUndo(), refreshCounts()]);
     setStatus(
       res?.error
         ? { text: res.error, error: true }
@@ -269,7 +278,7 @@ export function Popup() {
       setStatus({ text: res.error, error: true });
       return;
     }
-    setWindowCount(1);
+    await refreshCounts();
     setStatus({ text: `Merged ${res.windows} window${res.windows === 1 ? "" : "s"} · ${res.tabs} tabs` });
   };
 
@@ -278,7 +287,7 @@ export function Popup() {
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "undo" });
     setRunning(null);
-    await refreshUndo();
+    await Promise.all([refreshUndo(), refreshCounts()]);
     setStatus(res?.error ? { text: res.error, error: true } : { text: "Previous tab layout restored" });
   };
 
