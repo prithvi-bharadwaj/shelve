@@ -16,8 +16,8 @@ describe("merge and monitor surface removal", () => {
     expect(manifest.permissions).not.toContain("notifications");
   });
 
-  it("no longer dispatches mergeWindows, windowCount, or monitorState messages", () => {
-    harness = loadBackground();
+  it("no longer dispatches mergeWindows, windowCount, or monitorState messages", async () => {
+    harness = await loadBackground();
     for (const type of ["mergeWindows", "windowCount", "monitorState"]) {
       const handled = harness.messageListener({ type, windowId: 1 }, {}, () => {
         throw new Error(`${type} unexpectedly responded`);
@@ -27,7 +27,7 @@ describe("merge and monitor surface removal", () => {
   });
 
   it("removes persisted merge/monitor settings on install", async () => {
-    harness = loadBackground((mock) => {
+    harness = await loadBackground((mock) => {
       mock.seedSync({ mergeOnOrganize: true, auto: "badge", autoThreshold: 20, minGroupSize: 3 });
       mock.seedLocal({ monitorAlertedWindows: { "1": true }, geminiKey: "keep-me" });
     });
@@ -41,8 +41,8 @@ describe("merge and monitor surface removal", () => {
     expect(harness.mock.localData.geminiKey).toBe("keep-me");
   });
 
-  it("registers no notification or tab-monitor listeners", () => {
-    harness = loadBackground();
+  it("registers no notification or tab-monitor listeners", async () => {
+    harness = await loadBackground();
     const { events } = harness.mock;
     expect(events.notificationsOnClicked.listeners).toHaveLength(0);
     expect(events.notificationsOnButtonClicked.listeners).toHaveLength(0);

@@ -6,8 +6,8 @@ const LEGACY_VALUE = "legacy-sentinel-not-a-real-key";
 
 let harness: BackgroundHarness | null = null;
 
-function load(prepare?: (mock: ChromeMock) => void) {
-  harness = loadBackground(prepare);
+async function load(prepare?: (mock: ChromeMock) => void) {
+  harness = await loadBackground(prepare);
   return harness;
 }
 
@@ -18,7 +18,7 @@ afterEach(() => {
 
 describe("legacy Anthropic credential migration", () => {
   it("copies a legacy-only value into anthropicKey and removes apiKey", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
     const response = await invokeMessage({ type: "migrateLegacyCredential" });
     expect(response).toEqual({ done: true });
     expect(mock.localData.anthropicKey).toBe(LEGACY_VALUE);
@@ -26,7 +26,7 @@ describe("legacy Anthropic credential migration", () => {
   });
 
   it("keeps an existing modern value and still removes the legacy key", async () => {
-    const { invokeMessage, mock } = load((prepared) =>
+    const { invokeMessage, mock } = await load((prepared) =>
       prepared.seedLocal({ anthropicKey: "modern-sentinel", apiKey: LEGACY_VALUE })
     );
     await invokeMessage({ type: "migrateLegacyCredential" });
@@ -35,14 +35,14 @@ describe("legacy Anthropic credential migration", () => {
   });
 
   it("leaves everything empty when both fields are empty", async () => {
-    const { invokeMessage, mock } = load();
+    const { invokeMessage, mock } = await load();
     await invokeMessage({ type: "migrateLegacyCredential" });
     expect(mock.localData.anthropicKey).toBeUndefined();
     expect(mock.localData.apiKey).toBeUndefined();
   });
 
   it("keeps a cleared Anthropic key cleared across getSettings", async () => {
-    const { invokeMessage, exports, mock } = load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
+    const { invokeMessage, exports, mock } = await load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
     await invokeMessage({ type: "migrateLegacyCredential" });
     mock.seedLocal({ anthropicKey: "" });
     const settings = await exports.getSettings();
@@ -50,7 +50,7 @@ describe("legacy Anthropic credential migration", () => {
   });
 
   it("performs one logical migration for concurrent requests", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
     await Promise.all([
       invokeMessage({ type: "migrateLegacyCredential" }),
       invokeMessage({ type: "migrateLegacyCredential" }),
@@ -63,7 +63,7 @@ describe("legacy Anthropic credential migration", () => {
   });
 
   it("retries after a storage failure resets the single-flight promise", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
     const originalRemove = mock.chrome.storage.local.remove.getMockImplementation()!;
     let failOnce = true;
     mock.chrome.storage.local.remove.mockImplementation(async (keys) => {
@@ -82,7 +82,7 @@ describe("legacy Anthropic credential migration", () => {
   });
 
   it("never includes the credential value in any migration response", async () => {
-    const { invokeMessage } = load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
+    const { invokeMessage } = await load((prepared) => prepared.seedLocal({ apiKey: LEGACY_VALUE }));
     const response = await invokeMessage({ type: "migrateLegacyCredential" });
     expect(JSON.stringify(response)).not.toContain(LEGACY_VALUE);
   });

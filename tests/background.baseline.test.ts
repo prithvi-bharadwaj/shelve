@@ -3,8 +3,8 @@ import { loadBackground, type BackgroundHarness } from "./helpers/backgroundHarn
 
 let harness: BackgroundHarness | null = null;
 
-function load() {
-  harness = loadBackground();
+async function load() {
+  harness = await loadBackground();
   return harness;
 }
 
@@ -14,30 +14,30 @@ afterEach(() => {
 });
 
 describe("background worker baseline", () => {
-  it("registers exactly one runtime message listener", () => {
-    const { mock } = load();
+  it("registers exactly one runtime message listener", async () => {
+    const { mock } = await load();
     expect(mock.events.runtimeOnMessage.listeners).toHaveLength(1);
   });
 
-  it("returns false synchronously for an unknown message type", () => {
-    const { messageListener } = load();
+  it("returns false synchronously for an unknown message type", async () => {
+    const { messageListener } = await load();
     const result = messageListener({ type: "definitely-not-a-handler" }, {}, () => {});
     expect(result).toBe(false);
   });
 
-  it("safeImportUrl accepts HTTPS URLs", () => {
-    const { exports } = load();
+  it("safeImportUrl accepts HTTPS URLs", async () => {
+    const { exports } = await load();
     expect(exports.safeImportUrl("https://example.com/page")).toBe(true);
   });
 
-  it("safeImportUrl rejects javascript: and data: URLs", () => {
-    const { exports } = load();
+  it("safeImportUrl rejects javascript: and data: URLs", async () => {
+    const { exports } = await load();
     expect(exports.safeImportUrl("javascript:alert(1)")).toBe(false);
     expect(exports.safeImportUrl("data:text/html,<h1>hi</h1>")).toBe(false);
   });
 
-  it("sanitizePlan drops unknown tab ids and assigns a tab to at most one group", () => {
-    const { exports } = load();
+  it("sanitizePlan drops unknown tab ids and assigns a tab to at most one group", async () => {
+    const { exports } = await load();
     const plan = {
       groups: [
         { name: "Research", color: "blue", tabIds: [1, 2, 999], existingGroupId: null, importance: 2 },
@@ -54,14 +54,14 @@ describe("background worker baseline", () => {
   });
 
   it("answers a read-only message through sendResponse with a serializable object", async () => {
-    const { invokeMessage } = load();
+    const { invokeMessage } = await load();
     const response = await invokeMessage({ type: "hasUndo" });
     expect(response).toEqual({ hasUndo: false });
     expect(JSON.parse(JSON.stringify(response))).toEqual(response);
   });
 
   it("collapses a newly organized group after all of its tabs are filed", async () => {
-    const { invokeMessage, mock } = load();
+    const { invokeMessage, mock } = await load();
     const tab = {
       id: 21,
       windowId: 1,

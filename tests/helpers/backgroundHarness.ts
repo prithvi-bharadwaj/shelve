@@ -1,26 +1,14 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import vm from "node:vm";
 import { vi } from "vitest";
 import { createChromeMock, type ChromeMock } from "./chromeMock";
 
-// Vitest runs from the project root; import.meta.url is http-scheme under jsdom.
-const WORKER_PATH = resolve(process.cwd(), "public/background.js");
+// The worker is real ES modules now; the harness stubs the globals the modules
+// read (chrome, fetch, timers), resets the module registry, and imports the
+// entry so each test gets fresh module-level state.
 
-// Appended inside the VM only — production background.js stays untouched.
-const TEST_EXPORTS = `
-;globalThis.__focusedTestExports = {
-  sanitizePlan,
-  safeImportUrl,
-  normalizedDuplicateUrl,
-  captureSnapshot,
-  storeUndoSnapshot,
-  getUndoSnapshot,
-  clearUndoSnapshot,
-  undoStorageKey,
-  getSettings,
-};
-`;
+// Captured before any stubbing so harness plumbing keeps working while the
+// worker sees inert timers.
+const realSetTimeout = globalThis.setTimeout.bind(globalThis);
+const realClearTimeout = globalThis.clearTimeout.bind(globalThis);
 
 export interface UndoSnapshot {
   version: number;
@@ -66,15 +54,14 @@ export interface BackgroundHarness {
   cleanup: () => void;
 }
 
-// `prepare` runs before the worker script is evaluated, so tests can seed
+// `prepare` runs before the worker modules are evaluated, so tests can seed
 // storage that startup code (e.g. the legacy-undo purge) must observe.
-export function loadBackground(prepare?: (mock: ChromeMock) => void): BackgroundHarness {
+export async function loadBackground(prepare?: (mock: ChromeMock) => void): Promise<BackgroundHarness> {
   const mock = createChromeMock();
   prepare?.(mock);
-  const source = readFileSync(WORKER_PATH, "utf8");
 
-  // Timers are inert: callbacks are recorded, never executed, so the startup
-  // scheduleAutoCheck() cannot run asynchronously mid-test.
+  // Timers are inert: callbacks are recorded, never executed, so worker-side
+  // scheduling (keepalive, cascade sleeps) cannot run asynchronously mid-test.
   const pendingTimers = new Set<number>();
   let timerId = 1;
   const inertSetTimer = (_callback: unknown, _ms?: number) => {
@@ -87,30 +74,45 @@ export function loadBackground(prepare?: (mock: ChromeMock) => void): Background
   };
 
   const fetchMock = vi.fn(() => Promise.reject(new Error("Network access is not available in tests.")));
-  const sandbox: Record<string, unknown> = {
-    chrome: mock.chrome,
-    URL,
-    AbortController,
-    Promise,
-    fetch: fetchMock,
-    setTimeout: inertSetTimer,
-    clearTimeout: inertClearTimer,
-    setInterval: inertSetTimer,
-    clearInterval: inertClearTimer,
-    console,
-  };
-  sandbox.globalThis = sandbox;
-  sandbox.self = sandbox;
 
-  const context = vm.createContext(sandbox);
-  vm.runInContext(source + TEST_EXPORTS, context, { filename: "background.js" });
+  vi.resetModules();
+  vi.stubGlobal("chrome", mock.chrome);
+  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("setTimeout", inertSetTimer);
+  vi.stubGlobal("clearTimeout", inertClearTimer);
+  vi.stubGlobal("setInterval", inertSetTimer);
+  vi.stubGlobal("clearInterval", inertClearTimer);
+
+  // The entry registers the message listener and browser event hooks.
+  await import("../../public/background.js");
+  const [organizeModule, undoModule, dedupeModule, utilModule, settingsModule] = await Promise.all([
+    import("../../public/background/organize.js"),
+    import("../../public/background/undo.js"),
+    import("../../public/background/dedupe.js"),
+    import("../../public/background/util.js"),
+    import("../../public/background/settings.js"),
+  ]);
+
+  // The worker modules are untyped JS; the WorkerExports interface is the
+  // harness-side contract, so the loose inferred shapes are cast to it.
+  const workerExports = {
+    sanitizePlan: organizeModule.sanitizePlan,
+    safeImportUrl: utilModule.safeImportUrl,
+    normalizedDuplicateUrl: dedupeModule.normalizedDuplicateUrl,
+    captureSnapshot: undoModule.captureSnapshot,
+    storeUndoSnapshot: undoModule.storeUndoSnapshot,
+    getUndoSnapshot: undoModule.getUndoSnapshot,
+    clearUndoSnapshot: undoModule.clearUndoSnapshot,
+    undoStorageKey: undoModule.undoStorageKey,
+    getSettings: settingsModule.getSettings,
+  } as unknown as WorkerExports;
 
   const messageListener = mock.events.runtimeOnMessage.listeners[0] as MessageListener | undefined;
   if (!messageListener) throw new Error("The worker did not register a runtime.onMessage listener.");
 
   const invokeMessage = (message: Record<string, unknown>) =>
     new Promise((resolve, reject) => {
-      const timer = setTimeout(
+      const timer = realSetTimeout(
         () => reject(new Error(`Handler for "${String(message.type)}" never responded.`)),
         2000
       );
@@ -120,28 +122,31 @@ export function loadBackground(prepare?: (mock: ChromeMock) => void): Background
           message,
           {},
           (response?: unknown) => {
-            clearTimeout(timer);
+            realClearTimeout(timer);
             resolve(response);
           }
         );
       } catch (error) {
-        clearTimeout(timer);
+        realClearTimeout(timer);
         reject(error);
         return;
       }
       if (handled === false) {
-        clearTimeout(timer);
+        realClearTimeout(timer);
         reject(new Error(`No handler for message type "${String(message.type)}".`));
       }
     });
 
   return {
     mock,
-    exports: (sandbox as { __focusedTestExports?: WorkerExports }).__focusedTestExports as WorkerExports,
+    exports: workerExports,
     messageListener,
     invokeMessage,
     fetchMock,
-    flush: () => new Promise((resolve) => setTimeout(resolve, 0)),
-    cleanup: () => pendingTimers.clear(),
+    flush: () => new Promise((resolve) => realSetTimeout(resolve, 0)),
+    cleanup: () => {
+      pendingTimers.clear();
+      vi.unstubAllGlobals();
+    },
   };
 }
