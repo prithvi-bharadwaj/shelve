@@ -5,8 +5,3 @@ dist/
 skill-runs.jsonl
 .claude/
 .gstack/
-
-# generated download bundles served by site/
-site/*.zip
-regroup.zip
-focused.zip

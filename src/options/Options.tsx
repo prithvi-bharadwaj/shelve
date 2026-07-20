@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -46,10 +46,21 @@ export function Options() {
   const [modelStatus, setModelStatus] = useState("");
   const [importText, setImportText] = useState("");
   const [dataStatus, setDataStatus] = useState<{ text: string; error?: boolean } | null>(null);
+  // Request identity: a slow model-list response for a previously selected
+  // provider (or an unmounted page) must never overwrite current state.
+  const providerRef = useRef<Provider>(DEFAULT_SETTINGS.provider);
+  const modelRequestRef = useRef(0);
 
   const refreshModels = async (provider: Provider) => {
+    const generation = ++modelRequestRef.current;
     setModelStatus("Loading models…");
-    const res = await chrome.runtime.sendMessage({ type: "listModels", provider });
+    let res: { models?: Model[]; error?: string } | null = null;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "listModels", provider });
+    } catch {
+      res = null;
+    }
+    if (generation !== modelRequestRef.current || providerRef.current !== provider) return;
     if (res?.models?.length) {
       setModels(res.models);
       setModelStatus("");
@@ -57,7 +68,7 @@ export function Options() {
         setSettings((current) =>
           current.modelByProvider.ollama
             ? current
-            : { ...current, modelByProvider: { ...current.modelByProvider, ollama: res.models[0].id } }
+            : { ...current, modelByProvider: { ...current.modelByProvider, ollama: res.models![0].id } }
         );
       }
       return;
@@ -74,10 +85,13 @@ export function Options() {
     };
     chrome.storage.onChanged.addListener(onStorageChanged);
     (async () => {
+      // The worker owns the legacy "apiKey" → anthropicKey migration; wait for
+      // it so this page never reads (or re-persists) the legacy field.
+      await chrome.runtime.sendMessage({ type: "migrateLegacyCredential" }).catch(() => undefined);
       const { openaiKey, anthropicKey, geminiKey, ollamaUrl, ...prefs } = DEFAULT_SETTINGS;
       const [sync, local] = await Promise.all([
         chrome.storage.sync.get({ ...prefs, model: "" }),
-        chrome.storage.local.get({ openaiKey, anthropicKey, geminiKey, ollamaUrl, apiKey: "", spentUsd: 0 }),
+        chrome.storage.local.get({ openaiKey, anthropicKey, geminiKey, ollamaUrl, spentUsd: 0 }),
       ]);
       const modelByProvider = { ...DEFAULT_SETTINGS.modelByProvider, ...(sync.modelByProvider || {}) };
       if (sync.model && !sync.modelByProvider?.anthropic) modelByProvider.anthropic = sync.model;
@@ -87,15 +101,18 @@ export function Options() {
         ...DEFAULT_SETTINGS,
         ...sync,
         ...local,
-        auto: sync.auto === "off" ? "off" : "badge",
-        anthropicKey: local.anthropicKey || local.apiKey || "",
         modelByProvider,
       };
+      providerRef.current = loaded.provider;
       setSettings(loaded);
       setSpentUsd(Number(local.spentUsd) || 0);
       await refreshModels(loaded.provider);
     })();
-    return () => chrome.storage.onChanged.removeListener(onStorageChanged);
+    return () => {
+      chrome.storage.onChanged.removeListener(onStorageChanged);
+      // Invalidate any in-flight model request after unmount.
+      modelRequestRef.current++;
+    };
   }, []);
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
@@ -108,6 +125,7 @@ export function Options() {
     }));
 
   const changeProvider = (provider: Provider) => {
+    providerRef.current = provider;
     set("provider", provider);
     setModels(FALLBACK_MODELS[provider]);
     setModelStatus("");
@@ -126,7 +144,6 @@ export function Options() {
       ) as Settings["modelByProvider"],
       customInstructions: settings.customInstructions.trim().slice(0, 2000),
       minGroupSize: clamp(settings.minGroupSize, 1, 6),
-      autoThreshold: clamp(settings.autoThreshold, 1, 999),
       budgetUsd: Math.max(0, Number(settings.budgetUsd) || 0),
     };
     setSettings(normalized);
@@ -135,6 +152,8 @@ export function Options() {
       chrome.storage.sync.set(prefs),
       chrome.storage.local.set({ openaiKey, anthropicKey, geminiKey, ollamaUrl }),
     ]);
+    // Clearing the Anthropic field must stick even if a legacy key lingers.
+    await chrome.storage.local.remove("apiKey").catch(() => undefined);
     setSaved(true);
     setTimeout(() => setSaved(false), 1600);
     refreshModels(normalized.provider);
@@ -334,45 +353,6 @@ export function Options() {
               <span className="mt-1 block text-xs text-muted-foreground">Keeps the active or most recently used copy.</span>
             </span>
           </label>
-          <label htmlFor="merge-on-organize" className="flex cursor-pointer items-start gap-3">
-            <Checkbox
-              id="merge-on-organize"
-              className="mt-0.5"
-              checked={settings.mergeOnOrganize}
-              onCheckedChange={(value) => set("mergeOnOrganize", value === true)}
-            />
-            <span>
-              <span className="block text-sm font-medium leading-none">Merge windows when organizing</span>
-              <span className="mt-1 block text-xs text-muted-foreground">Moves tabs from your other windows into the current one first.</span>
-            </span>
-          </label>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="auto">Tab monitor</Label>
-            <Select value={settings.auto} onValueChange={(value) => set("auto", value as Settings["auto"])}>
-              <SelectTrigger id="auto"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="off">Off</SelectItem>
-                <SelectItem value="badge">Ask me to organize</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">Shows a badge and notification, but never organizes without asking.</p>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <Label htmlFor="threshold">Tab threshold</Label>
-              <p className="mt-1 text-xs text-muted-foreground">Number of loose web tabs before you are notified.</p>
-            </div>
-            <Input
-              id="threshold"
-              type="number"
-              min={1}
-              max={999}
-              disabled={settings.auto === "off"}
-              className="w-20 text-center"
-              value={settings.autoThreshold}
-              onChange={(event) => set("autoThreshold", clamp(parseInt(event.target.value, 10), 1, 999))}
-            />
-          </div>
         </section>
 
         <Divider />

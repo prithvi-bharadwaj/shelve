@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, LoaderCircle, SendHorizontal } from "lucide-react";
 import type { CommandResponse } from "@/types";
 
@@ -7,22 +7,36 @@ export function CommandBar({
   disabled,
   acknowledged,
   onAcknowledge,
+  onRunningChange,
   onGroupCreated,
 }: {
   windowId?: number;
   disabled: boolean;
   acknowledged: boolean;
   onAcknowledge: () => Promise<void>;
-  onGroupCreated: () => Promise<void>;
+  onRunningChange: (running: boolean) => void;
+  onGroupCreated?: () => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   const [running, setRunning] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState<CommandResponse | null>(null);
+  // Synchronous guard: React state alone lets a rapid double-submit race the
+  // re-render and send the command twice.
+  const runningRef = useRef(false);
+  const notifyRunning = useRef(onRunningChange);
+  notifyRunning.current = onRunningChange;
+
+  useEffect(
+    () => () => {
+      if (runningRef.current) notifyRunning.current(false);
+    },
+    []
+  );
 
   const submit = async () => {
     const trimmed = query.trim();
-    if (!trimmed || running || disabled) return;
+    if (!trimmed || runningRef.current || disabled) return;
     if (!acknowledged && !confirming) {
       setConfirming(true);
       setResult(null);
@@ -32,23 +46,25 @@ export function CommandBar({
       setConfirming(false);
       await onAcknowledge();
     }
+    runningRef.current = true;
     setRunning(true);
+    onRunningChange(true);
     setResult(null);
-    let hasContentPermission = await chrome.permissions.contains({
-      permissions: ["scripting"],
-      origins: ["<all_urls>"],
-    });
-    if (!hasContentPermission) {
-      try {
-        hasContentPermission = await chrome.permissions.request({
-          permissions: ["scripting"],
-          origins: ["<all_urls>"],
-        });
-      } catch {
-        hasContentPermission = false;
-      }
-    }
     try {
+      let hasContentPermission = await chrome.permissions.contains({
+        permissions: ["scripting"],
+        origins: ["<all_urls>"],
+      });
+      if (!hasContentPermission) {
+        try {
+          hasContentPermission = await chrome.permissions.request({
+            permissions: ["scripting"],
+            origins: ["<all_urls>"],
+          });
+        } catch {
+          hasContentPermission = false;
+        }
+      }
       const res: CommandResponse = await chrome.runtime.sendMessage({
         type: "command",
         query: trimmed,
@@ -58,12 +74,15 @@ export function CommandBar({
       setResult(res ?? { error: "Something went wrong." });
       if (res?.action === "create_group" && !res.error) {
         setQuery("");
-        await onGroupCreated().catch(() => undefined);
+        await onGroupCreated?.().catch(() => undefined);
       }
     } catch {
       setResult({ error: "Command was interrupted. Try again." });
+    } finally {
+      runningRef.current = false;
+      setRunning(false);
+      onRunningChange(false);
     }
-    setRunning(false);
   };
 
   const goToTab = async (tabId: number) => {
@@ -81,7 +100,7 @@ export function CommandBar({
           }}
           disabled={disabled || running}
           placeholder={'Try “group my O-1 visa memberships”'}
-          aria-label="Ask about tabs or create a group"
+          aria-label="Command"
           className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground disabled:opacity-50"
         />
         {running ? (

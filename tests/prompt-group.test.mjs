@@ -55,6 +55,7 @@ function makeHarness(providerResult) {
       update: async (id, changes) => calls.updated.push({ id, changes }),
     },
     windows: {
+      onRemoved: eventStub(),
       get: async (id) => ({ id, incognito: false }),
       getCurrent: async () => ({ id: 10, incognito: false }),
     },

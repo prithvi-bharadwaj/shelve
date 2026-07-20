@@ -1,7 +1,8 @@
 // Service worker: gathers tabs, classifies them with the configured provider, and applies tab groups.
 
 const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
-const UNDO_KEY = "undoSnapshot";
+const LEGACY_UNDO_KEY = "undoSnapshot";
+const UNDO_KEY_PREFIX = "undoSnapshot:v2:";
 const STASH_KEY = "stashes";
 const ORGANIZE_JOB_PREFIX = "organizeJob:";
 const ORGANIZE_RESULT_TTL_MS = 5 * 60 * 1000;
@@ -9,7 +10,7 @@ const PROVIDER_TIMEOUT_MS = 45 * 1000;
 const OLLAMA_TIMEOUT_MS = 90 * 1000;
 const SNIPPET_TIMEOUT_MS = 8 * 1000;
 const ORGANIZE_STALE_MS = 2 * 60 * 1000;
-const MONITOR_NOTIFICATION_PREFIX = "focused-tab-monitor:";
+const STASH_RESUME_STALE_MS = 2 * 60 * 1000;
 
 const DEFAULT_MODELS = {
   openai: "gpt-5.6-luna",
@@ -25,10 +26,7 @@ const DEFAULT_PREFS = {
   groupEverything: false,
   reviewFirst: false,
   dedupeOnOrganize: false,
-  mergeOnOrganize: false,
   customInstructions: "",
-  auto: "off",
-  autoThreshold: 15,
   budgetUsd: 1
 };
 
@@ -37,8 +35,7 @@ const DEFAULT_LOCAL = {
   anthropicKey: "",
   geminiKey: "",
   ollamaUrl: "http://localhost:11434",
-  spentUsd: 0,
-  apiKey: ""
+  spentUsd: 0
 };
 
 // Nullable existingGroupId is required so OpenAI's strict schema can require every property.
@@ -338,10 +335,33 @@ const PROVIDERS = {
 };
 
 let spendQueue = Promise.resolve();
-let autoTimer = null;
 const organizeJobs = new Map();
 
+let legacyCredentialMigration = null;
+
+// Copies the pre-rename Anthropic credential ("apiKey") into anthropicKey at
+// most once, then removes the legacy key so clearing the field stays cleared.
+// Single-flight; a storage failure resets the cached promise so a later call
+// retries. The credential value is never logged or returned.
+function migrateLegacyCredential() {
+  if (!legacyCredentialMigration) {
+    legacyCredentialMigration = (async () => {
+      const stored = await chrome.storage.local.get({ anthropicKey: "", apiKey: "" });
+      const legacy = typeof stored.apiKey === "string" ? stored.apiKey.trim() : "";
+      if (!stored.anthropicKey && legacy) {
+        await chrome.storage.local.set({ anthropicKey: legacy });
+      }
+      await chrome.storage.local.remove("apiKey");
+    })().catch((error) => {
+      legacyCredentialMigration = null;
+      throw error;
+    });
+  }
+  return legacyCredentialMigration;
+}
+
 async function getSettings() {
+  await migrateLegacyCredential().catch(() => undefined);
   const [prefs, local] = await Promise.all([
     chrome.storage.sync.get({ ...DEFAULT_PREFS, model: "" }),
     chrome.storage.local.get(DEFAULT_LOCAL)
@@ -354,7 +374,6 @@ async function getSettings() {
     ...DEFAULT_PREFS,
     ...prefs,
     ...local,
-    anthropicKey: local.anthropicKey || local.apiKey || "",
     modelByProvider,
     model: modelByProvider[prefs.provider || DEFAULT_PREFS.provider]
   };
@@ -367,23 +386,21 @@ async function hasDataNoticeAck() {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const handlers = {
-    organize: () => organize(msg.hasContentPermission, { windowId: msg.windowId }),
+    organize: () => organize(msg.hasContentPermission, msg.windowId),
     organizeStatus: () => getOrganizeStatus(msg.windowId),
     consumeOrganizeResult: () => consumeOrganizeResult(msg.windowId, msg.jobId),
     applyPlan: () => applyPlan(msg.groups, msg.minSize || 1, { windowId: msg.windowId, snapshot: true }),
     ungroupAll: () => ungroupAll(msg.windowId),
     cleanDuplicates: () => cleanDuplicates(msg.windowId, { snapshot: true }),
-    undo: () => undo(),
-    hasUndo: () => hasUndo(),
-    mergeWindows: () => mergeWindows(msg.windowId),
-    windowCount: () => windowCount(),
-    monitorState: () => getMonitorState(msg.windowId),
+    undo: () => undo(msg.windowId),
+    hasUndo: () => hasUndo(msg.windowId),
     listModels: () => listModels(msg.provider),
+    migrateLegacyCredential: () => migrateLegacyCredential().then(() => ({ done: true })),
     exportGroups: () => exportGroups(msg.windowId),
     importGroups: () => importGroups(msg.payload, msg.windowId),
     listGroups: () => listGroups(msg.windowId),
     stashGroup: () => stashGroup(msg.windowId, msg.groupId),
-    listStashes: () => listStashes(),
+    listStashes: () => listStashes(msg.windowId),
     resumeStash: () => resumeStash(msg.stashId, msg.windowId),
     deleteStash: () => deleteStash(msg.stashId),
     command: () => runCommand(msg.query, msg.windowId, msg.hasContentPermission),
@@ -397,11 +414,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
-async function organize(hasContentPermission, { automatic = false, windowId } = {}) {
+async function organize(hasContentPermission, windowId) {
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  // Consent is enforced here, not in the popup: UI state is not a security
+  // boundary, and no job/tab/provider work may happen before this check.
+  if (!(await hasDataNoticeAck())) {
+    return { error: "Acknowledge the AI data notice in the popup first." };
+  }
   const active = organizeJobs.get(targetWindowId);
   if (active?.status === "running") {
-    return automatic ? { skipped: true } : { running: true, job: publicOrganizeJob(active) };
+    return { running: true, job: publicOrganizeJob(active) };
   }
 
   const now = Date.now();
@@ -412,31 +434,19 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
     stage: "collecting",
     startedAt: now,
     updatedAt: now,
-    tabCount: 0,
-    automatic
+    tabCount: 0
   };
   organizeJobs.set(targetWindowId, job);
   await persistOrganizeJob(job);
-  // Captured before the badge logic clears it mid-run; a monitor-prompted
-  // organize gets a "Filed N tabs" notification on completion.
-  const monitorAlerted = Boolean(
-    (await chrome.storage.local.get({ monitorAlertedWindows: {} })).monitorAlertedWindows[String(targetWindowId)]
-  );
-  await chrome.notifications.clear(`${MONITOR_NOTIFICATION_PREFIX}${targetWindowId}`).catch(() => undefined);
 
   const stopKeepalive = startKeepalive();
 
   try {
     let settings = await getSettings();
     if (!hasProviderAccess(settings)) {
-      const result = automatic ? { skipped: true } : { error: missingCredentialMessage(settings.provider) };
-      return finishOrganizeJob(job, result);
+      return finishOrganizeJob(job, { error: missingCredentialMessage(settings.provider) });
     }
     settings = await ensureModel(settings);
-
-    if (settings.mergeOnOrganize) {
-      await mergeWindows(targetWindowId);
-    }
 
     let dedupeMutated = false;
     if (settings.dedupeOnOrganize) {
@@ -473,7 +483,7 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
       return finishOrganizeJob(job, { error: "No coherent groups found — tabs left as they are." });
     }
 
-    if (settings.reviewFirst && !automatic) {
+    if (settings.reviewFirst) {
       const titleById = Object.fromEntries(tabInfo.map((tab) => [tab.id, tab.title]));
       return finishOrganizeJob(job, {
         review: true,
@@ -495,7 +505,6 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
 
     updateOrganizeJob(job, { stage: "applying" });
     const result = await applyPlan(groups, minSize, { windowId: targetWindowId, snapshot: !dedupeMutated });
-    if ((automatic || monitorAlerted) && result.done) notifyAutoFiled(result);
     return finishOrganizeJob(job, result);
   } catch (error) {
     const message = error?.name === "TimeoutError"
@@ -785,7 +794,6 @@ async function applyPlan(groups, minSize = 1, { windowId, snapshot = true } = {}
   if (!applied.length) return { error: "Tabs closed or moved before groups could be created." };
   const newGroups = applied.map((item) => item.newGroup).filter(Boolean);
   await orderTabStrip(targetWindowId, newGroups);
-  scheduleAutoCheck();
   return {
     done: true,
     groupCount: applied.length,
@@ -796,20 +804,6 @@ async function applyPlan(groups, minSize = 1, { windowId, snapshot = true } = {}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function notifyAutoFiled(result) {
-  if (!chrome.notifications) return;
-  const names = result.groupNames || [];
-  const message = names.length === 1
-    ? `Filed ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"} → ${names[0]}`
-    : `Filed ${result.tabCount} tabs into ${result.groupCount} groups`;
-  chrome.notifications.create({
-    type: "basic",
-    iconUrl: "icons/icon128.png",
-    title: "Focused",
-    message
-  }, () => chrome.runtime.lastError);
 }
 
 async function orderTabStrip(windowId, newGroups) {
@@ -856,7 +850,6 @@ async function ungroupAll(windowId) {
   if (!ids.length) return { error: "No grouped tabs in this window." };
   await storeUndoSnapshot(await captureSnapshot(targetWindowId));
   await chrome.tabs.ungroup(ids);
-  scheduleAutoCheck();
   return { done: true, tabCount: ids.length };
 }
 
@@ -886,33 +879,38 @@ async function cleanDuplicates(windowId, { snapshot = true } = {}) {
 
   if (snapshot) {
     const captured = await captureSnapshot(targetWindowId);
-    captured.closedUrls = toClose.map((tab) => tab.url).filter(Boolean);
-    captured.closedTabIds = toClose.map((tab) => tab.id);
+    captured.closedTabs = toClose
+      .filter((tab) => tab.url)
+      .map((tab) => ({ originalId: tab.id, url: tab.url, reopenedId: null }));
     await storeUndoSnapshot(captured);
   }
   await chrome.tabs.remove(toClose.map((tab) => tab.id));
-  scheduleAutoCheck();
   return { done: true, closedCount: toClose.length };
 }
 
+// Fragments are part of duplicate identity: hash-routed apps encode the
+// document/route after "#", so stripping it can close distinct pages.
 function normalizedDuplicateUrl(value) {
   if (!value) return null;
   try {
-    const url = new URL(value);
-    url.hash = "";
-    return url.href;
+    return new URL(value).href;
   } catch {
     return null;
   }
 }
 
 async function captureSnapshot(windowId) {
-  const [tabs, groups] = await Promise.all([
+  // If the window cannot be read, this throws and the destructive action that
+  // wanted a snapshot fails before touching any tabs.
+  const [targetWindow, tabs, groups] = await Promise.all([
+    chrome.windows.get(windowId),
     chrome.tabs.query({ windowId }),
     chrome.tabGroups.query({ windowId })
   ]);
   return {
+    version: 2,
     windowId,
+    incognito: Boolean(targetWindow.incognito),
     tabs: tabs.map((tab) => ({
       id: tab.id,
       url: tab.url || "",
@@ -921,81 +919,212 @@ async function captureSnapshot(windowId) {
       groupId: tab.groupId
     })),
     groups: groups.map((group) => ({ id: group.id, title: group.title || "", color: group.color })),
-    closedUrls: [],
-    closedTabIds: []
+    closedTabs: []
   };
 }
 
-async function storeUndoSnapshot(snapshot) {
-  try {
-    if (!chrome.storage.session) throw new Error();
-    await chrome.storage.session.set({ [UNDO_KEY]: snapshot });
-    await chrome.storage.local.remove(UNDO_KEY);
-  } catch {
-    await chrome.storage.local.set({ [UNDO_KEY]: snapshot });
+// Accepts only Plan-003 v2 records. Snapshots written before the closedTabs
+// journal existed carried parallel closedUrls/closedTabIds arrays; zip those
+// into journal entries. Unversioned records are rejected, never migrated.
+function normalizeUndoSnapshot(snapshot) {
+  if (
+    !snapshot ||
+    snapshot.version !== 2 ||
+    !Number.isInteger(snapshot.windowId) ||
+    typeof snapshot.incognito !== "boolean"
+  ) {
+    return null;
+  }
+  const normalized = { ...snapshot };
+  let closedTabs;
+  if (Array.isArray(snapshot.closedTabs)) {
+    closedTabs = snapshot.closedTabs;
+  } else {
+    const ids = Array.isArray(snapshot.closedTabIds) ? snapshot.closedTabIds : [];
+    const urls = Array.isArray(snapshot.closedUrls) ? snapshot.closedUrls : [];
+    closedTabs = urls.map((url, index) => ({ originalId: ids[index], url, reopenedId: null }));
+  }
+  normalized.closedTabs = closedTabs
+    .filter((entry) => entry && typeof entry.url === "string" && entry.url)
+    .map((entry) => ({
+      originalId: Number.isInteger(entry.originalId) ? entry.originalId : null,
+      url: entry.url,
+      reopenedId: Number.isInteger(entry.reopenedId) ? entry.reopenedId : null
+    }));
+  delete normalized.closedUrls;
+  delete normalized.closedTabIds;
+  return normalized;
+}
+
+// Incognito undo lives only in worker memory: chrome.storage.session and
+// chrome.storage.local are shared with regular browsing, so persisting these
+// snapshots would leak private URLs. It intentionally dies with the worker.
+const incognitoUndoByWindow = new Map();
+
+function undoStorageKey(windowId) {
+  return Number.isInteger(windowId) ? `${UNDO_KEY_PREFIX}${windowId}` : null;
+}
+
+// The legacy global key never recorded which browsing context wrote it, so it
+// is deleted, never migrated. Losing one old undo record is the safe choice.
+async function purgeLegacyUndo() {
+  await chrome.storage.local.remove(LEGACY_UNDO_KEY).catch(() => undefined);
+  if (chrome.storage.session) {
+    await chrome.storage.session.remove(LEGACY_UNDO_KEY).catch(() => undefined);
   }
 }
 
-async function getUndoSnapshot() {
+async function storeUndoSnapshot(snapshot) {
+  if (
+    !snapshot ||
+    snapshot.version !== 2 ||
+    !Number.isInteger(snapshot.windowId) ||
+    typeof snapshot.incognito !== "boolean"
+  ) {
+    throw new Error("Invalid undo snapshot.");
+  }
+  if (snapshot.incognito) {
+    incognitoUndoByWindow.set(snapshot.windowId, snapshot);
+    return;
+  }
+  const key = undoStorageKey(snapshot.windowId);
+  try {
+    if (!chrome.storage.session) throw new Error();
+    await chrome.storage.session.set({ [key]: snapshot });
+    await chrome.storage.local.remove(key);
+  } catch {
+    await chrome.storage.local.set({ [key]: snapshot });
+  }
+}
+
+async function getUndoSnapshot(windowId) {
+  if (!Number.isInteger(windowId)) return null;
+  const targetWindow = await chrome.windows.get(windowId).catch(() => null);
+  if (!targetWindow) return null;
+  if (targetWindow.incognito) {
+    return normalizeUndoSnapshot(incognitoUndoByWindow.get(windowId) || null);
+  }
+  const key = undoStorageKey(windowId);
+  let stored = null;
   try {
     if (chrome.storage.session) {
-      const session = await chrome.storage.session.get(UNDO_KEY);
-      if (session[UNDO_KEY]) return session[UNDO_KEY];
+      stored = (await chrome.storage.session.get(key))[key] || null;
     }
   } catch {
     // Fall through to local storage.
   }
-  const local = await chrome.storage.local.get(UNDO_KEY);
-  return local[UNDO_KEY] || null;
+  if (!stored) {
+    stored = (await chrome.storage.local.get(key))[key] || null;
+  }
+  if (!stored) return null;
+  if (stored.version !== 2 || stored.windowId !== windowId || stored.incognito !== false) {
+    await removeStoredUndo(key);
+    return null;
+  }
+  return normalizeUndoSnapshot(stored);
 }
 
-async function clearUndoSnapshot() {
-  const tasks = [chrome.storage.local.remove(UNDO_KEY)];
-  if (chrome.storage.session) tasks.push(chrome.storage.session.remove(UNDO_KEY).catch(() => undefined));
+async function removeStoredUndo(key) {
+  if (!key) return;
+  const tasks = [chrome.storage.local.remove(key).catch(() => undefined)];
+  if (chrome.storage.session) tasks.push(chrome.storage.session.remove(key).catch(() => undefined));
   await Promise.all(tasks);
 }
 
-async function hasUndo() {
-  return { hasUndo: Boolean(await getUndoSnapshot()) };
+async function clearUndoSnapshot(windowId) {
+  incognitoUndoByWindow.delete(windowId);
+  await removeStoredUndo(undoStorageKey(windowId));
 }
 
-async function undo() {
-  const snapshot = await getUndoSnapshot();
+async function hasUndo(windowId) {
+  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  return { hasUndo: Boolean(await getUndoSnapshot(targetWindowId)) };
+}
+
+// Undo is retryable: reopened tab IDs are checkpointed into the snapshot
+// before further work so a retry reuses them instead of duplicating tabs, and
+// the snapshot is cleared only after every recoverable operation succeeds.
+async function undo(windowId) {
+  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  const snapshot = await getUndoSnapshot(targetWindowId);
   if (!snapshot) return { error: "Nothing to undo." };
 
+  let failedCount = 0;
+  let skippedCount = 0;
   const idMap = new Map();
-  const closedIds = snapshot.closedTabIds || [];
-  for (let i = 0; i < (snapshot.closedUrls || []).length; i++) {
-    const url = snapshot.closedUrls[i];
-    try {
-      const tab = await chrome.tabs.create({ windowId: snapshot.windowId, url, active: false });
-      if (closedIds[i] !== undefined) idMap.set(closedIds[i], tab.id);
-    } catch {
-      // Invalid or no longer permitted URL; continue restoring the rest.
+  const partialResult = () => ({
+    error: "Undo partially restored. Retry Undo to finish.",
+    partial: true,
+    tabCount: 0,
+    reopenedCount: snapshot.closedTabs.filter((entry) => Number.isInteger(entry.reopenedId)).length,
+    failedCount,
+    skippedCount
+  });
+
+  for (const entry of snapshot.closedTabs) {
+    if (Number.isInteger(entry.reopenedId)) {
+      const existing = await chrome.tabs.get(entry.reopenedId).catch(() => null);
+      if (existing && existing.windowId === snapshot.windowId && existing.url === entry.url) {
+        if (entry.originalId !== null) idMap.set(entry.originalId, entry.reopenedId);
+        continue;
+      }
+      entry.reopenedId = null;
     }
+    const tab = await chrome.tabs
+      .create({ windowId: snapshot.windowId, url: entry.url, active: false })
+      .catch(() => null);
+    if (!tab) {
+      failedCount++;
+      continue;
+    }
+    entry.reopenedId = tab.id;
+    const checkpointed = await storeUndoSnapshot(snapshot).then(() => true, () => false);
+    if (!checkpointed) {
+      // Never leave an unjournaled tab behind: without the checkpoint a retry
+      // would open a duplicate of it.
+      entry.reopenedId = null;
+      await chrome.tabs.remove(tab.id).catch(() => undefined);
+      failedCount++;
+      return partialResult();
+    }
+    if (entry.originalId !== null) idMap.set(entry.originalId, tab.id);
   }
 
+  const journaledIds = new Set(
+    snapshot.closedTabs.map((entry) => entry.originalId).filter((id) => id !== null)
+  );
   const restored = [];
   for (const original of snapshot.tabs || []) {
-    const id = idMap.get(original.id) || original.id;
-    try {
-      const tab = await chrome.tabs.get(id);
-      if (tab.windowId === snapshot.windowId) restored.push({ original, id, tab });
-    } catch {
-      // A tab closed after the action cannot be restored without a closed URL record.
+    const liveId = idMap.get(original.id) || original.id;
+    const tab = await chrome.tabs.get(liveId).catch(() => null);
+    if (!tab || tab.windowId !== snapshot.windowId) {
+      // Closed by the user after the action, with no journaled URL to recreate
+      // it from. Skipped, not retryable.
+      if (!journaledIds.has(original.id)) skippedCount++;
+      continue;
     }
+    restored.push({ original, id: liveId, tab });
   }
 
+  // Restoration re-runs idempotently on retry: ungroup returns everything to a
+  // known state before pins, order, and groups are reapplied.
   const groupedIds = restored.filter((item) => item.tab.groupId !== -1).map((item) => item.id);
-  if (groupedIds.length) await chrome.tabs.ungroup(groupedIds).catch(() => undefined);
+  if (groupedIds.length) {
+    const ungrouped = await chrome.tabs.ungroup(groupedIds).then(() => true, () => false);
+    if (!ungrouped) failedCount++;
+  }
 
   for (const item of restored) {
     if (item.tab.pinned !== item.original.pinned) {
-      await chrome.tabs.update(item.id, { pinned: item.original.pinned }).catch(() => undefined);
+      const pinned = await chrome.tabs
+        .update(item.id, { pinned: item.original.pinned })
+        .then(() => true, () => false);
+      if (!pinned) failedCount++;
     }
   }
   for (const item of [...restored].sort((a, b) => a.original.index - b.original.index)) {
-    await chrome.tabs.move(item.id, { index: item.original.index }).catch(() => undefined);
+    const moved = await chrome.tabs.move(item.id, { index: item.original.index }).then(() => true, () => false);
+    if (!moved) failedCount++;
   }
 
   const groupMeta = new Map((snapshot.groups || []).map((group) => [group.id, group]));
@@ -1013,13 +1142,17 @@ async function undo() {
       const index = Math.min(...members.map((item) => item.original.index));
       await chrome.tabGroups.move(newGroupId, { index });
     } catch {
-      // Restore as much as possible if a tab changes during undo.
+      failedCount++;
     }
   }
 
-  await clearUndoSnapshot();
-  scheduleAutoCheck();
-  return { done: true, tabCount: restored.length, reopenedCount: idMap.size };
+  const reopenedCount = snapshot.closedTabs.filter((entry) => Number.isInteger(entry.reopenedId)).length;
+  if (failedCount > 0) {
+    await storeUndoSnapshot(snapshot).catch(() => undefined);
+    return { ...partialResult(), tabCount: restored.length, reopenedCount };
+  }
+  await clearUndoSnapshot(targetWindowId);
+  return { done: true, tabCount: restored.length, reopenedCount, skippedCount };
 }
 
 async function exportGroups(windowId) {
@@ -1068,7 +1201,6 @@ async function importGroups(payload, windowId) {
     groupCount++;
     tabCount += tabIds.length;
   }
-  scheduleAutoCheck();
   return { done: true, groupCount, tabCount };
 }
 
@@ -1215,7 +1347,6 @@ async function createPromptGroup({ tabIds, expectedUrls, name, color, windowId }
   await storeUndoSnapshot(await captureSnapshot(windowId));
   const groupId = await chrome.tabs.group({ tabIds: liveIds });
   await chrome.tabGroups.update(groupId, { title: name, color });
-  scheduleAutoCheck();
   return { groupId, groupName: name, tabCount: liveIds.length };
 }
 
@@ -1255,6 +1386,8 @@ function mutateStashes(mutator) {
   return stashQueue;
 }
 
+// The resume claim journal (token, target window, opened tab IDs) is internal
+// recovery data and must never reach React through this projection.
 function publicStash(stash) {
   return {
     id: stash.id,
@@ -1263,8 +1396,114 @@ function publicStash(stash) {
     createdAt: stash.createdAt,
     tabCount: (stash.tabs || []).length,
     brief: stash.brief || "",
-    briefStatus: stash.briefStatus || "unavailable"
+    briefStatus: stash.briefStatus || "unavailable",
+    resumeStatus: stashResumeActive(stash, Date.now()) ? "resuming" : "idle"
   };
+}
+
+function stashResumeActive(stash, now) {
+  return Boolean(stash.resume && now - stash.resume.startedAt <= STASH_RESUME_STALE_MS);
+}
+
+async function readStash(stashId) {
+  const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
+  const list = Array.isArray(stored[STASH_KEY]) ? stored[STASH_KEY] : [];
+  return list.find((item) => item.id === stashId) || null;
+}
+
+// Claim a stash for one resume attempt. Outcomes: { error } for missing or
+// already-resuming, or { stash, token, targetWindowId, opened } on success.
+// Stale claims are recovered by revalidating each journaled tab against the
+// live browser instead of creating duplicates.
+async function claimStashResume(stashId, requestedWindowId) {
+  const existing = await readStash(stashId);
+  if (!existing) return { error: "That stash is gone." };
+  if (stashResumeActive(existing, Date.now())) {
+    return { error: "This stash is already being resumed." };
+  }
+
+  const priorTarget = existing.resume?.targetWindowId;
+  const recovered = [];
+  for (const entry of existing.resume?.opened || []) {
+    if (!Number.isInteger(entry?.tabId)) continue;
+    const tab = await chrome.tabs.get(entry.tabId).catch(() => null);
+    if (!tab || tab.url !== entry.url || tab.windowId !== priorTarget) continue;
+    recovered.push({ sourceIndex: entry.sourceIndex, tabId: entry.tabId, url: entry.url });
+  }
+  if (recovered.length && priorTarget !== requestedWindowId) {
+    const priorWindow = await chrome.windows.get(priorTarget).catch(() => null);
+    if (priorWindow) {
+      return { error: "This stash was partially resumed in another window — finish resuming it from that window." };
+    }
+  }
+  const targetWindowId = recovered.length ? priorTarget : requestedWindowId;
+
+  const token = `resume-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  let outcome = null;
+  await mutateStashes((list) =>
+    list.map((item) => {
+      if (item.id !== stashId) return item;
+      if (stashResumeActive(item, Date.now())) {
+        outcome = { error: "This stash is already being resumed." };
+        return item;
+      }
+      outcome = { stash: { ...item } };
+      return { ...item, resume: { token, startedAt: Date.now(), targetWindowId, opened: recovered } };
+    })
+  ).catch(() => undefined);
+  if (!outcome) return { error: "That stash is gone." };
+  if (outcome.error) return outcome;
+  return { stash: outcome.stash, token, targetWindowId, opened: recovered };
+}
+
+// Journal one reopened tab under the active token so an interrupted attempt
+// can be recovered without duplicating tabs.
+function recordResumedTab(stashId, token, entry) {
+  return mutateStashes((list) =>
+    list.map((item) =>
+      item.id === stashId && item.resume?.token === token
+        ? {
+            ...item,
+            resume: {
+              ...item.resume,
+              opened: [...item.resume.opened.filter((opened) => opened.sourceIndex !== entry.sourceIndex), entry]
+            }
+          }
+        : item
+    )
+  );
+}
+
+// Release a matching claim while keeping the stash. Surviving opened mappings
+// stay journaled (marked stale) so a retry can reuse those tabs.
+function releaseStashResume(stashId, token, surviving) {
+  return mutateStashes((list) =>
+    list.map((item) => {
+      if (item.id !== stashId || item.resume?.token !== token) return item;
+      const next = { ...item };
+      if (surviving.length) {
+        next.resume = { ...item.resume, startedAt: 0, opened: surviving };
+      } else {
+        delete next.resume;
+      }
+      return next;
+    })
+  );
+}
+
+// Deleting the stash record is the last step of resume and must be
+// token-matched: only the attempt that finished every tab and group write may
+// consume it.
+async function consumeStash(stashId, token) {
+  let consumed = false;
+  const ok = await mutateStashes((list) =>
+    list.filter((item) => {
+      if (item.id !== stashId || item.resume?.token !== token) return true;
+      consumed = true;
+      return false;
+    })
+  ).then(() => true, () => false);
+  return ok && consumed;
 }
 
 async function listGroups(windowId) {
@@ -1297,7 +1536,7 @@ async function stashGroup(windowId, groupId) {
     tabs
       .filter((tab) => tab.groupId === groupId && tab.url && /^https?:/.test(tab.url))
       .sort((a, b) => a.index - b.index);
-  const savable = savableIn(await chrome.tabs.query({ windowId: group.windowId }));
+  const savable = savableIn(await chrome.tabs.query({ windowId: groupWindow.id }));
   if (!savable.length) return { error: "No saveable web tabs in that group." };
 
   // Read page snippets before the tabs close so the brief can cite real details.
@@ -1323,25 +1562,39 @@ async function stashGroup(windowId, groupId) {
     if (urlById[tab.id] && urlById[tab.id] !== tab.url) delete snippets[tab.id];
   }
 
+  // Closing every tab in the fresh window would close the window itself, so a
+  // safety tab must exist first — and must be in the re-fetched window, not the
+  // window the group started in before snippet collection.
+  let safetyTabId = null;
+  if (freshSavable.length === allTabs.length) {
+    const safety = await chrome.tabs.create({ windowId: freshGroup.windowId }).catch(() => null);
+    if (!safety) return { error: "Couldn't keep the window open — nothing was stashed or closed." };
+    safetyTabId = safety.id;
+  }
+
   const stash = {
     id: `stash-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name: (group.title || "Stashed tabs").slice(0, 80),
-    color: group.color,
+    name: (freshGroup.title || "Stashed tabs").slice(0, 80),
+    color: freshGroup.color,
     createdAt: Date.now(),
     tabs: freshSavable.map((tab) => ({ id: tab.id, url: tab.url, title: tab.title || "" })),
     brief: "",
     briefStatus: "pending"
   };
-  await mutateStashes((list) => [stash, ...list]);
+  const persisted = await mutateStashes((list) => [stash, ...list]).then(() => true, () => false);
+  if (!persisted) {
+    if (safetyTabId !== null) await chrome.tabs.remove(safetyTabId).catch(() => undefined);
+    return { error: "Couldn't save the stash — nothing was closed." };
+  }
 
   // Close only the tabs that were saved; a chrome:// or file:// tab in the
-  // group would otherwise be lost. Closing must not close the whole window.
-  if (freshSavable.length === allTabs.length) {
-    await chrome.tabs.create({ windowId: group.windowId }).catch(() => undefined);
-  }
-  await chrome.tabs.remove(freshSavable.map((tab) => tab.id));
-  scheduleAutoCheck();
+  // group would otherwise be lost.
+  const closed = await chrome.tabs.remove(freshSavable.map((tab) => tab.id)).then(() => true, () => false);
   generateStashBrief(stash, snippets).catch(() => undefined);
+  if (!closed) {
+    // The stash is saved; duplicated open tabs are safer than lost ones.
+    return { error: "Stashed the group, but some tabs couldn't be closed — close them manually." };
+  }
   return { done: true, stash: publicStash(stash) };
 }
 
@@ -1379,7 +1632,11 @@ Rules:
   }
 }
 
-async function listStashes() {
+async function listStashes(windowId) {
+  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  const targetWindow = await chrome.windows.get(targetWindowId).catch(() => null);
+  // Stashes are regular-browsing data; an incognito popup gets no metadata.
+  if (targetWindow?.incognito) return { stashes: [], unavailableInIncognito: true };
   const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
   const stashes = Array.isArray(stored[STASH_KEY]) ? stored[STASH_KEY] : [];
   return {
@@ -1395,36 +1652,101 @@ async function listStashes() {
   };
 }
 
+// Resume is all-or-nothing: the stash record is consumed only after every tab
+// and the group metadata succeed. Every failure path retains the stash — it may
+// be the only surviving copy of tabs Focused already closed.
 async function resumeStash(stashId, windowId) {
-  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
-  const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
-  const stash = (stored[STASH_KEY] || []).find((item) => item.id === stashId);
-  if (!stash) return { error: "That stash is gone." };
+  const requestedWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  const targetWindow = await chrome.windows.get(requestedWindowId).catch(() => null);
+  if (!targetWindow) return { error: "That window is gone." };
+  if (targetWindow.incognito) return { error: "Stashes aren't available in incognito windows." };
 
-  const tabIds = [];
-  for (const item of stash.tabs || []) {
-    if (!safeImportUrl(item.url)) continue;
-    try {
-      const tab = await chrome.tabs.create({ windowId: targetWindowId, url: item.url, active: false });
-      tabIds.push(tab.id);
-    } catch {
-      // Skip URLs the browser refuses to open.
+  const claim = await claimStashResume(stashId, requestedWindowId);
+  if (claim.error) return claim;
+  const { stash, token, targetWindowId } = claim;
+
+  const entries = Array.isArray(stash.tabs) ? stash.tabs : [];
+  const createdThisAttempt = [];
+
+  // Roll back only tabs created by this invocation; tabs recovered from an
+  // older journaled attempt are never closed. Anything that survives stays in
+  // the journal so a retry can pick it up.
+  const failAndRetain = async (message) => {
+    const surviving = [...claim.opened];
+    let leftover = false;
+    for (const entry of createdThisAttempt) {
+      const removed = await chrome.tabs.remove(entry.tabId).then(() => true, () => false);
+      if (!removed && (await chrome.tabs.get(entry.tabId).catch(() => null))) {
+        surviving.push(entry);
+        leftover = true;
+      }
+    }
+    await releaseStashResume(stashId, token, surviving).catch(() => undefined);
+    return {
+      error: leftover || claim.opened.length
+        ? `${message} Some reopened tabs may still be open; resuming again will reuse them.`
+        : message
+    };
+  };
+
+  if (!entries.length) return failAndRetain("This stash has no tabs to reopen.");
+  for (const entry of entries) {
+    if (!safeImportUrl(entry.url)) {
+      return failAndRetain("This stash contains an unsafe URL, so nothing was reopened.");
     }
   }
-  if (!tabIds.length) return { error: "Couldn't reopen any tabs from this stash." };
 
-  const groupId = await chrome.tabs.group({ tabIds });
-  await chrome.tabGroups.update(groupId, {
-    title: stash.name,
-    color: GROUP_COLORS.includes(stash.color) ? stash.color : "grey"
-  });
-  await mutateStashes((list) => list.filter((item) => item.id !== stashId));
-  scheduleAutoCheck();
-  return { done: true, tabCount: tabIds.length, brief: stash.brief || "" };
+  const recoveredByIndex = new Map(claim.opened.map((entry) => [entry.sourceIndex, entry]));
+  const finalTabIds = [];
+  for (let index = 0; index < entries.length; index++) {
+    const recovered = recoveredByIndex.get(index);
+    if (recovered) {
+      finalTabIds.push(recovered.tabId);
+      continue;
+    }
+    const tab = await chrome.tabs
+      .create({ windowId: targetWindowId, url: entries[index].url, active: false })
+      .catch(() => null);
+    if (!tab) return failAndRetain("Couldn't reopen every tab, so the stash was kept.");
+    finalTabIds.push(tab.id);
+    const entry = { sourceIndex: index, tabId: tab.id, url: entries[index].url };
+    createdThisAttempt.push(entry);
+    const journaled = await recordResumedTab(stashId, token, entry).then(() => true, () => false);
+    if (!journaled) return failAndRetain("Couldn't record progress, so the stash was kept.");
+  }
+
+  try {
+    const groupId = await chrome.tabs.group({ tabIds: finalTabIds });
+    await chrome.tabGroups.update(groupId, {
+      title: stash.name,
+      color: GROUP_COLORS.includes(stash.color) ? stash.color : "grey"
+    });
+  } catch {
+    return failAndRetain("Couldn't recreate the group, so the stash was kept.");
+  }
+
+  const consumed = await consumeStash(stashId, token);
+  if (!consumed) {
+    await releaseStashResume(stashId, token, [...claim.opened, ...createdThisAttempt]).catch(() => undefined);
+    return { error: "Tabs were reopened, but the stash record couldn't be cleared. It remains saved." };
+  }
+  return { done: true, tabCount: finalTabIds.length, brief: stash.brief || "" };
 }
 
 async function deleteStash(stashId) {
-  await mutateStashes((list) => list.filter((item) => item.id !== stashId));
+  let blocked = false;
+  const ok = await mutateStashes((list) =>
+    list.filter((item) => {
+      if (item.id !== stashId) return true;
+      if (stashResumeActive(item, Date.now())) {
+        blocked = true;
+        return true;
+      }
+      return false;
+    })
+  ).then(() => true, () => false);
+  if (blocked) return { error: "This stash is being resumed — try again in a moment." };
+  if (!ok) return { error: "Couldn't delete the stash. Try again." };
   return { done: true };
 }
 
@@ -1452,52 +1774,6 @@ async function getExistingGroupContext(windowId, tabs) {
     color: group.color,
     tabs: titlesByGroup.get(group.id) || []
   }));
-}
-
-async function windowCount() {
-  const current = await chrome.windows.getCurrent();
-  const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
-  return { count: windows.filter((window) => window.incognito === current.incognito).length };
-}
-
-async function getMonitorState(windowId) {
-  const settings = await getSettings();
-  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
-  const tabs = await chrome.tabs.query({ windowId: targetWindowId });
-  const count = countOrganizableTabs(tabs);
-  const threshold = Math.max(1, Number(settings.autoThreshold) || 15);
-  return {
-    count,
-    threshold,
-    enabled: settings.auto !== "off",
-    shouldPrompt: settings.auto !== "off" && count >= threshold
-  };
-}
-
-// Merge every other same-profile window into the popup's window and retain whole groups.
-async function mergeWindows(targetWindowId) {
-  const current = targetWindowId ? await chrome.windows.get(targetWindowId) : await chrome.windows.getCurrent();
-  const windows = await chrome.windows.getAll({ windowTypes: ["normal"], populate: true });
-  const others = windows.filter((window) => window.id !== current.id && window.incognito === current.incognito);
-  if (!others.length) return { error: "Only one window open." };
-
-  let moved = 0;
-  for (const window of others) {
-    const groupIds = [...new Set(window.tabs.map((tab) => tab.groupId).filter((id) => id !== -1))];
-    for (const groupId of groupIds) {
-      await chrome.tabGroups.move(groupId, { windowId: current.id, index: -1 });
-    }
-    const loose = window.tabs.filter((tab) => tab.groupId === -1);
-    for (const tab of loose) {
-      await chrome.tabs.move(tab.id, { windowId: current.id, index: -1 });
-      if (tab.pinned) await chrome.tabs.update(tab.id, { pinned: true });
-      moved++;
-    }
-    moved += window.tabs.length - loose.length;
-  }
-  await chrome.windows.update(current.id, { focused: true });
-  scheduleAutoCheck();
-  return { done: true, windows: others.length, tabs: moved };
 }
 
 async function checkBudget(settings) {
@@ -1528,84 +1804,18 @@ function priceFor(provider, model) {
   return match ? { input: match[1], output: match[2] } : { input: 10, output: 50 };
 }
 
-function scheduleAutoCheck() {
-  if (autoTimer) clearTimeout(autoTimer);
-  autoTimer = setTimeout(() => {
-    autoTimer = null;
-    refreshAutoState().catch(() => undefined);
-  }, 2000);
-}
-
-async function refreshAutoState() {
-  const settings = await getSettings();
-  const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
-  const threshold = Math.max(1, Number(settings.autoThreshold) || 15);
-  const local = await chrome.storage.local.get({ monitorAlertedWindows: {} });
-  const alerted = { ...(local.monitorAlertedWindows || {}) };
-  const openWindowIds = new Set(windows.map((window) => String(window.id)));
-
-  for (const window of windows) {
-    const tabs = await chrome.tabs.query({ windowId: window.id });
-    const count = countOrganizableTabs(tabs);
-    const organizing = organizeJobs.get(window.id)?.status === "running";
-    const showBadge = !organizing && settings.auto !== "off" && count >= threshold;
-    await Promise.all(
-      tabs.map((tab) => chrome.action.setBadgeText({ tabId: tab.id, text: showBadge ? String(count) : "" }).catch(() => undefined))
-    );
-
-    const key = String(window.id);
-    const notificationId = `${MONITOR_NOTIFICATION_PREFIX}${window.id}`;
-    if (showBadge && !alerted[key]) {
-      const created = await chrome.notifications.create(notificationId, {
-        type: "basic",
-        iconUrl: chrome.runtime.getURL("icons/icon128.png"),
-        title: "Focused",
-        message: `Hey, you have ${count} tabs open. Do you want to organize it?`,
-        buttons: [{ title: "Open Focused" }],
-        priority: 1
-      }).then(() => true).catch(() => false);
-      if (created) alerted[key] = true;
-    } else if (!showBadge && alerted[key]) {
-      delete alerted[key];
-      await chrome.notifications.clear(notificationId).catch(() => undefined);
-    }
-  }
-
-  for (const key of Object.keys(alerted)) {
-    if (!openWindowIds.has(key)) delete alerted[key];
-  }
-  await chrome.storage.local.set({ monitorAlertedWindows: alerted });
-}
-
-function countOrganizableTabs(tabs) {
-  return tabs.filter((tab) => !tab.pinned && tab.groupId === -1 && tab.url && /^https?:/.test(tab.url)).length;
-}
-
-async function openMonitorPrompt(notificationId) {
-  if (!notificationId.startsWith(MONITOR_NOTIFICATION_PREFIX)) return;
-  const windowId = Number(notificationId.slice(MONITOR_NOTIFICATION_PREFIX.length));
-  if (!Number.isInteger(windowId)) return;
-  await chrome.windows.update(windowId, { focused: true }).catch(() => undefined);
-  await chrome.action.openPopup({ windowId }).catch(() => undefined);
-  await chrome.notifications.clear(notificationId).catch(() => undefined);
-}
-
-chrome.notifications.onClicked.addListener((notificationId) => {
-  openMonitorPrompt(notificationId).catch(() => undefined);
+chrome.windows.onRemoved.addListener((windowId) => {
+  incognitoUndoByWindow.delete(windowId);
 });
-chrome.notifications.onButtonClicked.addListener((notificationId) => {
-  openMonitorPrompt(notificationId).catch(() => undefined);
+// Clean up settings persisted by the removed merge and tab-monitor features.
+chrome.runtime.onInstalled.addListener(() => {
+  Promise.all([
+    chrome.storage.sync.remove(["mergeOnOrganize", "auto", "autoThreshold"]),
+    chrome.storage.local.remove("monitorAlertedWindows"),
+    migrateLegacyCredential()
+  ]).catch(() => undefined);
 });
-
-chrome.tabs.onCreated.addListener(scheduleAutoCheck);
-chrome.tabs.onRemoved.addListener(scheduleAutoCheck);
-chrome.tabs.onUpdated.addListener(scheduleAutoCheck);
-chrome.runtime.onInstalled.addListener(scheduleAutoCheck);
-chrome.runtime.onStartup.addListener(scheduleAutoCheck);
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "sync" && (changes.auto || changes.autoThreshold)) scheduleAutoCheck();
-});
-scheduleAutoCheck();
+purgeLegacyUndo().catch(() => undefined);
 
 async function anthropicRequest(apiKey, body) {
   const resp = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {

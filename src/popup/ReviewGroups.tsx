@@ -9,12 +9,14 @@ export function ReviewGroups({
   applying,
   onSelectedChange,
   onApply,
+  onDiscard,
 }: {
   groups: ProposedGroup[];
   selected: Set<number>;
   applying: boolean;
   onSelectedChange: (selected: Set<number>) => void;
   onApply: () => void;
+  onDiscard: () => void;
 }) {
   return (
     <section className="mt-5">
@@ -49,10 +51,15 @@ export function ReviewGroups({
           </label>
         ))}
       </div>
-      <Button onClick={onApply} disabled={!selected.size || applying} className="mt-3 w-full" size="sm">
-        {applying ? <LoaderCircle className="size-4 animate-spin" /> : null}
-        {applying ? "Applying…" : "Apply selected"}
-      </Button>
+      <div className="mt-3 flex gap-2">
+        <Button onClick={onDiscard} disabled={applying} variant="outline" className="flex-1" size="sm">
+          Discard
+        </Button>
+        <Button onClick={onApply} disabled={!selected.size || applying} className="flex-1" size="sm">
+          {applying ? <LoaderCircle className="size-4 animate-spin" /> : null}
+          {applying ? "Applying…" : "Apply selected"}
+        </Button>
+      </div>
     </section>
   );
 }
