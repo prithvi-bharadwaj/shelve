@@ -8,12 +8,14 @@ export function CommandBar({
   acknowledged,
   onAcknowledge,
   onRunningChange,
+  onGroupCreated,
 }: {
   windowId?: number;
   disabled: boolean;
   acknowledged: boolean;
   onAcknowledge: () => Promise<void>;
   onRunningChange: (running: boolean) => void;
+  onGroupCreated?: () => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   const [running, setRunning] = useState(false);
@@ -70,6 +72,10 @@ export function CommandBar({
         hasContentPermission,
       });
       setResult(res ?? { error: "Something went wrong." });
+      if (res?.action === "create_group" && !res.error) {
+        setQuery("");
+        await onGroupCreated?.().catch(() => undefined);
+      }
     } catch {
       setResult({ error: "Command was interrupted. Try again." });
     } finally {
@@ -93,7 +99,7 @@ export function CommandBar({
             if (event.key === "Enter") submit();
           }}
           disabled={disabled || running}
-          placeholder="What do you want to do?"
+          placeholder={'Try “group my O-1 visa memberships”'}
           aria-label="Command"
           className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground disabled:opacity-50"
         />
@@ -129,6 +135,8 @@ export function CommandBar({
               ? result.error
               : result.action === "open_tab"
                 ? `Jumped to “${result.tabTitle}”`
+                : result.action === "create_group"
+                  ? `Created “${result.groupName}” with ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"}`
                 : result.reply}
           </p>
           {result.action === "answer" && typeof result.tabId === "number" && (

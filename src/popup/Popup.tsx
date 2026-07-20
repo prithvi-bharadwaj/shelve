@@ -389,6 +389,9 @@ export function Popup() {
             acknowledged={acknowledged === true}
             onAcknowledge={acknowledgeNotice}
             onRunningChange={setCommandRunning}
+            onGroupCreated={async () => {
+              await Promise.all([refreshUndo(), refreshPanels()]);
+            }}
           />
 
           <button
