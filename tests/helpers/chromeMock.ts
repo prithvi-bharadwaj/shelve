@@ -79,6 +79,7 @@ export interface MockTabGroup {
   windowId: number;
   title?: string;
   color: string;
+  collapsed?: boolean;
 }
 
 export type ChromeMock = ReturnType<typeof createChromeMock>;

@@ -59,4 +59,34 @@ describe("background worker baseline", () => {
     expect(response).toEqual({ hasUndo: false });
     expect(JSON.parse(JSON.stringify(response))).toEqual(response);
   });
+
+  it("collapses a newly organized group after all of its tabs are filed", async () => {
+    const { invokeMessage, mock } = load();
+    const tab = {
+      id: 21,
+      windowId: 1,
+      url: "https://docs.test/one",
+      title: "One",
+      active: false,
+      pinned: false,
+      groupId: -1,
+      index: 0,
+    };
+    mock.chrome.tabs.query.mockImplementation(async () => [tab]);
+    mock.chrome.tabs.group.mockImplementation(async () => {
+      tab.groupId = 500;
+      return 500;
+    });
+
+    const response = await invokeMessage({
+      type: "applyPlan",
+      windowId: 1,
+      minSize: 1,
+      groups: [{ name: "Docs", color: "blue", tabIds: [21], existingGroupId: null }],
+    });
+
+    expect(response).toEqual(expect.objectContaining({ done: true, groupCount: 1, tabCount: 1 }));
+    expect(mock.chrome.tabGroups.update).toHaveBeenNthCalledWith(1, 500, { title: "Docs", color: "blue" });
+    expect(mock.chrome.tabGroups.update).toHaveBeenNthCalledWith(2, 500, { collapsed: true });
+  });
 });

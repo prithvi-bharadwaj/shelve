@@ -109,4 +109,40 @@ describe("CommandBar busy propagation", () => {
     commandDeferred.resolve({ done: true, action: "not_found", reply: "Nothing found." });
     await waitFor(() => expect(screen.getByRole("button", { name: "Ungroup" })).toBeEnabled());
   });
+
+  it("renders duplicate cleanup details and refreshes the parent after the mutation", async () => {
+    const user = userEvent.setup();
+    const onMutation = vi.fn(async () => undefined);
+    renderBar({ onMutation });
+    await typeAndSubmit(user, "remove duplicates");
+    commandDeferred.resolve({
+      done: true,
+      action: "remove_duplicates",
+      closedCount: 1,
+      closedTabs: [{ title: "Old copy", url: "https://duplicate.test/" }],
+    });
+
+    expect(await screen.findByText("Closed 1 duplicate tab")).toBeInTheDocument();
+    expect(screen.getByText("Old copy")).toBeInTheDocument();
+    expect(screen.getByText("https://duplicate.test/")).toBeInTheDocument();
+    await waitFor(() => expect(onMutation).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("textbox", { name: "Command" })).toHaveValue("");
+  });
+
+  it("renders a merged-groups result and refreshes the parent", async () => {
+    const user = userEvent.setup();
+    const onMutation = vi.fn(async () => undefined);
+    renderBar({ onMutation });
+    await typeAndSubmit(user, "merge fellowships and memberships");
+    commandDeferred.resolve({
+      done: true,
+      action: "merge_groups",
+      groupName: "Career",
+      groupCount: 2,
+      tabCount: 5,
+    });
+
+    expect(await screen.findByText("Merged 2 groups into “Career” · 5 tabs")).toBeInTheDocument();
+    await waitFor(() => expect(onMutation).toHaveBeenCalledTimes(1));
+  });
 });

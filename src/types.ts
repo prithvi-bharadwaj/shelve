@@ -7,6 +7,11 @@ export type ProposedGroup = {
   importance?: number;
 };
 
+export type ClosedDuplicateTab = {
+  title: string;
+  url: string;
+};
+
 export type OrganizeResponse = {
   error?: string;
   jobId?: string;
@@ -19,6 +24,7 @@ export type OrganizeResponse = {
   tabCount?: number;
   windowId?: number;
   minSize?: number;
+  closedTabs?: ClosedDuplicateTab[];
 };
 
 export type OrganizeStage = "collecting" | "classifying" | "reading" | "applying";
@@ -55,13 +61,16 @@ export type Stash = {
 export type CommandResponse = {
   error?: string;
   done?: boolean;
-  action?: "open_tab" | "answer" | "create_group" | "not_found";
+  action?: "open_tab" | "answer" | "create_group" | "ungroup" | "remove_duplicates" | "merge_groups" | "not_found";
   reply?: string;
   tabId?: number | null;
   tabTitle?: string;
   groupId?: number;
   groupName?: string;
   tabCount?: number;
+  groupCount?: number;
+  closedCount?: number;
+  closedTabs?: ClosedDuplicateTab[];
 };
 
 export type Provider = "openai" | "anthropic" | "gemini" | "ollama";

@@ -7,7 +7,7 @@ Works in Chrome, Brave, Edge, Arc, Vivaldi — any Chromium browser that support
 ## Features
 
 - **Organize tabs** — groups loose tabs by task and intent, adds relevant tabs to existing groups, and orders focused work before entertainment. Tabs file into their groups as a visible ~2.5s cascade.
-- **Command bar** — create a targeted group with prompts like "make a group out of all memberships for my O-1 visa" without reorganizing unrelated tabs. It can also jump to a described tab or answer a question from your open tabs with a Go-to-tab button.
+- **Command bar** — create or extract a targeted group, ungroup one or every group, remove duplicates, and merge related groups with natural-language prompts. It can also jump to a described tab or answer a question from your open tabs with a Go-to-tab button.
 - **Stash + resume briefs** — stash a whole group: its saveable web tabs close and Focused writes an AI "where you left off" brief (prices, options, what was still unchecked). Resume later to reopen those URLs as a fresh Chrome group — browser history, page and form state, and non-web tabs aren't restored. Unavailable in incognito because extension storage is shared.
 - **Hybrid context** — optionally reads a short page snippet when a title and URL are too ambiguous to classify. Declining page access still leaves title/URL organization fully usable.
 - **Quick actions** — ungroup everything, close duplicate URLs, or undo the last organize/ungroup/cleanup action from the popup.
