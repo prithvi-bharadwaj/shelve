@@ -154,7 +154,9 @@ Rules:
           reply: "Couldn't find any matching tabs that can be moved in this window."
         };
       }
-      if (!selectedGroupIds.length) return { error: "Couldn't tell which group to add those tabs to." };
+      // The schema can't express "exactly one", so an ambiguous model pick
+      // must fail here rather than land tabs in an arbitrary group.
+      if (selectedGroupIds.length !== 1) return { error: "Couldn't tell which single group to add those tabs to — name one group." };
       const added = await addToPromptGroup({
         tabIds: selectedIds,
         expectedTabs: new Map(selectedIds.map((id) => [id, {
@@ -171,11 +173,14 @@ Rules:
       if (!explicitMutationCommand(query, "update_group")) {
         return { error: "Explicitly ask to rename or recolor a group first." };
       }
-      if (!selectedGroupIds.length) return { error: "Couldn't tell which group to update." };
+      if (selectedGroupIds.length !== 1) return { error: "Couldn't tell which single group to update — name one group." };
+      // The model echoes the color it was shown when only renaming; treat an
+      // echo as "unspecified" so a concurrent manual recolor is never undone.
+      const shownColor = currentGroups.find((group) => group.id === selectedGroupIds[0])?.color;
       const updated = await updatePromptGroup({
         groupId: selectedGroupIds[0],
         name: String(result.groupName || "").trim().slice(0, 80),
-        color: GROUP_COLORS.includes(result.color) ? result.color : null,
+        color: GROUP_COLORS.includes(result.color) && result.color !== shownColor ? result.color : null,
         windowId: currentWindow.id
       });
       if (updated.error) return updated;
@@ -295,18 +300,21 @@ async function updatePromptGroup({ groupId, name, color, windowId }) {
   const liveGroups = await chrome.tabGroups.query({ windowId });
   const target = liveGroups.find((group) => group.id === groupId);
   if (!target) return { error: "That group is no longer available." };
-  const nextName = name || target.title || "Untitled";
+  // An empty title stays empty on recolor-only updates; "Untitled" is a
+  // display fallback, never something to write into the group.
+  const currentTitle = target.title || "";
+  const nextTitle = name || currentTitle;
   const nextColor = color || target.color;
-  if (nextName === (target.title || "Untitled") && nextColor === target.color) {
+  if (nextTitle === currentTitle && nextColor === target.color) {
     return { error: "That group already has that name and color." };
   }
 
   await storeUndoSnapshot(await captureSnapshot(windowId));
-  await chrome.tabGroups.update(groupId, { title: nextName, color: nextColor });
+  await chrome.tabGroups.update(groupId, { title: nextTitle, color: nextColor });
   return {
     groupId,
-    groupName: nextName,
-    previousName: target.title || "Untitled",
+    groupName: nextTitle || "Untitled",
+    previousName: currentTitle || "Untitled",
     color: nextColor
   };
 }

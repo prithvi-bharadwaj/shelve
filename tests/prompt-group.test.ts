@@ -76,7 +76,8 @@ async function makeHarness(providerResult: Record<string, unknown>) {
       },
     },
     tabGroups: {
-      query: async (query: { windowId?: number }) => groups.filter((group) => !query.windowId || group.windowId === query.windowId),
+      query: async (query: { windowId?: number }) =>
+        groups.filter((group) => !query.windowId || group.windowId === query.windowId).map((group) => ({ ...group })),
       update: async (id: number, changes: Record<string, unknown>) => calls.updated.push({ id, changes }),
     },
     windows: {
@@ -118,6 +119,7 @@ async function makeHarness(providerResult: Record<string, unknown>) {
   return {
     calls,
     tabs,
+    groups,
     providers: providersModule.PROVIDERS,
     runCommand: (query: string) => commandModule.runCommand(query, 10, false) as Promise<CommandResponse>,
   };
@@ -427,6 +429,89 @@ test("a group update is rejected without explicit rename/recolor wording", async
   expect(result.error).toMatch(/Explicitly ask to rename or recolor/i);
   expect(calls.updated).toEqual([]);
   expect(calls.session).toEqual([]);
+});
+
+test("an ambiguous multi-group destination is rejected instead of picking one arbitrarily", async () => {
+  const { calls, runCommand } = await makeHarness({
+    action: "add_to_group",
+    tabId: null,
+    reply: "",
+    tabIds: [1, 2],
+    groupIds: [88, 89],
+    allGroups: false,
+    groupName: "",
+    color: "grey",
+    needsContent: [],
+  });
+
+  const result = await runCommand("move my membership tabs into a fitting group");
+
+  expect(result.error).toMatch(/single group/i);
+  expect(calls.grouped).toEqual([]);
+  expect(calls.session).toEqual([]);
+});
+
+test("a recolor-only update on an untitled group keeps the title empty", async () => {
+  const { calls, groups, runCommand } = await makeHarness({
+    action: "update_group",
+    tabId: null,
+    reply: "",
+    tabIds: [],
+    groupIds: [90],
+    allGroups: false,
+    groupName: "",
+    color: "yellow",
+    needsContent: [],
+  });
+  groups.push({ id: 90, windowId: 10, title: "", color: "grey" });
+
+  const result = await runCommand("color the last group yellow");
+
+  expect(result.action).toBe("update_group");
+  expect(result.groupName).toBe("Untitled");
+  expect(calls.updated).toEqual([
+    { id: 90, changes: { title: "", color: "yellow" } },
+  ]);
+});
+
+test("a rename-only update preserves a color changed while the model was thinking", async () => {
+  const harness = await makeHarness({
+    action: "update_group",
+    tabId: null,
+    reply: "",
+    tabIds: [],
+    groupIds: [77],
+    allGroups: false,
+    groupName: "ML Research",
+    // The model echoes the color it was shown for group 77 ("red").
+    color: "red",
+    needsContent: [],
+  });
+  harness.providers.gemini.classify = async () => {
+    // The user manually recolors the group mid-request.
+    harness.groups.find((group) => group.id === 77)!.color = "cyan";
+    return {
+      json: {
+        action: "update_group",
+        tabId: null,
+        reply: "",
+        tabIds: [],
+        groupIds: [77],
+        allGroups: false,
+        groupName: "ML Research",
+        color: "red",
+        needsContent: [],
+      },
+      usage: { input: 0, output: 0 },
+    };
+  };
+
+  const result = await harness.runCommand("rename AI Development to ML Research");
+
+  expect(result.action).toBe("update_group");
+  expect(harness.calls.updated).toEqual([
+    { id: 77, changes: { title: "ML Research", color: "cyan" } },
+  ]);
 });
 
 test("a model-selected broad mutation is rejected unless the user explicitly requested it", async () => {
