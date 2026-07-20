@@ -49,6 +49,7 @@ export type Stash = {
   tabCount: number;
   brief: string;
   briefStatus: "pending" | "ready" | "unavailable";
+  resumeStatus: "idle" | "resuming";
 };
 
 export type CommandResponse = {

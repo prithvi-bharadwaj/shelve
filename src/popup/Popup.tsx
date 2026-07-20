@@ -49,7 +49,7 @@ export function Popup() {
     if (!windowId) return;
     const [groupsRes, stashRes] = await Promise.all([
       chrome.runtime.sendMessage({ type: "listGroups", windowId }),
-      chrome.runtime.sendMessage({ type: "listStashes" }),
+      chrome.runtime.sendMessage({ type: "listStashes", windowId }),
     ]);
     if (groupsRes?.groups) setGroupList(groupsRes.groups);
     if (stashRes?.stashes) setStashes(stashRes.stashes);
@@ -309,9 +309,9 @@ export function Popup() {
   };
 
   const deleteStash = async (stashId: string) => {
-    await chrome.runtime.sendMessage({ type: "deleteStash", stashId });
+    const res = await chrome.runtime.sendMessage({ type: "deleteStash", stashId });
     await refreshPanels();
-    setStatus({ text: "Stash deleted" });
+    setStatus(res?.error ? { text: res.error, error: true } : { text: "Stash deleted" });
   };
 
   const reviewing = groups.length > 0;

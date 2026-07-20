@@ -10,6 +10,7 @@ const PROVIDER_TIMEOUT_MS = 45 * 1000;
 const OLLAMA_TIMEOUT_MS = 90 * 1000;
 const SNIPPET_TIMEOUT_MS = 8 * 1000;
 const ORGANIZE_STALE_MS = 2 * 60 * 1000;
+const STASH_RESUME_STALE_MS = 2 * 60 * 1000;
 
 const DEFAULT_MODELS = {
   openai: "gpt-5.6-luna",
@@ -362,7 +363,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     importGroups: () => importGroups(msg.payload, msg.windowId),
     listGroups: () => listGroups(msg.windowId),
     stashGroup: () => stashGroup(msg.windowId, msg.groupId),
-    listStashes: () => listStashes(),
+    listStashes: () => listStashes(msg.windowId),
     resumeStash: () => resumeStash(msg.stashId, msg.windowId),
     deleteStash: () => deleteStash(msg.stashId),
     command: () => runCommand(msg.query, msg.windowId, msg.hasContentPermission),
@@ -1213,6 +1214,8 @@ function mutateStashes(mutator) {
   return stashQueue;
 }
 
+// The resume claim journal (token, target window, opened tab IDs) is internal
+// recovery data and must never reach React through this projection.
 function publicStash(stash) {
   return {
     id: stash.id,
@@ -1221,8 +1224,114 @@ function publicStash(stash) {
     createdAt: stash.createdAt,
     tabCount: (stash.tabs || []).length,
     brief: stash.brief || "",
-    briefStatus: stash.briefStatus || "unavailable"
+    briefStatus: stash.briefStatus || "unavailable",
+    resumeStatus: stashResumeActive(stash, Date.now()) ? "resuming" : "idle"
   };
+}
+
+function stashResumeActive(stash, now) {
+  return Boolean(stash.resume && now - stash.resume.startedAt <= STASH_RESUME_STALE_MS);
+}
+
+async function readStash(stashId) {
+  const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
+  const list = Array.isArray(stored[STASH_KEY]) ? stored[STASH_KEY] : [];
+  return list.find((item) => item.id === stashId) || null;
+}
+
+// Claim a stash for one resume attempt. Outcomes: { error } for missing or
+// already-resuming, or { stash, token, targetWindowId, opened } on success.
+// Stale claims are recovered by revalidating each journaled tab against the
+// live browser instead of creating duplicates.
+async function claimStashResume(stashId, requestedWindowId) {
+  const existing = await readStash(stashId);
+  if (!existing) return { error: "That stash is gone." };
+  if (stashResumeActive(existing, Date.now())) {
+    return { error: "This stash is already being resumed." };
+  }
+
+  const priorTarget = existing.resume?.targetWindowId;
+  const recovered = [];
+  for (const entry of existing.resume?.opened || []) {
+    if (!Number.isInteger(entry?.tabId)) continue;
+    const tab = await chrome.tabs.get(entry.tabId).catch(() => null);
+    if (!tab || tab.url !== entry.url || tab.windowId !== priorTarget) continue;
+    recovered.push({ sourceIndex: entry.sourceIndex, tabId: entry.tabId, url: entry.url });
+  }
+  if (recovered.length && priorTarget !== requestedWindowId) {
+    const priorWindow = await chrome.windows.get(priorTarget).catch(() => null);
+    if (priorWindow) {
+      return { error: "This stash was partially resumed in another window — finish resuming it from that window." };
+    }
+  }
+  const targetWindowId = recovered.length ? priorTarget : requestedWindowId;
+
+  const token = `resume-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  let outcome = null;
+  await mutateStashes((list) =>
+    list.map((item) => {
+      if (item.id !== stashId) return item;
+      if (stashResumeActive(item, Date.now())) {
+        outcome = { error: "This stash is already being resumed." };
+        return item;
+      }
+      outcome = { stash: { ...item } };
+      return { ...item, resume: { token, startedAt: Date.now(), targetWindowId, opened: recovered } };
+    })
+  ).catch(() => undefined);
+  if (!outcome) return { error: "That stash is gone." };
+  if (outcome.error) return outcome;
+  return { stash: outcome.stash, token, targetWindowId, opened: recovered };
+}
+
+// Journal one reopened tab under the active token so an interrupted attempt
+// can be recovered without duplicating tabs.
+function recordResumedTab(stashId, token, entry) {
+  return mutateStashes((list) =>
+    list.map((item) =>
+      item.id === stashId && item.resume?.token === token
+        ? {
+            ...item,
+            resume: {
+              ...item.resume,
+              opened: [...item.resume.opened.filter((opened) => opened.sourceIndex !== entry.sourceIndex), entry]
+            }
+          }
+        : item
+    )
+  );
+}
+
+// Release a matching claim while keeping the stash. Surviving opened mappings
+// stay journaled (marked stale) so a retry can reuse those tabs.
+function releaseStashResume(stashId, token, surviving) {
+  return mutateStashes((list) =>
+    list.map((item) => {
+      if (item.id !== stashId || item.resume?.token !== token) return item;
+      const next = { ...item };
+      if (surviving.length) {
+        next.resume = { ...item.resume, startedAt: 0, opened: surviving };
+      } else {
+        delete next.resume;
+      }
+      return next;
+    })
+  );
+}
+
+// Deleting the stash record is the last step of resume and must be
+// token-matched: only the attempt that finished every tab and group write may
+// consume it.
+async function consumeStash(stashId, token) {
+  let consumed = false;
+  const ok = await mutateStashes((list) =>
+    list.filter((item) => {
+      if (item.id !== stashId || item.resume?.token !== token) return true;
+      consumed = true;
+      return false;
+    })
+  ).then(() => true, () => false);
+  return ok && consumed;
 }
 
 async function listGroups(windowId) {
@@ -1255,7 +1364,7 @@ async function stashGroup(windowId, groupId) {
     tabs
       .filter((tab) => tab.groupId === groupId && tab.url && /^https?:/.test(tab.url))
       .sort((a, b) => a.index - b.index);
-  const savable = savableIn(await chrome.tabs.query({ windowId: group.windowId }));
+  const savable = savableIn(await chrome.tabs.query({ windowId: groupWindow.id }));
   if (!savable.length) return { error: "No saveable web tabs in that group." };
 
   // Read page snippets before the tabs close so the brief can cite real details.
@@ -1281,24 +1390,39 @@ async function stashGroup(windowId, groupId) {
     if (urlById[tab.id] && urlById[tab.id] !== tab.url) delete snippets[tab.id];
   }
 
+  // Closing every tab in the fresh window would close the window itself, so a
+  // safety tab must exist first — and must be in the re-fetched window, not the
+  // window the group started in before snippet collection.
+  let safetyTabId = null;
+  if (freshSavable.length === allTabs.length) {
+    const safety = await chrome.tabs.create({ windowId: freshGroup.windowId }).catch(() => null);
+    if (!safety) return { error: "Couldn't keep the window open — nothing was stashed or closed." };
+    safetyTabId = safety.id;
+  }
+
   const stash = {
     id: `stash-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name: (group.title || "Stashed tabs").slice(0, 80),
-    color: group.color,
+    name: (freshGroup.title || "Stashed tabs").slice(0, 80),
+    color: freshGroup.color,
     createdAt: Date.now(),
     tabs: freshSavable.map((tab) => ({ id: tab.id, url: tab.url, title: tab.title || "" })),
     brief: "",
     briefStatus: "pending"
   };
-  await mutateStashes((list) => [stash, ...list]);
+  const persisted = await mutateStashes((list) => [stash, ...list]).then(() => true, () => false);
+  if (!persisted) {
+    if (safetyTabId !== null) await chrome.tabs.remove(safetyTabId).catch(() => undefined);
+    return { error: "Couldn't save the stash — nothing was closed." };
+  }
 
   // Close only the tabs that were saved; a chrome:// or file:// tab in the
-  // group would otherwise be lost. Closing must not close the whole window.
-  if (freshSavable.length === allTabs.length) {
-    await chrome.tabs.create({ windowId: group.windowId }).catch(() => undefined);
-  }
-  await chrome.tabs.remove(freshSavable.map((tab) => tab.id));
+  // group would otherwise be lost.
+  const closed = await chrome.tabs.remove(freshSavable.map((tab) => tab.id)).then(() => true, () => false);
   generateStashBrief(stash, snippets).catch(() => undefined);
+  if (!closed) {
+    // The stash is saved; duplicated open tabs are safer than lost ones.
+    return { error: "Stashed the group, but some tabs couldn't be closed — close them manually." };
+  }
   return { done: true, stash: publicStash(stash) };
 }
 
@@ -1336,7 +1460,11 @@ Rules:
   }
 }
 
-async function listStashes() {
+async function listStashes(windowId) {
+  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  const targetWindow = await chrome.windows.get(targetWindowId).catch(() => null);
+  // Stashes are regular-browsing data; an incognito popup gets no metadata.
+  if (targetWindow?.incognito) return { stashes: [], unavailableInIncognito: true };
   const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
   const stashes = Array.isArray(stored[STASH_KEY]) ? stored[STASH_KEY] : [];
   return {
@@ -1352,35 +1480,101 @@ async function listStashes() {
   };
 }
 
+// Resume is all-or-nothing: the stash record is consumed only after every tab
+// and the group metadata succeed. Every failure path retains the stash — it may
+// be the only surviving copy of tabs Focused already closed.
 async function resumeStash(stashId, windowId) {
-  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
-  const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
-  const stash = (stored[STASH_KEY] || []).find((item) => item.id === stashId);
-  if (!stash) return { error: "That stash is gone." };
+  const requestedWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  const targetWindow = await chrome.windows.get(requestedWindowId).catch(() => null);
+  if (!targetWindow) return { error: "That window is gone." };
+  if (targetWindow.incognito) return { error: "Stashes aren't available in incognito windows." };
 
-  const tabIds = [];
-  for (const item of stash.tabs || []) {
-    if (!safeImportUrl(item.url)) continue;
-    try {
-      const tab = await chrome.tabs.create({ windowId: targetWindowId, url: item.url, active: false });
-      tabIds.push(tab.id);
-    } catch {
-      // Skip URLs the browser refuses to open.
+  const claim = await claimStashResume(stashId, requestedWindowId);
+  if (claim.error) return claim;
+  const { stash, token, targetWindowId } = claim;
+
+  const entries = Array.isArray(stash.tabs) ? stash.tabs : [];
+  const createdThisAttempt = [];
+
+  // Roll back only tabs created by this invocation; tabs recovered from an
+  // older journaled attempt are never closed. Anything that survives stays in
+  // the journal so a retry can pick it up.
+  const failAndRetain = async (message) => {
+    const surviving = [...claim.opened];
+    let leftover = false;
+    for (const entry of createdThisAttempt) {
+      const removed = await chrome.tabs.remove(entry.tabId).then(() => true, () => false);
+      if (!removed && (await chrome.tabs.get(entry.tabId).catch(() => null))) {
+        surviving.push(entry);
+        leftover = true;
+      }
+    }
+    await releaseStashResume(stashId, token, surviving).catch(() => undefined);
+    return {
+      error: leftover || claim.opened.length
+        ? `${message} Some reopened tabs may still be open; resuming again will reuse them.`
+        : message
+    };
+  };
+
+  if (!entries.length) return failAndRetain("This stash has no tabs to reopen.");
+  for (const entry of entries) {
+    if (!safeImportUrl(entry.url)) {
+      return failAndRetain("This stash contains an unsafe URL, so nothing was reopened.");
     }
   }
-  if (!tabIds.length) return { error: "Couldn't reopen any tabs from this stash." };
 
-  const groupId = await chrome.tabs.group({ tabIds });
-  await chrome.tabGroups.update(groupId, {
-    title: stash.name,
-    color: GROUP_COLORS.includes(stash.color) ? stash.color : "grey"
-  });
-  await mutateStashes((list) => list.filter((item) => item.id !== stashId));
-  return { done: true, tabCount: tabIds.length, brief: stash.brief || "" };
+  const recoveredByIndex = new Map(claim.opened.map((entry) => [entry.sourceIndex, entry]));
+  const finalTabIds = [];
+  for (let index = 0; index < entries.length; index++) {
+    const recovered = recoveredByIndex.get(index);
+    if (recovered) {
+      finalTabIds.push(recovered.tabId);
+      continue;
+    }
+    const tab = await chrome.tabs
+      .create({ windowId: targetWindowId, url: entries[index].url, active: false })
+      .catch(() => null);
+    if (!tab) return failAndRetain("Couldn't reopen every tab, so the stash was kept.");
+    finalTabIds.push(tab.id);
+    const entry = { sourceIndex: index, tabId: tab.id, url: entries[index].url };
+    createdThisAttempt.push(entry);
+    const journaled = await recordResumedTab(stashId, token, entry).then(() => true, () => false);
+    if (!journaled) return failAndRetain("Couldn't record progress, so the stash was kept.");
+  }
+
+  try {
+    const groupId = await chrome.tabs.group({ tabIds: finalTabIds });
+    await chrome.tabGroups.update(groupId, {
+      title: stash.name,
+      color: GROUP_COLORS.includes(stash.color) ? stash.color : "grey"
+    });
+  } catch {
+    return failAndRetain("Couldn't recreate the group, so the stash was kept.");
+  }
+
+  const consumed = await consumeStash(stashId, token);
+  if (!consumed) {
+    await releaseStashResume(stashId, token, [...claim.opened, ...createdThisAttempt]).catch(() => undefined);
+    return { error: "Tabs were reopened, but the stash record couldn't be cleared. It remains saved." };
+  }
+  return { done: true, tabCount: finalTabIds.length, brief: stash.brief || "" };
 }
 
 async function deleteStash(stashId) {
-  await mutateStashes((list) => list.filter((item) => item.id !== stashId));
+  let blocked = false;
+  const ok = await mutateStashes((list) =>
+    list.filter((item) => {
+      if (item.id !== stashId) return true;
+      if (stashResumeActive(item, Date.now())) {
+        blocked = true;
+        return true;
+      }
+      return false;
+    })
+  ).then(() => true, () => false);
+  if (blocked) return { error: "This stash is being resumed — try again in a moment." };
+  if (!ok) return { error: "Couldn't delete the stash. Try again." };
   return { done: true };
 }
 

@@ -63,6 +63,24 @@ function createStorageArea(initial: StorageRecord = {}) {
   };
 }
 
+export interface MockTab {
+  id: number;
+  windowId: number;
+  url: string;
+  active: boolean;
+  pinned: boolean;
+  groupId: number;
+  index?: number;
+  title?: string;
+}
+
+export interface MockTabGroup {
+  id: number;
+  windowId: number;
+  title?: string;
+  color: string;
+}
+
 export type ChromeMock = ReturnType<typeof createChromeMock>;
 
 export function createChromeMock() {
@@ -94,7 +112,7 @@ export function createChromeMock() {
       onStartup: events.runtimeOnStartup,
       getPlatformInfo: vi.fn(async () => ({ os: "mac" })),
       getURL: vi.fn((path: string) => `chrome-extension://test-id/${path}`),
-      sendMessage: vi.fn(async () => ({} as unknown)),
+      sendMessage: vi.fn(async (_message: unknown) => ({} as unknown)),
       openOptionsPage: vi.fn(async () => undefined),
       lastError: undefined as { message: string } | undefined,
     },
@@ -108,31 +126,33 @@ export function createChromeMock() {
       onCreated: events.tabsOnCreated,
       onRemoved: events.tabsOnRemoved,
       onUpdated: events.tabsOnUpdated,
-      query: vi.fn(async () => [] as unknown[]),
-      get: vi.fn(async (tabId: number) => {
+      query: vi.fn(async (_query?: { windowId?: number }): Promise<MockTab[]> => []),
+      get: vi.fn(async (tabId: number): Promise<MockTab> => {
         throw new Error(`No tab with id: ${tabId}.`);
       }),
-      create: vi.fn(async (props: { windowId?: number; url?: string; active?: boolean }) => ({
-        id: nextTabId++,
-        windowId: props.windowId ?? currentWindow.id,
-        url: props.url ?? "chrome://newtab/",
-        active: props.active ?? false,
-        pinned: false,
-        groupId: -1,
-      })),
-      remove: vi.fn(async () => undefined),
-      move: vi.fn(async () => undefined),
-      update: vi.fn(async () => undefined),
-      group: vi.fn(async () => nextGroupId++),
-      ungroup: vi.fn(async () => undefined),
+      create: vi.fn(
+        async (props: { windowId?: number; url?: string; active?: boolean }): Promise<MockTab> => ({
+          id: nextTabId++,
+          windowId: props.windowId ?? currentWindow.id,
+          url: props.url ?? "chrome://newtab/",
+          active: props.active ?? false,
+          pinned: false,
+          groupId: -1,
+        })
+      ),
+      remove: vi.fn(async (_tabIds: number | number[]) => undefined),
+      move: vi.fn(async (_tabIds: number | number[], _props: object) => undefined),
+      update: vi.fn(async (_tabId: number, _props: object) => undefined),
+      group: vi.fn(async (_options: { tabIds: number | number[]; groupId?: number }) => nextGroupId++),
+      ungroup: vi.fn(async (_tabIds: number | number[]) => undefined),
     },
     tabGroups: {
-      query: vi.fn(async () => [] as unknown[]),
-      get: vi.fn(async (groupId: number) => {
+      query: vi.fn(async (_query?: { windowId?: number }): Promise<MockTabGroup[]> => []),
+      get: vi.fn(async (groupId: number): Promise<MockTabGroup> => {
         throw new Error(`No group with id: ${groupId}.`);
       }),
-      update: vi.fn(async () => undefined),
-      move: vi.fn(async () => undefined),
+      update: vi.fn(async (_groupId: number, _props: object) => undefined),
+      move: vi.fn(async (_groupId: number, _props: object) => undefined),
     },
     windows: {
       onRemoved: events.windowsOnRemoved,

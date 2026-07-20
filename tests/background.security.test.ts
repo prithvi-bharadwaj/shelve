@@ -64,7 +64,7 @@ describe("undo snapshot browsing-context isolation", () => {
   it("marks a captured incognito snapshot as version 2 incognito", async () => {
     const { exports, mock } = load();
     mock.chrome.tabs.query.mockResolvedValue([
-      { id: 1100, url: "https://private.example/secret", index: 0, pinned: false, groupId: -1 },
+      { id: 1100, windowId: 11, url: "https://private.example/secret", active: false, index: 0, pinned: false, groupId: -1 },
     ]);
     const snapshot = await exports.captureSnapshot(11);
     expect(snapshot.version).toBe(2);
