@@ -60,8 +60,8 @@ function snapFixture(overrides: Partial<UndoSnapshot> = {}): UndoSnapshot {
 let harness: BackgroundHarness | null = null;
 let tabs: Map<number, MockTab>;
 
-function load(prepare?: (mock: ChromeMock) => void) {
-  harness = loadBackground((mock) => {
+async function load(prepare?: (mock: ChromeMock) => void) {
+  harness = await loadBackground((mock) => {
     tabs = installFixtures(mock);
     prepare?.(mock);
   });
@@ -76,8 +76,8 @@ afterEach(() => {
 });
 
 describe("duplicate identity keeps fragments", () => {
-  it("treats identical full URLs as duplicates and fragment routes as distinct", () => {
-    const { exports } = load();
+  it("treats identical full URLs as duplicates and fragment routes as distinct", async () => {
+    const { exports } = await load();
     const normalize = exports.normalizedDuplicateUrl;
     expect(normalize("https://app.test/page")).toBe(normalize("https://app.test/page"));
     expect(normalize("https://app.test/#/document/1")).not.toBe(normalize("https://app.test/#/document/2"));
@@ -87,7 +87,7 @@ describe("duplicate identity keeps fragments", () => {
   });
 
   it("still protects pinned and active copies and journals closed tabs", async () => {
-    const { invokeMessage, mock } = load();
+    const { invokeMessage, mock } = await load();
     const url = "https://same.test/page";
     mock.chrome.tabs.query.mockResolvedValue([
       { id: 41, windowId: 1, url, active: false, pinned: true, groupId: -1, index: 0 },
@@ -115,7 +115,7 @@ describe("duplicate identity keeps fragments", () => {
 
 describe("snapshot compatibility", () => {
   it("normalizes v2 parallel closed arrays into closedTabs", async () => {
-    const { exports } = load((mock) =>
+    const { exports } = await load((mock) =>
       mock.seedSession({
         [UNDO_KEY]: {
           ...snapFixture(),
@@ -132,7 +132,7 @@ describe("snapshot compatibility", () => {
   });
 
   it("rejects and removes an unversioned snapshot", async () => {
-    const { exports, mock } = load((prepared) =>
+    const { exports, mock } = await load((prepared) =>
       prepared.seedSession({ [UNDO_KEY]: { windowId: 1, incognito: false, tabs: [] } })
     );
     expect(await exports.getUndoSnapshot(1)).toBeNull();
@@ -140,7 +140,7 @@ describe("snapshot compatibility", () => {
   });
 
   it("keeps incognito undo memory-only through reopen checkpoints", async () => {
-    const { exports, invokeMessage, mock } = load();
+    const { exports, invokeMessage, mock } = await load();
     tabs.set(201, { id: 201, windowId: 11, url: "https://p.test/", active: false, pinned: false, groupId: -1, index: 0 });
     await exports.storeUndoSnapshot(
       snapFixture({
@@ -163,7 +163,7 @@ describe("snapshot compatibility", () => {
 
 describe("retryable undo", () => {
   it("clears the snapshot only after complete success", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
     const response = (await invokeMessage({ type: "undo", windowId: 1 })) as {
       done?: boolean;
       tabCount?: number;
@@ -179,7 +179,7 @@ describe("retryable undo", () => {
   });
 
   it("keeps the snapshot and reports partial when a URL fails to reopen, then retry reuses the checkpoint", async () => {
-    const { invokeMessage, mock } = load((prepared) =>
+    const { invokeMessage, mock } = await load((prepared) =>
       prepared.seedSession({
         [UNDO_KEY]: snapFixture({
           tabs: [
@@ -219,7 +219,7 @@ describe("retryable undo", () => {
   });
 
   it("retains the snapshot when group recreation fails", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
     mock.chrome.tabs.group.mockImplementation(async () => {
       throw new Error("group failed");
     });
@@ -229,7 +229,7 @@ describe("retryable undo", () => {
   });
 
   it("retains the snapshot when a move fails", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
     mock.chrome.tabs.move.mockImplementation(async () => {
       throw new Error("move failed");
     });
@@ -239,7 +239,7 @@ describe("retryable undo", () => {
   });
 
   it("counts a user-closed tab without a journal entry as skipped, not retryable", async () => {
-    const { invokeMessage, mock } = load((prepared) =>
+    const { invokeMessage, mock } = await load((prepared) =>
       prepared.seedSession({
         [UNDO_KEY]: snapFixture({
           tabs: [
@@ -260,7 +260,7 @@ describe("retryable undo", () => {
   });
 
   it("closes the just-created tab and keeps recovery state when a checkpoint cannot persist", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
     mock.chrome.storage.session.set.mockImplementation(async () => {
       throw new Error("session quota");
     });
@@ -275,7 +275,7 @@ describe("retryable undo", () => {
   });
 
   it("does not reuse a journaled tab that navigated away", async () => {
-    const { invokeMessage, mock } = load((prepared) =>
+    const { invokeMessage, mock } = await load((prepared) =>
       prepared.seedSession({
         [UNDO_KEY]: snapFixture({
           closedTabs: [{ originalId: 103, url: "https://c.test/", reopenedId: 900 }],
@@ -292,7 +292,7 @@ describe("retryable undo", () => {
   });
 
   it("does not let another window consume a partial snapshot", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedSession({ [UNDO_KEY]: snapFixture() }));
     const response = (await invokeMessage({ type: "undo", windowId: 2 })) as { error?: string };
     expect(response.error).toBe("Nothing to undo.");
     expect(mock.sessionData[UNDO_KEY]).toBeDefined();

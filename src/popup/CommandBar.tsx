@@ -72,7 +72,7 @@ export function CommandBar({
         hasContentPermission,
       });
       setResult(res ?? { error: "Something went wrong." });
-      if (["create_group", "ungroup", "remove_duplicates", "merge_groups"].includes(res?.action || "") && !res.error) {
+      if (["create_group", "add_to_group", "update_group", "ungroup", "remove_duplicates", "merge_groups"].includes(res?.action || "") && !res.error) {
         setQuery("");
         await onMutation?.().catch(() => undefined);
       }
@@ -137,6 +137,12 @@ export function CommandBar({
                 ? `Jumped to “${result.tabTitle}”`
                 : result.action === "create_group"
                   ? `Created “${result.groupName}” with ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"}`
+                : result.action === "add_to_group"
+                  ? `Moved ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"} into “${result.groupName}”`
+                : result.action === "update_group"
+                  ? result.previousName && result.previousName !== result.groupName
+                    ? `Renamed “${result.previousName}” to “${result.groupName}”`
+                    : `Updated “${result.groupName}”`
                 : result.action === "ungroup"
                   ? `Ungrouped ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"} from ${result.groupCount} group${result.groupCount === 1 ? "" : "s"}`
                 : result.action === "remove_duplicates"

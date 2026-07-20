@@ -59,8 +59,8 @@ function stashFixture(overrides: Record<string, unknown> = {}) {
 let harness: BackgroundHarness | null = null;
 let tabs: Map<number, MockTab>;
 
-function load(prepare?: (mock: ChromeMock) => void) {
-  harness = loadBackground((mock) => {
+async function load(prepare?: (mock: ChromeMock) => void) {
+  harness = await loadBackground((mock) => {
     tabs = installFixtures(mock);
     prepare?.(mock);
   });
@@ -78,13 +78,13 @@ afterEach(() => {
 
 describe("incognito stash boundary", () => {
   it("returns no stash metadata to an incognito popup", async () => {
-    const { invokeMessage } = load((mock) => mock.seedLocal({ stashes: [stashFixture()] }));
+    const { invokeMessage } = await load((mock) => mock.seedLocal({ stashes: [stashFixture()] }));
     const response = await invokeMessage({ type: "listStashes", windowId: 11 });
     expect(response).toEqual({ stashes: [], unavailableInIncognito: true });
   });
 
   it("rejects incognito resume before claiming or opening anything", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
     const response = (await invokeMessage({ type: "resumeStash", stashId: "stash-1", windowId: 11 })) as { error?: string };
     expect(response.error).toMatch(/incognito/i);
     expect(mock.chrome.tabs.create).not.toHaveBeenCalled();
@@ -94,7 +94,7 @@ describe("incognito stash boundary", () => {
 
 describe("resume claims", () => {
   it("lets only one of two concurrent resumes create tabs", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
     const [first, second] = (await Promise.all([
       invokeMessage({ type: "resumeStash", stashId: "stash-1", windowId: 1 }),
       invokeMessage({ type: "resumeStash", stashId: "stash-1", windowId: 1 }),
@@ -107,7 +107,7 @@ describe("resume claims", () => {
   });
 
   it("blocks a duplicate resume from a persisted recent claim after reload", async () => {
-    const { invokeMessage, mock } = load((prepared) =>
+    const { invokeMessage, mock } = await load((prepared) =>
       prepared.seedLocal({
         stashes: [stashFixture({ resume: { token: "old", startedAt: Date.now(), targetWindowId: 1, opened: [] } })],
       })
@@ -118,7 +118,7 @@ describe("resume claims", () => {
   });
 
   it("reuses validated tabs from a stale claim instead of duplicating them", async () => {
-    const { invokeMessage, mock } = load((prepared) =>
+    const { invokeMessage, mock } = await load((prepared) =>
       prepared.seedLocal({
         stashes: [
           stashFixture({
@@ -146,7 +146,7 @@ describe("resume claims", () => {
   });
 
   it("refuses a stale claim whose tabs live in another open window", async () => {
-    const { invokeMessage, mock } = load((prepared) =>
+    const { invokeMessage, mock } = await load((prepared) =>
       prepared.seedLocal({
         stashes: [
           stashFixture({
@@ -170,7 +170,7 @@ describe("resume claims", () => {
 
 describe("all-or-nothing resume", () => {
   it("deletes the stash exactly once after full success", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
     const response = (await invokeMessage({ type: "resumeStash", stashId: "stash-1", windowId: 1 })) as {
       done?: boolean;
       tabCount?: number;
@@ -185,7 +185,7 @@ describe("all-or-nothing resume", () => {
   });
 
   it("rolls back created tabs and keeps the stash when one tab fails", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
     const original = mock.chrome.tabs.create.getMockImplementation()!;
     let calls = 0;
     mock.chrome.tabs.create.mockImplementation(async (props) => {
@@ -203,7 +203,7 @@ describe("all-or-nothing resume", () => {
   });
 
   it("rolls back and keeps the stash when grouping fails", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
     mock.chrome.tabs.group.mockImplementation(async () => {
       throw new Error("group failed");
     });
@@ -214,7 +214,7 @@ describe("all-or-nothing resume", () => {
   });
 
   it("rolls back and keeps the stash when group metadata update fails", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
     mock.chrome.tabGroups.update.mockImplementation(async () => {
       throw new Error("update failed");
     });
@@ -225,7 +225,7 @@ describe("all-or-nothing resume", () => {
   });
 
   it("reports non-success and keeps recovery data when storage deletion fails", async () => {
-    const { invokeMessage, mock } = load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
+    const { invokeMessage, mock } = await load((prepared) => prepared.seedLocal({ stashes: [stashFixture()] }));
     const originalSet = mock.chrome.storage.local.set.getMockImplementation()!;
     mock.chrome.storage.local.set.mockImplementation(async (items: Record<string, unknown>) => {
       if (Array.isArray(items.stashes) && items.stashes.length === 0) throw new Error("quota");
@@ -243,7 +243,7 @@ describe("all-or-nothing resume", () => {
   });
 
   it("rejects unsafe URLs without opening anything", async () => {
-    const { invokeMessage, mock } = load((prepared) =>
+    const { invokeMessage, mock } = await load((prepared) =>
       prepared.seedLocal({
         stashes: [stashFixture({ tabs: [{ id: 1, url: "javascript:alert(1)", title: "evil" }] })],
       })
@@ -274,7 +274,7 @@ describe("stash creation window safety", () => {
   }
 
   it("creates the safety tab in the re-fetched window after the group moved", async () => {
-    const { invokeMessage, mock } = load((prepared) => installGroupFixture(prepared, { movedToWindow: 2 }));
+    const { invokeMessage, mock } = await load((prepared) => installGroupFixture(prepared, { movedToWindow: 2 }));
     const response = (await invokeMessage({ type: "stashGroup", windowId: 1, groupId: 7 })) as { done?: boolean };
     expect(response.done).toBe(true);
     expect(mock.chrome.tabs.create).toHaveBeenCalledTimes(1);
@@ -284,7 +284,7 @@ describe("stash creation window safety", () => {
   });
 
   it("creates no stash and closes nothing when the safety tab fails", async () => {
-    const { invokeMessage, mock } = load((prepared) => {
+    const { invokeMessage, mock } = await load((prepared) => {
       installGroupFixture(prepared, { movedToWindow: 2 });
       prepared.chrome.tabs.create.mockImplementation(async () => {
         throw new Error("cannot create");
@@ -297,7 +297,7 @@ describe("stash creation window safety", () => {
   });
 
   it("neither stores nor closes non-HTTP(S) group members", async () => {
-    const { invokeMessage, mock } = load((prepared) => installGroupFixture(prepared, { extraChromeTab: true }));
+    const { invokeMessage, mock } = await load((prepared) => installGroupFixture(prepared, { extraChromeTab: true }));
     const response = (await invokeMessage({ type: "stashGroup", windowId: 1, groupId: 7 })) as { done?: boolean };
     expect(response.done).toBe(true);
     const stored = storedStashes(mock)[0];

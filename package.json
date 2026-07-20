@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run --exclude=tests/prompt-group.test.mjs && node --test tests/*.test.mjs",
-    "test:watch": "vitest --exclude=tests/prompt-group.test.mjs",
-    "check": "tsc --noEmit && node --check public/background.js && pnpm test && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "tsc --noEmit && pnpm test && vite build",
     "preview": "vite preview"
   },
   "engines": {
