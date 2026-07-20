@@ -87,7 +87,6 @@ export function Options() {
         ...DEFAULT_SETTINGS,
         ...sync,
         ...local,
-        auto: sync.auto === "off" ? "off" : "badge",
         anthropicKey: local.anthropicKey || local.apiKey || "",
         modelByProvider,
       };
@@ -126,7 +125,6 @@ export function Options() {
       ) as Settings["modelByProvider"],
       customInstructions: settings.customInstructions.trim().slice(0, 2000),
       minGroupSize: clamp(settings.minGroupSize, 1, 6),
-      autoThreshold: clamp(settings.autoThreshold, 1, 999),
       budgetUsd: Math.max(0, Number(settings.budgetUsd) || 0),
     };
     setSettings(normalized);
@@ -334,45 +332,6 @@ export function Options() {
               <span className="mt-1 block text-xs text-muted-foreground">Keeps the active or most recently used copy.</span>
             </span>
           </label>
-          <label htmlFor="merge-on-organize" className="flex cursor-pointer items-start gap-3">
-            <Checkbox
-              id="merge-on-organize"
-              className="mt-0.5"
-              checked={settings.mergeOnOrganize}
-              onCheckedChange={(value) => set("mergeOnOrganize", value === true)}
-            />
-            <span>
-              <span className="block text-sm font-medium leading-none">Merge windows when organizing</span>
-              <span className="mt-1 block text-xs text-muted-foreground">Moves tabs from your other windows into the current one first.</span>
-            </span>
-          </label>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="auto">Tab monitor</Label>
-            <Select value={settings.auto} onValueChange={(value) => set("auto", value as Settings["auto"])}>
-              <SelectTrigger id="auto"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="off">Off</SelectItem>
-                <SelectItem value="badge">Ask me to organize</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">Shows a badge and notification, but never organizes without asking.</p>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <Label htmlFor="threshold">Tab threshold</Label>
-              <p className="mt-1 text-xs text-muted-foreground">Number of loose web tabs before you are notified.</p>
-            </div>
-            <Input
-              id="threshold"
-              type="number"
-              min={1}
-              max={999}
-              disabled={settings.auto === "off"}
-              className="w-20 text-center"
-              value={settings.autoThreshold}
-              onChange={(event) => set("autoThreshold", clamp(parseInt(event.target.value, 10), 1, 999))}
-            />
-          </div>
         </section>
 
         <Divider />

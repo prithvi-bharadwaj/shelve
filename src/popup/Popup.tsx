@@ -1,18 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  BellRing,
-  ChevronDown,
-  Combine,
-  CopyX,
-  LoaderCircle,
-  Settings,
-  Sparkles,
-  Undo2,
-} from "lucide-react";
+import { CopyX, LoaderCircle, Settings, Sparkles, Undo2 } from "lucide-react";
 import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Slider } from "@/components/ui/slider";
 import { CommandBar } from "@/popup/CommandBar";
 import { OrganizingRail } from "@/popup/OrganizingRail";
 import { PinPrompt } from "@/popup/PinPrompt";
@@ -20,7 +9,6 @@ import { ReviewGroups } from "@/popup/ReviewGroups";
 import { StashPanel } from "@/popup/StashPanel";
 import type {
   GroupInfo,
-  MergeResponse,
   OrganizeJob,
   OrganizeResponse,
   ProposedGroup,
@@ -28,7 +16,7 @@ import type {
   Stash,
 } from "@/types";
 
-type Action = "organize" | "ungroup" | "duplicates" | "merge" | "undo" | "apply";
+type Action = "organize" | "ungroup" | "duplicates" | "undo" | "apply";
 type Status = { text: string; error?: boolean } | null;
 
 export function Popup() {
@@ -39,16 +27,7 @@ export function Popup() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [reviewMinSize, setReviewMinSize] = useState(1);
   const [windowId, setWindowId] = useState<number>();
-  const [windowCount, setWindowCount] = useState(1);
   const [hasUndo, setHasUndo] = useState(false);
-  const [minGroupSize, setMinGroupSize] = useState(2);
-  const [dedupeOnOrganize, setDedupeOnOrganize] = useState(false);
-  const [mergeOnOrganize, setMergeOnOrganize] = useState(false);
-  const [monitorEnabled, setMonitorEnabled] = useState(false);
-  const [monitorThreshold, setMonitorThreshold] = useState(15);
-  const [tabCount, setTabCount] = useState(0);
-  const [basicSettingsOpen, setBasicSettingsOpen] = useState(false);
-  const [monitorPromptDismissed, setMonitorPromptDismissed] = useState(false);
   const [showPinPrompt, setShowPinPrompt] = useState(false);
   // null = storage not yet read; the UI must stay inert until this resolves.
   const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
@@ -86,15 +65,6 @@ export function Popup() {
     return () => chrome.storage.onChanged.removeListener(onChanged);
   }, [refreshPanels]);
 
-  const refreshCounts = useCallback(async () => {
-    const [windows, monitor] = await Promise.all([
-      chrome.runtime.sendMessage({ type: "windowCount" }),
-      windowId ? chrome.runtime.sendMessage({ type: "monitorState", windowId }) : null,
-    ]);
-    if (windows?.count) setWindowCount(windows.count);
-    if (monitor) setTabCount(Number(monitor.count) || 0);
-  }, [windowId]);
-
   const consumeJob = useCallback(async (jobId?: string) => {
     if (!windowId || !jobId) return;
     await chrome.runtime.sendMessage({ type: "consumeOrganizeResult", windowId, jobId });
@@ -105,7 +75,7 @@ export function Popup() {
     if (jobId && handledJobId.current === jobId) return;
     if (jobId) handledJobId.current = jobId;
     setRunning(null);
-    await Promise.all([refreshUndo(), refreshCounts()]);
+    await refreshUndo();
     if (!res || res.error) {
       setStatus({ text: res?.error ?? "Something went wrong.", error: true });
       await consumeJob(jobId);
@@ -121,21 +91,13 @@ export function Popup() {
     setStatus({ text: `${res.groupCount} group${res.groupCount === 1 ? "" : "s"} · ${res.tabCount} tabs sorted` });
     await consumeJob(jobId);
     await refreshPanels();
-  }, [consumeJob, refreshCounts, refreshUndo, refreshPanels]);
+  }, [consumeJob, refreshUndo, refreshPanels]);
 
   useEffect(() => {
     (async () => {
       const window = await chrome.windows.getCurrent();
-      const [windows, undoState, sync, local] = await Promise.all([
-        chrome.runtime.sendMessage({ type: "windowCount" }),
+      const [undoState, local] = await Promise.all([
         chrome.runtime.sendMessage({ type: "hasUndo", windowId: window.id }),
-        chrome.storage.sync.get({
-          minGroupSize: 2,
-          dedupeOnOrganize: false,
-          mergeOnOrganize: false,
-          auto: "off",
-          autoThreshold: 15,
-        }),
         chrome.storage.local.get({ dataNoticeAck: false, pinPromptDismissed: false }),
       ]);
       try {
@@ -145,19 +107,8 @@ export function Popup() {
         // Not every Chromium fork exposes getUserSettings; skip the prompt there.
       }
       setWindowId(window.id);
-      if (windows?.count) setWindowCount(windows.count);
       setHasUndo(Boolean(undoState?.hasUndo));
-      setMinGroupSize(clamp(sync.minGroupSize, 1, 6));
-      setDedupeOnOrganize(Boolean(sync.dedupeOnOrganize));
-      setMergeOnOrganize(Boolean(sync.mergeOnOrganize));
-      setMonitorEnabled(sync.auto !== "off");
-      setMonitorThreshold(clamp(sync.autoThreshold, 1, 999));
       setAcknowledged(Boolean(local.dataNoticeAck));
-      const monitor = await chrome.runtime.sendMessage({ type: "monitorState", windowId: window.id });
-      setTabCount(Number(monitor?.count) || 0);
-      setMonitorThreshold(clamp(monitor?.threshold ?? sync.autoThreshold, 1, 999));
-      await chrome.notifications.clear(`focused-tab-monitor:${window.id}`).catch(() => undefined);
-      if (sync.auto === "auto") await chrome.storage.sync.set({ auto: "badge" });
     })();
   }, []);
 
@@ -191,7 +142,6 @@ export function Popup() {
   }, [handleOrganizeResult, windowId]);
 
   const organize = async () => {
-    setMonitorPromptDismissed(true);
     const [sync, local] = await Promise.all([
       chrome.storage.sync.get({ provider: "gemini" }),
       chrome.storage.local.get({ openaiKey: "", anthropicKey: "", geminiKey: "", apiKey: "" }),
@@ -270,7 +220,7 @@ export function Popup() {
     });
     setRunning(null);
     setGroups([]);
-    await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
+    await Promise.all([refreshUndo(), refreshPanels()]);
     await consumeJob(organizeJob?.id ?? handledJobId.current ?? undefined);
     setStatus(
       res?.error
@@ -284,7 +234,7 @@ export function Popup() {
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "ungroupAll", windowId });
     setRunning(null);
-    await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
+    await Promise.all([refreshUndo(), refreshPanels()]);
     setStatus(res?.error ? { text: res.error, error: true } : { text: `${res.tabCount} tab${res.tabCount === 1 ? "" : "s"} ungrouped` });
   };
 
@@ -293,7 +243,7 @@ export function Popup() {
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "cleanDuplicates", windowId });
     setRunning(null);
-    await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
+    await Promise.all([refreshUndo(), refreshPanels()]);
     setStatus(
       res?.error
         ? { text: res.error, error: true }
@@ -301,25 +251,12 @@ export function Popup() {
     );
   };
 
-  const merge = async () => {
-    setRunning("merge");
-    setStatus(null);
-    const res: MergeResponse = await chrome.runtime.sendMessage({ type: "mergeWindows", windowId });
-    setRunning(null);
-    if (res?.error) {
-      setStatus({ text: res.error, error: true });
-      return;
-    }
-    await Promise.all([refreshCounts(), refreshPanels()]);
-    setStatus({ text: `Merged ${res.windows} window${res.windows === 1 ? "" : "s"} · ${res.tabs} tabs` });
-  };
-
   const undo = async () => {
     setRunning("undo");
     setStatus(null);
     const res = await chrome.runtime.sendMessage({ type: "undo", windowId });
     setRunning(null);
-    await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
+    await Promise.all([refreshUndo(), refreshPanels()]);
     setStatus(res?.error ? { text: res.error, error: true } : { text: "Previous tab layout restored" });
   };
 
@@ -381,7 +318,6 @@ export function Popup() {
   const organizing = running === "organize" || organizeJob?.status === "running";
   const disabled =
     Boolean(running) || reviewing || stashBusy !== null || acknowledged === null || windowId === undefined;
-  const showMonitorPrompt = monitorEnabled && tabCount >= monitorThreshold && !monitorPromptDismissed;
   const icon = (action: Action, idle: ReactNode) =>
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
 
@@ -427,23 +363,6 @@ export function Popup() {
 
           <CommandBar windowId={windowId} disabled={disabled} acknowledged={acknowledged === true} onAcknowledge={acknowledgeNotice} />
 
-          {showMonitorPrompt && (
-            <section className="mt-5 rounded-lg border border-primary/35 bg-primary/10 p-3" aria-live="polite">
-              <div className="flex items-start gap-2.5">
-                <BellRing className="mt-0.5 size-4 shrink-0 text-primary" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium leading-snug">
-                    Hey, you have {tabCount} tabs open. Do you want to organize it?
-                  </p>
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <Button onClick={organize} disabled={disabled} size="sm">Organize now</Button>
-                    <Button onClick={() => setMonitorPromptDismissed(true)} variant="ghost" size="sm">Not now</Button>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
           <button
             onClick={organize}
             disabled={disabled}
@@ -454,77 +373,11 @@ export function Popup() {
             <span>{confirming ? "Continue organizing" : "Organize tabs"}</span>
           </button>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             <QuickAction label="Ungroup" onClick={ungroup} disabled={disabled} icon={icon("ungroup", <UngroupIcon className="size-[18px]" />)} />
             <QuickAction label="Close duplicates" onClick={cleanDuplicates} disabled={disabled} icon={icon("duplicates", <CopyX className="size-4" />)} />
-            <QuickAction label="Merge windows" onClick={merge} disabled={disabled || windowCount <= 1} icon={icon("merge", <Combine className="size-4" />)} />
             <QuickAction label="Undo" onClick={undo} disabled={disabled || !hasUndo} icon={icon("undo", <Undo2 className="size-4" />)} />
           </div>
-
-          <section className="mt-3 overflow-hidden rounded-lg border border-border bg-muted/20">
-            <button
-              type="button"
-              onClick={() => setBasicSettingsOpen((open) => !open)}
-              className="flex min-h-11 w-full items-center justify-between px-3 text-left text-sm font-medium outline-none transition-colors duration-150 hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-              aria-expanded={basicSettingsOpen}
-              aria-controls="basic-settings"
-            >
-              <span>Basic settings</span>
-              <ChevronDown className={`size-4 text-muted-foreground transition-transform duration-200 [transition-timing-function:var(--ease-out-strong)] ${basicSettingsOpen ? "rotate-180" : ""}`} />
-            </button>
-            {basicSettingsOpen && (
-              <div id="basic-settings" className="border-t border-border px-3 py-3">
-                <div className="flex items-center gap-3 pb-3">
-                  <span className="shrink-0 text-xs text-muted-foreground">Minimum group</span>
-                  <Slider
-                    min={1}
-                    max={6}
-                    step={1}
-                    value={[minGroupSize]}
-                    onValueChange={([value]) => setMinGroupSize(value)}
-                    onValueCommit={([value]) => chrome.storage.sync.set({ minGroupSize: value })}
-                    aria-label="Minimum tabs per group"
-                  />
-                  <span className="w-3 text-right text-xs tabular-nums">{minGroupSize}</span>
-                </div>
-
-                <div className="flex flex-col border-t border-border">
-                  <BasicCheckbox
-                    id="dedupe-on-organize"
-                    label="Close duplicate tabs"
-                    description="Keeps the active or newest copy."
-                    checked={dedupeOnOrganize}
-                    onCheckedChange={(checked) => {
-                      setDedupeOnOrganize(checked);
-                      chrome.storage.sync.set({ dedupeOnOrganize: checked });
-                    }}
-                  />
-                  <BasicCheckbox
-                    id="merge-on-organize"
-                    label="Merge windows while organizing"
-                    description="Brings all windows together first."
-                    checked={mergeOnOrganize}
-                    onCheckedChange={(checked) => {
-                      setMergeOnOrganize(checked);
-                      chrome.storage.sync.set({ mergeOnOrganize: checked });
-                    }}
-                  />
-                  <BasicCheckbox
-                    id="tab-monitor"
-                    label="Autonomous tab monitor"
-                    description={`Notifies you at ${monitorThreshold} tabs and always asks first.`}
-                    icon={<BellRing className="size-4" />}
-                    checked={monitorEnabled}
-                    onCheckedChange={(checked) => {
-                      setMonitorEnabled(checked);
-                      setMonitorPromptDismissed(false);
-                      chrome.storage.sync.set({ auto: checked ? "badge" : "off" });
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </section>
 
           <StashPanel
             groups={groupList}
@@ -571,42 +424,4 @@ function QuickAction({
       <span>{label}</span>
     </button>
   );
-}
-
-function BasicCheckbox({
-  id,
-  label,
-  description,
-  icon,
-  checked,
-  onCheckedChange,
-}: {
-  id: string;
-  label: string;
-  description: string;
-  icon?: ReactNode;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
-  return (
-    <label htmlFor={id} className="flex min-h-14 cursor-pointer items-start gap-2.5 border-b border-border py-3 last:border-b-0">
-      <Checkbox
-        id={id}
-        className="mt-0.5"
-        checked={checked}
-        onCheckedChange={(value) => onCheckedChange(value === true)}
-      />
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-          {icon ? <span className="text-primary">{icon}</span> : null}
-          {label}
-        </span>
-        <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">{description}</span>
-      </span>
-    </label>
-  );
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, Number(value) || min));
 }

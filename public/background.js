@@ -10,7 +10,6 @@ const PROVIDER_TIMEOUT_MS = 45 * 1000;
 const OLLAMA_TIMEOUT_MS = 90 * 1000;
 const SNIPPET_TIMEOUT_MS = 8 * 1000;
 const ORGANIZE_STALE_MS = 2 * 60 * 1000;
-const MONITOR_NOTIFICATION_PREFIX = "focused-tab-monitor:";
 
 const DEFAULT_MODELS = {
   openai: "gpt-5.6-luna",
@@ -26,10 +25,7 @@ const DEFAULT_PREFS = {
   groupEverything: false,
   reviewFirst: false,
   dedupeOnOrganize: false,
-  mergeOnOrganize: false,
   customInstructions: "",
-  auto: "off",
-  autoThreshold: 15,
   budgetUsd: 1
 };
 
@@ -325,7 +321,6 @@ const PROVIDERS = {
 };
 
 let spendQueue = Promise.resolve();
-let autoTimer = null;
 const organizeJobs = new Map();
 
 async function getSettings() {
@@ -354,7 +349,7 @@ async function hasDataNoticeAck() {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const handlers = {
-    organize: () => organize(msg.hasContentPermission, { windowId: msg.windowId }),
+    organize: () => organize(msg.hasContentPermission, msg.windowId),
     organizeStatus: () => getOrganizeStatus(msg.windowId),
     consumeOrganizeResult: () => consumeOrganizeResult(msg.windowId, msg.jobId),
     applyPlan: () => applyPlan(msg.groups, msg.minSize || 1, { windowId: msg.windowId, snapshot: true }),
@@ -362,9 +357,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     cleanDuplicates: () => cleanDuplicates(msg.windowId, { snapshot: true }),
     undo: () => undo(msg.windowId),
     hasUndo: () => hasUndo(msg.windowId),
-    mergeWindows: () => mergeWindows(msg.windowId),
-    windowCount: () => windowCount(),
-    monitorState: () => getMonitorState(msg.windowId),
     listModels: () => listModels(msg.provider),
     exportGroups: () => exportGroups(msg.windowId),
     importGroups: () => importGroups(msg.payload, msg.windowId),
@@ -384,7 +376,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
-async function organize(hasContentPermission, { automatic = false, windowId } = {}) {
+async function organize(hasContentPermission, windowId) {
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
   // Consent is enforced here, not in the popup: UI state is not a security
   // boundary, and no job/tab/provider work may happen before this check.
@@ -393,7 +385,7 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
   }
   const active = organizeJobs.get(targetWindowId);
   if (active?.status === "running") {
-    return automatic ? { skipped: true } : { running: true, job: publicOrganizeJob(active) };
+    return { running: true, job: publicOrganizeJob(active) };
   }
 
   const now = Date.now();
@@ -404,31 +396,19 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
     stage: "collecting",
     startedAt: now,
     updatedAt: now,
-    tabCount: 0,
-    automatic
+    tabCount: 0
   };
   organizeJobs.set(targetWindowId, job);
   await persistOrganizeJob(job);
-  // Captured before the badge logic clears it mid-run; a monitor-prompted
-  // organize gets a "Filed N tabs" notification on completion.
-  const monitorAlerted = Boolean(
-    (await chrome.storage.local.get({ monitorAlertedWindows: {} })).monitorAlertedWindows[String(targetWindowId)]
-  );
-  await chrome.notifications.clear(`${MONITOR_NOTIFICATION_PREFIX}${targetWindowId}`).catch(() => undefined);
 
   const stopKeepalive = startKeepalive();
 
   try {
     let settings = await getSettings();
     if (!hasProviderAccess(settings)) {
-      const result = automatic ? { skipped: true } : { error: missingCredentialMessage(settings.provider) };
-      return finishOrganizeJob(job, result);
+      return finishOrganizeJob(job, { error: missingCredentialMessage(settings.provider) });
     }
     settings = await ensureModel(settings);
-
-    if (settings.mergeOnOrganize) {
-      await mergeWindows(targetWindowId);
-    }
 
     let dedupeMutated = false;
     if (settings.dedupeOnOrganize) {
@@ -465,7 +445,7 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
       return finishOrganizeJob(job, { error: "No coherent groups found — tabs left as they are." });
     }
 
-    if (settings.reviewFirst && !automatic) {
+    if (settings.reviewFirst) {
       const titleById = Object.fromEntries(tabInfo.map((tab) => [tab.id, tab.title]));
       return finishOrganizeJob(job, {
         review: true,
@@ -487,7 +467,6 @@ async function organize(hasContentPermission, { automatic = false, windowId } = 
 
     updateOrganizeJob(job, { stage: "applying" });
     const result = await applyPlan(groups, minSize, { windowId: targetWindowId, snapshot: !dedupeMutated });
-    if ((automatic || monitorAlerted) && result.done) notifyAutoFiled(result);
     return finishOrganizeJob(job, result);
   } catch (error) {
     const message = error?.name === "TimeoutError"
@@ -777,7 +756,6 @@ async function applyPlan(groups, minSize = 1, { windowId, snapshot = true } = {}
   if (!applied.length) return { error: "Tabs closed or moved before groups could be created." };
   const newGroups = applied.map((item) => item.newGroup).filter(Boolean);
   await orderTabStrip(targetWindowId, newGroups);
-  scheduleAutoCheck();
   return {
     done: true,
     groupCount: applied.length,
@@ -788,20 +766,6 @@ async function applyPlan(groups, minSize = 1, { windowId, snapshot = true } = {}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function notifyAutoFiled(result) {
-  if (!chrome.notifications) return;
-  const names = result.groupNames || [];
-  const message = names.length === 1
-    ? `Filed ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"} → ${names[0]}`
-    : `Filed ${result.tabCount} tabs into ${result.groupCount} groups`;
-  chrome.notifications.create({
-    type: "basic",
-    iconUrl: "icons/icon128.png",
-    title: "Focused",
-    message
-  }, () => chrome.runtime.lastError);
 }
 
 async function orderTabStrip(windowId, newGroups) {
@@ -848,7 +812,6 @@ async function ungroupAll(windowId) {
   if (!ids.length) return { error: "No grouped tabs in this window." };
   await storeUndoSnapshot(await captureSnapshot(targetWindowId));
   await chrome.tabs.ungroup(ids);
-  scheduleAutoCheck();
   return { done: true, tabCount: ids.length };
 }
 
@@ -883,7 +846,6 @@ async function cleanDuplicates(windowId, { snapshot = true } = {}) {
     await storeUndoSnapshot(captured);
   }
   await chrome.tabs.remove(toClose.map((tab) => tab.id));
-  scheduleAutoCheck();
   return { done: true, closedCount: toClose.length };
 }
 
@@ -1068,7 +1030,6 @@ async function undo(windowId) {
   }
 
   await clearUndoSnapshot(targetWindowId);
-  scheduleAutoCheck();
   return { done: true, tabCount: restored.length, reopenedCount: idMap.size };
 }
 
@@ -1118,7 +1079,6 @@ async function importGroups(payload, windowId) {
     groupCount++;
     tabCount += tabIds.length;
   }
-  scheduleAutoCheck();
   return { done: true, groupCount, tabCount };
 }
 
@@ -1338,7 +1298,6 @@ async function stashGroup(windowId, groupId) {
     await chrome.tabs.create({ windowId: group.windowId }).catch(() => undefined);
   }
   await chrome.tabs.remove(freshSavable.map((tab) => tab.id));
-  scheduleAutoCheck();
   generateStashBrief(stash, snippets).catch(() => undefined);
   return { done: true, stash: publicStash(stash) };
 }
@@ -1417,7 +1376,6 @@ async function resumeStash(stashId, windowId) {
     color: GROUP_COLORS.includes(stash.color) ? stash.color : "grey"
   });
   await mutateStashes((list) => list.filter((item) => item.id !== stashId));
-  scheduleAutoCheck();
   return { done: true, tabCount: tabIds.length, brief: stash.brief || "" };
 }
 
@@ -1452,52 +1410,6 @@ async function getExistingGroupContext(windowId, tabs) {
   }));
 }
 
-async function windowCount() {
-  const current = await chrome.windows.getCurrent();
-  const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
-  return { count: windows.filter((window) => window.incognito === current.incognito).length };
-}
-
-async function getMonitorState(windowId) {
-  const settings = await getSettings();
-  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
-  const tabs = await chrome.tabs.query({ windowId: targetWindowId });
-  const count = countOrganizableTabs(tabs);
-  const threshold = Math.max(1, Number(settings.autoThreshold) || 15);
-  return {
-    count,
-    threshold,
-    enabled: settings.auto !== "off",
-    shouldPrompt: settings.auto !== "off" && count >= threshold
-  };
-}
-
-// Merge every other same-profile window into the popup's window and retain whole groups.
-async function mergeWindows(targetWindowId) {
-  const current = targetWindowId ? await chrome.windows.get(targetWindowId) : await chrome.windows.getCurrent();
-  const windows = await chrome.windows.getAll({ windowTypes: ["normal"], populate: true });
-  const others = windows.filter((window) => window.id !== current.id && window.incognito === current.incognito);
-  if (!others.length) return { error: "Only one window open." };
-
-  let moved = 0;
-  for (const window of others) {
-    const groupIds = [...new Set(window.tabs.map((tab) => tab.groupId).filter((id) => id !== -1))];
-    for (const groupId of groupIds) {
-      await chrome.tabGroups.move(groupId, { windowId: current.id, index: -1 });
-    }
-    const loose = window.tabs.filter((tab) => tab.groupId === -1);
-    for (const tab of loose) {
-      await chrome.tabs.move(tab.id, { windowId: current.id, index: -1 });
-      if (tab.pinned) await chrome.tabs.update(tab.id, { pinned: true });
-      moved++;
-    }
-    moved += window.tabs.length - loose.length;
-  }
-  await chrome.windows.update(current.id, { focused: true });
-  scheduleAutoCheck();
-  return { done: true, windows: others.length, tabs: moved };
-}
-
 async function checkBudget(settings) {
   if (settings.provider === "ollama") return;
   const { spentUsd } = await chrome.storage.local.get({ spentUsd: 0 });
@@ -1526,87 +1438,16 @@ function priceFor(provider, model) {
   return match ? { input: match[1], output: match[2] } : { input: 10, output: 50 };
 }
 
-function scheduleAutoCheck() {
-  if (autoTimer) clearTimeout(autoTimer);
-  autoTimer = setTimeout(() => {
-    autoTimer = null;
-    refreshAutoState().catch(() => undefined);
-  }, 2000);
-}
-
-async function refreshAutoState() {
-  const settings = await getSettings();
-  const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
-  const threshold = Math.max(1, Number(settings.autoThreshold) || 15);
-  const local = await chrome.storage.local.get({ monitorAlertedWindows: {} });
-  const alerted = { ...(local.monitorAlertedWindows || {}) };
-  const openWindowIds = new Set(windows.map((window) => String(window.id)));
-
-  for (const window of windows) {
-    const tabs = await chrome.tabs.query({ windowId: window.id });
-    const count = countOrganizableTabs(tabs);
-    const organizing = organizeJobs.get(window.id)?.status === "running";
-    const showBadge = !organizing && settings.auto !== "off" && count >= threshold;
-    await Promise.all(
-      tabs.map((tab) => chrome.action.setBadgeText({ tabId: tab.id, text: showBadge ? String(count) : "" }).catch(() => undefined))
-    );
-
-    const key = String(window.id);
-    const notificationId = `${MONITOR_NOTIFICATION_PREFIX}${window.id}`;
-    if (showBadge && !alerted[key]) {
-      const created = await chrome.notifications.create(notificationId, {
-        type: "basic",
-        iconUrl: chrome.runtime.getURL("icons/icon128.png"),
-        title: "Focused",
-        message: `Hey, you have ${count} tabs open. Do you want to organize it?`,
-        buttons: [{ title: "Open Focused" }],
-        priority: 1
-      }).then(() => true).catch(() => false);
-      if (created) alerted[key] = true;
-    } else if (!showBadge && alerted[key]) {
-      delete alerted[key];
-      await chrome.notifications.clear(notificationId).catch(() => undefined);
-    }
-  }
-
-  for (const key of Object.keys(alerted)) {
-    if (!openWindowIds.has(key)) delete alerted[key];
-  }
-  await chrome.storage.local.set({ monitorAlertedWindows: alerted });
-}
-
-function countOrganizableTabs(tabs) {
-  return tabs.filter((tab) => !tab.pinned && tab.groupId === -1 && tab.url && /^https?:/.test(tab.url)).length;
-}
-
-async function openMonitorPrompt(notificationId) {
-  if (!notificationId.startsWith(MONITOR_NOTIFICATION_PREFIX)) return;
-  const windowId = Number(notificationId.slice(MONITOR_NOTIFICATION_PREFIX.length));
-  if (!Number.isInteger(windowId)) return;
-  await chrome.windows.update(windowId, { focused: true }).catch(() => undefined);
-  await chrome.action.openPopup({ windowId }).catch(() => undefined);
-  await chrome.notifications.clear(notificationId).catch(() => undefined);
-}
-
-chrome.notifications.onClicked.addListener((notificationId) => {
-  openMonitorPrompt(notificationId).catch(() => undefined);
-});
-chrome.notifications.onButtonClicked.addListener((notificationId) => {
-  openMonitorPrompt(notificationId).catch(() => undefined);
-});
-
-chrome.tabs.onCreated.addListener(scheduleAutoCheck);
-chrome.tabs.onRemoved.addListener(scheduleAutoCheck);
-chrome.tabs.onUpdated.addListener(scheduleAutoCheck);
-chrome.runtime.onInstalled.addListener(scheduleAutoCheck);
-chrome.runtime.onStartup.addListener(scheduleAutoCheck);
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "sync" && (changes.auto || changes.autoThreshold)) scheduleAutoCheck();
-});
 chrome.windows.onRemoved.addListener((windowId) => {
   incognitoUndoByWindow.delete(windowId);
 });
-scheduleAutoCheck();
+// Clean up settings persisted by the removed merge and tab-monitor features.
+chrome.runtime.onInstalled.addListener(() => {
+  Promise.all([
+    chrome.storage.sync.remove(["mergeOnOrganize", "auto", "autoThreshold"]),
+    chrome.storage.local.remove("monitorAlertedWindows")
+  ]).catch(() => undefined);
+});
 purgeLegacyUndo().catch(() => undefined);
 
 async function anthropicRequest(apiKey, body) {

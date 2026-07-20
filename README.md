@@ -10,13 +10,11 @@ Works in Chrome, Brave, Edge, Arc, Vivaldi — any Chromium browser that support
 - **Command bar** — type "open my LinkedIn tab where I was looking at Stanford's page" and Focused jumps to it, or ask "which tab had the pet-friendly place under $200?" and get a one-sentence answer with a Go-to-tab button. Reports clearly when nothing matches.
 - **Stash + resume briefs** — stash a whole group: its tabs close and Focused writes an AI "where you left off" brief (prices, options, what was still unchecked). Resume later and the group comes back exactly as it was.
 - **Hybrid context** — optionally reads a short page snippet when a title and URL are too ambiguous to classify. Declining page access still leaves title/URL organization fully usable.
-- **Quick actions** — ungroup everything, close duplicate URLs, merge windows, or undo the last organize/ungroup/cleanup action from the popup.
+- **Quick actions** — ungroup everything, close duplicate URLs, or undo the last organize/ungroup/cleanup action from the popup.
 - **Duplicate protection** — keeps pinned tabs and the active tab, otherwise retaining the most recently accessed copy. Cleanup can run automatically before organization.
 - **Review mode** — inspect proposed groups and choose which ones to apply.
 - **Custom instructions** — save personal grouping and naming rules, such as keeping every Wikipedia tab in a group called "wowow".
 - **Persistent progress** — close and reopen the popup without losing the active organize state or result.
-- **Tab monitor** — show a badge and notification when loose tabs cross a threshold, then ask before organizing.
-- **Merge while organizing** — optionally combine browser windows before sorting so related tabs can be grouped together.
 - **Budget cap** — estimates provider spend from reported token usage and stops requests at your configured limit. Ollama remains free.
 - **Import and export** — copy/download the current window's groups as JSON and recreate them later.
 - **Flexible grouping** — choose a minimum group size or group every loose tab.

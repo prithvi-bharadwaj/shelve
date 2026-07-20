@@ -3,7 +3,7 @@
   "name": "Focused",
   "version": "0.4.0",
   "description": "One click: understands your open tabs and sorts them into named Chrome tab groups.",
-  "permissions": ["tabs", "tabGroups", "storage", "notifications"],
+  "permissions": ["tabs", "tabGroups", "storage"],
   "optional_permissions": ["scripting"],
   "host_permissions": [
     "https://api.anthropic.com/*",
