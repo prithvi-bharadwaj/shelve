@@ -27,8 +27,9 @@ export interface UndoSnapshot {
   incognito: boolean;
   tabs: Array<{ id: number; url: string; index: number; pinned: boolean; groupId: number }>;
   groups: Array<{ id: number; title: string; color: string }>;
-  closedUrls: string[];
-  closedTabIds: number[];
+  closedTabs?: Array<{ originalId: number | null; url: string; reopenedId: number | null }>;
+  closedUrls?: string[];
+  closedTabIds?: number[];
 }
 
 interface WorkerExports {

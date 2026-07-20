@@ -23,7 +23,7 @@ These plans implement the selected **recommended cleanup**:
 | 003 | Enforce AI consent and isolate undo by browsing context | P0 | M | 002 | DONE |
 | 004 | Remove merge, monitor, and duplicate popup settings | P1 | M | 003 | DONE |
 | 005 | Make the stash lifecycle loss-resistant | P1 | M | 004 | DONE |
-| 006 | Preserve distinct URLs and retain partial undo recovery | P1 | L | 005 | TODO |
+| 006 | Preserve distinct URLs and retain partial undo recovery | P1 | L | 005 | DONE |
 | 007 | Resolve credential, review, command, model, and polling races | P1 | M | 006 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |

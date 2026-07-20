@@ -257,7 +257,15 @@ export function Popup() {
     const res = await chrome.runtime.sendMessage({ type: "undo", windowId });
     setRunning(null);
     await Promise.all([refreshUndo(), refreshPanels()]);
-    setStatus(res?.error ? { text: res.error, error: true } : { text: "Previous tab layout restored" });
+    if (res?.error) {
+      setStatus({ text: res.error, error: true });
+      return;
+    }
+    setStatus({
+      text: res?.skippedCount
+        ? `Restored the available layout — ${res.skippedCount} tab${res.skippedCount === 1 ? "" : "s"} closed since couldn't be brought back`
+        : "Previous tab layout restored",
+    });
   };
 
   const acknowledgeNotice = useCallback(async () => {

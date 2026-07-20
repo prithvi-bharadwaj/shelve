@@ -842,20 +842,21 @@ async function cleanDuplicates(windowId, { snapshot = true } = {}) {
 
   if (snapshot) {
     const captured = await captureSnapshot(targetWindowId);
-    captured.closedUrls = toClose.map((tab) => tab.url).filter(Boolean);
-    captured.closedTabIds = toClose.map((tab) => tab.id);
+    captured.closedTabs = toClose
+      .filter((tab) => tab.url)
+      .map((tab) => ({ originalId: tab.id, url: tab.url, reopenedId: null }));
     await storeUndoSnapshot(captured);
   }
   await chrome.tabs.remove(toClose.map((tab) => tab.id));
   return { done: true, closedCount: toClose.length };
 }
 
+// Fragments are part of duplicate identity: hash-routed apps encode the
+// document/route after "#", so stripping it can close distinct pages.
 function normalizedDuplicateUrl(value) {
   if (!value) return null;
   try {
-    const url = new URL(value);
-    url.hash = "";
-    return url.href;
+    return new URL(value).href;
   } catch {
     return null;
   }
@@ -881,9 +882,41 @@ async function captureSnapshot(windowId) {
       groupId: tab.groupId
     })),
     groups: groups.map((group) => ({ id: group.id, title: group.title || "", color: group.color })),
-    closedUrls: [],
-    closedTabIds: []
+    closedTabs: []
   };
+}
+
+// Accepts only Plan-003 v2 records. Snapshots written before the closedTabs
+// journal existed carried parallel closedUrls/closedTabIds arrays; zip those
+// into journal entries. Unversioned records are rejected, never migrated.
+function normalizeUndoSnapshot(snapshot) {
+  if (
+    !snapshot ||
+    snapshot.version !== 2 ||
+    !Number.isInteger(snapshot.windowId) ||
+    typeof snapshot.incognito !== "boolean"
+  ) {
+    return null;
+  }
+  const normalized = { ...snapshot };
+  let closedTabs;
+  if (Array.isArray(snapshot.closedTabs)) {
+    closedTabs = snapshot.closedTabs;
+  } else {
+    const ids = Array.isArray(snapshot.closedTabIds) ? snapshot.closedTabIds : [];
+    const urls = Array.isArray(snapshot.closedUrls) ? snapshot.closedUrls : [];
+    closedTabs = urls.map((url, index) => ({ originalId: ids[index], url, reopenedId: null }));
+  }
+  normalized.closedTabs = closedTabs
+    .filter((entry) => entry && typeof entry.url === "string" && entry.url)
+    .map((entry) => ({
+      originalId: Number.isInteger(entry.originalId) ? entry.originalId : null,
+      url: entry.url,
+      reopenedId: Number.isInteger(entry.reopenedId) ? entry.reopenedId : null
+    }));
+  delete normalized.closedUrls;
+  delete normalized.closedTabIds;
+  return normalized;
 }
 
 // Incognito undo lives only in worker memory: chrome.storage.session and
@@ -932,7 +965,7 @@ async function getUndoSnapshot(windowId) {
   const targetWindow = await chrome.windows.get(windowId).catch(() => null);
   if (!targetWindow) return null;
   if (targetWindow.incognito) {
-    return incognitoUndoByWindow.get(windowId) || null;
+    return normalizeUndoSnapshot(incognitoUndoByWindow.get(windowId) || null);
   }
   const key = undoStorageKey(windowId);
   let stored = null;
@@ -951,7 +984,7 @@ async function getUndoSnapshot(windowId) {
     await removeStoredUndo(key);
     return null;
   }
-  return stored;
+  return normalizeUndoSnapshot(stored);
 }
 
 async function removeStoredUndo(key) {
@@ -971,44 +1004,90 @@ async function hasUndo(windowId) {
   return { hasUndo: Boolean(await getUndoSnapshot(targetWindowId)) };
 }
 
+// Undo is retryable: reopened tab IDs are checkpointed into the snapshot
+// before further work so a retry reuses them instead of duplicating tabs, and
+// the snapshot is cleared only after every recoverable operation succeeds.
 async function undo(windowId) {
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
   const snapshot = await getUndoSnapshot(targetWindowId);
   if (!snapshot) return { error: "Nothing to undo." };
 
+  let failedCount = 0;
+  let skippedCount = 0;
   const idMap = new Map();
-  const closedIds = snapshot.closedTabIds || [];
-  for (let i = 0; i < (snapshot.closedUrls || []).length; i++) {
-    const url = snapshot.closedUrls[i];
-    try {
-      const tab = await chrome.tabs.create({ windowId: snapshot.windowId, url, active: false });
-      if (closedIds[i] !== undefined) idMap.set(closedIds[i], tab.id);
-    } catch {
-      // Invalid or no longer permitted URL; continue restoring the rest.
+  const partialResult = () => ({
+    error: "Undo partially restored. Retry Undo to finish.",
+    partial: true,
+    tabCount: 0,
+    reopenedCount: snapshot.closedTabs.filter((entry) => Number.isInteger(entry.reopenedId)).length,
+    failedCount,
+    skippedCount
+  });
+
+  for (const entry of snapshot.closedTabs) {
+    if (Number.isInteger(entry.reopenedId)) {
+      const existing = await chrome.tabs.get(entry.reopenedId).catch(() => null);
+      if (existing && existing.windowId === snapshot.windowId && existing.url === entry.url) {
+        if (entry.originalId !== null) idMap.set(entry.originalId, entry.reopenedId);
+        continue;
+      }
+      entry.reopenedId = null;
     }
+    const tab = await chrome.tabs
+      .create({ windowId: snapshot.windowId, url: entry.url, active: false })
+      .catch(() => null);
+    if (!tab) {
+      failedCount++;
+      continue;
+    }
+    entry.reopenedId = tab.id;
+    const checkpointed = await storeUndoSnapshot(snapshot).then(() => true, () => false);
+    if (!checkpointed) {
+      // Never leave an unjournaled tab behind: without the checkpoint a retry
+      // would open a duplicate of it.
+      entry.reopenedId = null;
+      await chrome.tabs.remove(tab.id).catch(() => undefined);
+      failedCount++;
+      return partialResult();
+    }
+    if (entry.originalId !== null) idMap.set(entry.originalId, tab.id);
   }
 
+  const journaledIds = new Set(
+    snapshot.closedTabs.map((entry) => entry.originalId).filter((id) => id !== null)
+  );
   const restored = [];
   for (const original of snapshot.tabs || []) {
-    const id = idMap.get(original.id) || original.id;
-    try {
-      const tab = await chrome.tabs.get(id);
-      if (tab.windowId === snapshot.windowId) restored.push({ original, id, tab });
-    } catch {
-      // A tab closed after the action cannot be restored without a closed URL record.
+    const liveId = idMap.get(original.id) || original.id;
+    const tab = await chrome.tabs.get(liveId).catch(() => null);
+    if (!tab || tab.windowId !== snapshot.windowId) {
+      // Closed by the user after the action, with no journaled URL to recreate
+      // it from. Skipped, not retryable.
+      if (!journaledIds.has(original.id)) skippedCount++;
+      continue;
     }
+    restored.push({ original, id: liveId, tab });
   }
 
+  // Restoration re-runs idempotently on retry: ungroup returns everything to a
+  // known state before pins, order, and groups are reapplied.
   const groupedIds = restored.filter((item) => item.tab.groupId !== -1).map((item) => item.id);
-  if (groupedIds.length) await chrome.tabs.ungroup(groupedIds).catch(() => undefined);
+  if (groupedIds.length) {
+    const ungrouped = await chrome.tabs.ungroup(groupedIds).then(() => true, () => false);
+    if (!ungrouped) failedCount++;
+  }
 
   for (const item of restored) {
     if (item.tab.pinned !== item.original.pinned) {
-      await chrome.tabs.update(item.id, { pinned: item.original.pinned }).catch(() => undefined);
+      const pinned = await chrome.tabs
+        .update(item.id, { pinned: item.original.pinned })
+        .then(() => true, () => false);
+      if (!pinned) failedCount++;
     }
   }
   for (const item of [...restored].sort((a, b) => a.original.index - b.original.index)) {
-    await chrome.tabs.move(item.id, { index: item.original.index }).catch(() => undefined);
+    const moved = await chrome.tabs.move(item.id, { index: item.original.index }).then(() => true, () => false);
+    if (!moved) failedCount++;
   }
 
   const groupMeta = new Map((snapshot.groups || []).map((group) => [group.id, group]));
@@ -1026,12 +1105,17 @@ async function undo(windowId) {
       const index = Math.min(...members.map((item) => item.original.index));
       await chrome.tabGroups.move(newGroupId, { index });
     } catch {
-      // Restore as much as possible if a tab changes during undo.
+      failedCount++;
     }
   }
 
+  const reopenedCount = snapshot.closedTabs.filter((entry) => Number.isInteger(entry.reopenedId)).length;
+  if (failedCount > 0) {
+    await storeUndoSnapshot(snapshot).catch(() => undefined);
+    return { ...partialResult(), tabCount: restored.length, reopenedCount };
+  }
   await clearUndoSnapshot(targetWindowId);
-  return { done: true, tabCount: restored.length, reopenedCount: idMap.size };
+  return { done: true, tabCount: restored.length, reopenedCount, skippedCount };
 }
 
 async function exportGroups(windowId) {
