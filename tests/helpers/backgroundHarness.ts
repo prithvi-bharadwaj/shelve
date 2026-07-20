@@ -18,6 +18,7 @@ const TEST_EXPORTS = `
   getUndoSnapshot,
   clearUndoSnapshot,
   undoStorageKey,
+  getSettings,
 };
 `;
 
@@ -46,6 +47,7 @@ interface WorkerExports {
   getUndoSnapshot: (windowId: number) => Promise<UndoSnapshot | null>;
   clearUndoSnapshot: (windowId: number) => Promise<void>;
   undoStorageKey: (windowId: number) => string | null;
+  getSettings: () => Promise<Record<string, unknown>>;
 }
 
 type MessageListener = (

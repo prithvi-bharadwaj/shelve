@@ -16,6 +16,7 @@ function renderReview(overrides: Partial<Parameters<typeof ReviewGroups>[0]> = {
     applying: false,
     onSelectedChange: vi.fn(),
     onApply: vi.fn(),
+    onDiscard: vi.fn(),
     ...overrides,
   };
   render(<ReviewGroups {...props} />);
@@ -40,6 +41,22 @@ describe("ReviewGroups", () => {
     const props = renderReview({ selected: new Set([0]) });
     await user.click(screen.getByRole("button", { name: "Apply selected" }));
     expect(props.onApply).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Discard enabled with zero selected groups", async () => {
+    const user = userEvent.setup();
+    const props = renderReview();
+    const discard = screen.getByRole("button", { name: "Discard" });
+    expect(discard).toBeEnabled();
+    await user.click(discard);
+    expect(props.onDiscard).toHaveBeenCalledTimes(1);
+    expect(props.onApply).not.toHaveBeenCalled();
+  });
+
+  it("disables both Discard and Apply while applying", () => {
+    renderReview({ selected: new Set([0]), applying: true });
+    expect(screen.getByRole("button", { name: "Discard" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Applying…" })).toBeDisabled();
   });
 
   it("reports the new selection when a group is toggled", async () => {

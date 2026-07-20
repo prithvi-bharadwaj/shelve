@@ -12,7 +12,6 @@ import type {
   OrganizeJob,
   OrganizeResponse,
   ProposedGroup,
-  Provider,
   Stash,
 } from "@/types";
 
@@ -32,6 +31,7 @@ export function Popup() {
   // null = storage not yet read; the UI must stay inert until this resolves.
   const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [commandRunning, setCommandRunning] = useState(false);
   const [groupList, setGroupList] = useState<GroupInfo[]>([]);
   const [stashes, setStashes] = useState<Stash[]>([]);
   const [stashBusy, setStashBusy] = useState<number | string | null>(null);
@@ -112,11 +112,16 @@ export function Popup() {
     })();
   }, []);
 
+  // One restoration query on mount, then poll only while a job is actually
+  // running — an idle popup must not send status requests forever. The
+  // organizeActive dependency re-arms polling when a local organize starts.
+  const organizeActive = running === "organize" || organizeJob?.status === "running";
   useEffect(() => {
     if (!windowId) return;
     let stopped = false;
     let timer: number | undefined;
     const poll = async () => {
+      let keepPolling = false;
       try {
         const response = await chrome.runtime.sendMessage({ type: "organizeStatus", windowId });
         if (stopped) return;
@@ -125,6 +130,7 @@ export function Popup() {
           setOrganizeJob(job);
           setRunning("organize");
           setStatus(null);
+          keepPolling = true;
         } else if (job && !ownsOrganizeRequest.current && handledJobId.current !== job.id) {
           setOrganizeJob(job);
           await handleOrganizeResult(job.result || { error: job.error }, job.id);
@@ -132,33 +138,16 @@ export function Popup() {
       } catch {
         // The popup can disappear between polls; the background job keeps running.
       }
-      if (!stopped) timer = window.setTimeout(poll, 450);
+      if (!stopped && keepPolling) timer = window.setTimeout(poll, 450);
     };
     poll();
     return () => {
       stopped = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [handleOrganizeResult, windowId]);
+  }, [handleOrganizeResult, windowId, organizeActive]);
 
   const organize = async () => {
-    const [sync, local] = await Promise.all([
-      chrome.storage.sync.get({ provider: "gemini" }),
-      chrome.storage.local.get({ openaiKey: "", anthropicKey: "", geminiKey: "", apiKey: "" }),
-    ]);
-    const provider = sync.provider as Provider;
-    const keys = {
-      openai: local.openaiKey,
-      anthropic: local.anthropicKey || local.apiKey,
-      gemini: local.geminiKey,
-    };
-    const key = provider === "ollama" ? "" : keys[provider];
-    if (provider !== "ollama" && !key) {
-      const name = { openai: "OpenAI", anthropic: "Anthropic", gemini: "Gemini" }[provider];
-      setStatus({ text: `No ${name} API key set — add one in Settings.`, error: true });
-      return;
-    }
-
     if (!acknowledged && !confirming) {
       setConfirming(true);
       setStatus({ text: "Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider." });
@@ -205,6 +194,25 @@ export function Popup() {
       ownsOrganizeRequest.current = false;
       setRunning(null);
       setStatus({ text: "Organizing was interrupted. Try again.", error: true });
+    }
+  };
+
+  const discardReview = async () => {
+    const jobId = organizeJob?.id ?? handledJobId.current ?? undefined;
+    try {
+      if (windowId && jobId) {
+        const res = await chrome.runtime.sendMessage({ type: "consumeOrganizeResult", windowId, jobId });
+        if (!res?.cleared) {
+          setStatus({ text: "Couldn't discard the suggestions — try again.", error: true });
+          return;
+        }
+      }
+      setGroups([]);
+      setSelected(new Set());
+      setOrganizeJob(null);
+      setStatus({ text: "Suggestions discarded." });
+    } catch {
+      setStatus({ text: "Couldn't discard the suggestions — try again.", error: true });
     }
   };
 
@@ -325,7 +333,12 @@ export function Popup() {
   const reviewing = groups.length > 0;
   const organizing = running === "organize" || organizeJob?.status === "running";
   const disabled =
-    Boolean(running) || reviewing || stashBusy !== null || acknowledged === null || windowId === undefined;
+    Boolean(running) ||
+    reviewing ||
+    stashBusy !== null ||
+    commandRunning ||
+    acknowledged === null ||
+    windowId === undefined;
   const icon = (action: Action, idle: ReactNode) =>
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
 
@@ -357,6 +370,7 @@ export function Popup() {
           applying={running === "apply"}
           onSelectedChange={setSelected}
           onApply={applySelected}
+          onDiscard={discardReview}
         />
       ) : (
         <>
@@ -369,7 +383,13 @@ export function Popup() {
             />
           )}
 
-          <CommandBar windowId={windowId} disabled={disabled} acknowledged={acknowledged === true} onAcknowledge={acknowledgeNotice} />
+          <CommandBar
+            windowId={windowId}
+            disabled={disabled && !commandRunning}
+            acknowledged={acknowledged === true}
+            onAcknowledge={acknowledgeNotice}
+            onRunningChange={setCommandRunning}
+          />
 
           <button
             onClick={organize}

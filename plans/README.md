@@ -24,7 +24,7 @@ These plans implement the selected **recommended cleanup**:
 | 004 | Remove merge, monitor, and duplicate popup settings | P1 | M | 003 | DONE |
 | 005 | Make the stash lifecycle loss-resistant | P1 | M | 004 | DONE |
 | 006 | Preserve distinct URLs and retain partial undo recovery | P1 | L | 005 | DONE |
-| 007 | Resolve credential, review, command, model, and polling races | P1 | M | 006 | TODO |
+| 007 | Resolve credential, review, command, model, and polling races | P1 | M | 006 | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)

@@ -35,8 +35,7 @@ const DEFAULT_LOCAL = {
   anthropicKey: "",
   geminiKey: "",
   ollamaUrl: "http://localhost:11434",
-  spentUsd: 0,
-  apiKey: ""
+  spentUsd: 0
 };
 
 // Nullable existingGroupId is required so OpenAI's strict schema can require every property.
@@ -324,7 +323,31 @@ const PROVIDERS = {
 let spendQueue = Promise.resolve();
 const organizeJobs = new Map();
 
+let legacyCredentialMigration = null;
+
+// Copies the pre-rename Anthropic credential ("apiKey") into anthropicKey at
+// most once, then removes the legacy key so clearing the field stays cleared.
+// Single-flight; a storage failure resets the cached promise so a later call
+// retries. The credential value is never logged or returned.
+function migrateLegacyCredential() {
+  if (!legacyCredentialMigration) {
+    legacyCredentialMigration = (async () => {
+      const stored = await chrome.storage.local.get({ anthropicKey: "", apiKey: "" });
+      const legacy = typeof stored.apiKey === "string" ? stored.apiKey.trim() : "";
+      if (!stored.anthropicKey && legacy) {
+        await chrome.storage.local.set({ anthropicKey: legacy });
+      }
+      await chrome.storage.local.remove("apiKey");
+    })().catch((error) => {
+      legacyCredentialMigration = null;
+      throw error;
+    });
+  }
+  return legacyCredentialMigration;
+}
+
 async function getSettings() {
+  await migrateLegacyCredential().catch(() => undefined);
   const [prefs, local] = await Promise.all([
     chrome.storage.sync.get({ ...DEFAULT_PREFS, model: "" }),
     chrome.storage.local.get(DEFAULT_LOCAL)
@@ -337,7 +360,6 @@ async function getSettings() {
     ...DEFAULT_PREFS,
     ...prefs,
     ...local,
-    anthropicKey: local.anthropicKey || local.apiKey || "",
     modelByProvider,
     model: modelByProvider[prefs.provider || DEFAULT_PREFS.provider]
   };
@@ -359,6 +381,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     undo: () => undo(msg.windowId),
     hasUndo: () => hasUndo(msg.windowId),
     listModels: () => listModels(msg.provider),
+    migrateLegacyCredential: () => migrateLegacyCredential().then(() => ({ done: true })),
     exportGroups: () => exportGroups(msg.windowId),
     importGroups: () => importGroups(msg.payload, msg.windowId),
     listGroups: () => listGroups(msg.windowId),
@@ -1723,7 +1746,8 @@ chrome.windows.onRemoved.addListener((windowId) => {
 chrome.runtime.onInstalled.addListener(() => {
   Promise.all([
     chrome.storage.sync.remove(["mergeOnOrganize", "auto", "autoThreshold"]),
-    chrome.storage.local.remove("monitorAlertedWindows")
+    chrome.storage.local.remove("monitorAlertedWindows"),
+    migrateLegacyCredential()
   ]).catch(() => undefined);
 });
 purgeLegacyUndo().catch(() => undefined);
