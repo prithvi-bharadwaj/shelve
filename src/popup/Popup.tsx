@@ -8,6 +8,7 @@ import { PinPrompt } from "@/popup/PinPrompt";
 import { ReviewGroups } from "@/popup/ReviewGroups";
 import { StashPanel } from "@/popup/StashPanel";
 import type {
+  ClosedDuplicateTab,
   GroupInfo,
   OrganizeJob,
   OrganizeResponse,
@@ -16,7 +17,7 @@ import type {
 } from "@/types";
 
 type Action = "organize" | "ungroup" | "duplicates" | "undo" | "apply";
-type Status = { text: string; error?: boolean } | null;
+type Status = { text: string; error?: boolean; closedTabs?: ClosedDuplicateTab[] } | null;
 
 export function Popup() {
   const [running, setRunning] = useState<Action | null>(null);
@@ -36,6 +37,7 @@ export function Popup() {
   const [stashes, setStashes] = useState<Stash[]>([]);
   const [stashBusy, setStashBusy] = useState<number | string | null>(null);
   const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
+  const [organizeClosedTabs, setOrganizeClosedTabs] = useState<ClosedDuplicateTab[]>([]);
   const ownsOrganizeRequest = useRef(false);
   const handledJobId = useRef<string | null>(null);
 
@@ -76,19 +78,26 @@ export function Popup() {
     if (jobId) handledJobId.current = jobId;
     setRunning(null);
     await refreshUndo();
+    const closedTabs = Array.isArray(res?.closedTabs) ? res.closedTabs : [];
     if (!res || res.error) {
-      setStatus({ text: res?.error ?? "Something went wrong.", error: true });
+      setOrganizeClosedTabs([]);
+      setStatus({ text: res?.error ?? "Something went wrong.", error: true, closedTabs });
       await consumeJob(jobId);
       return;
     }
     if (res.review && res.groups) {
+      setOrganizeClosedTabs(closedTabs);
       setGroups(res.groups);
       setSelected(new Set(res.groups.map((_, index) => index)));
       setReviewMinSize(res.minSize || 1);
       setStatus(null);
       return;
     }
-    setStatus({ text: `${res.groupCount} group${res.groupCount === 1 ? "" : "s"} · ${res.tabCount} tabs sorted` });
+    setOrganizeClosedTabs([]);
+    setStatus({
+      text: `${res.groupCount} group${res.groupCount === 1 ? "" : "s"} · ${res.tabCount} tabs sorted`,
+      closedTabs,
+    });
     await consumeJob(jobId);
     await refreshPanels();
   }, [consumeJob, refreshUndo, refreshPanels]);
@@ -161,6 +170,7 @@ export function Popup() {
 
     setRunning("organize");
     setStatus(null);
+    setOrganizeClosedTabs([]);
     handledJobId.current = null;
     ownsOrganizeRequest.current = true;
     let hasContentPermission = await chrome.permissions.contains({
@@ -210,7 +220,13 @@ export function Popup() {
       setGroups([]);
       setSelected(new Set());
       setOrganizeJob(null);
-      setStatus({ text: "Suggestions discarded." });
+      setStatus({
+        text: organizeClosedTabs.length
+          ? `Suggestions discarded · ${organizeClosedTabs.length} duplicate tab${organizeClosedTabs.length === 1 ? "" : "s"} closed`
+          : "Suggestions discarded.",
+        closedTabs: organizeClosedTabs,
+      });
+      setOrganizeClosedTabs([]);
     } catch {
       setStatus({ text: "Couldn't discard the suggestions — try again.", error: true });
     }
@@ -232,9 +248,13 @@ export function Popup() {
     await consumeJob(organizeJob?.id ?? handledJobId.current ?? undefined);
     setStatus(
       res?.error
-        ? { text: res.error, error: true }
-        : { text: `${res.groupCount} group${res.groupCount === 1 ? "" : "s"} created` }
+        ? { text: res.error, error: true, closedTabs: organizeClosedTabs }
+        : {
+            text: `${res.groupCount} group${res.groupCount === 1 ? "" : "s"} created`,
+            closedTabs: organizeClosedTabs,
+          }
     );
+    setOrganizeClosedTabs([]);
   };
 
   const ungroup = async () => {
@@ -255,7 +275,10 @@ export function Popup() {
     setStatus(
       res?.error
         ? { text: res.error, error: true }
-        : { text: res.closedCount ? `Closed ${res.closedCount} duplicate tab${res.closedCount === 1 ? "" : "s"}` : "No duplicate tabs found" }
+        : {
+            text: res.closedCount ? `Closed ${res.closedCount} duplicate tab${res.closedCount === 1 ? "" : "s"}` : "No duplicate tabs found",
+            closedTabs: Array.isArray(res.closedTabs) ? res.closedTabs : [],
+          }
     );
   };
 
@@ -389,7 +412,7 @@ export function Popup() {
             acknowledged={acknowledged === true}
             onAcknowledge={acknowledgeNotice}
             onRunningChange={setCommandRunning}
-            onGroupCreated={async () => {
+            onMutation={async () => {
               await Promise.all([refreshUndo(), refreshPanels()]);
             }}
           />
@@ -423,12 +446,26 @@ export function Popup() {
       )}
 
       {!organizing && (
-        <p
-          className={`mt-4 min-h-4 text-xs ${status?.error ? "text-destructive" : "text-muted-foreground"}`}
-          aria-live="polite"
-        >
-          {status?.text ?? ""}
-        </p>
+        <div className="mt-4 min-h-4 text-xs" aria-live="polite">
+          <p className={status?.error ? "text-destructive" : "text-muted-foreground"}>
+            {status?.text ?? ""}
+          </p>
+          {status?.closedTabs && status.closedTabs.length > 0 && (
+            <ul
+              aria-label="Closed duplicate tabs"
+              className="mt-2 max-h-36 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted/20 p-2"
+            >
+              {status.closedTabs.map((tab, index) => (
+                <li key={`${tab.url}-${index}`} className="min-w-0">
+                  <p className="break-words font-medium leading-snug text-foreground">
+                    {tab.title || "Untitled tab"}
+                  </p>
+                  <p className="break-all leading-snug text-muted-foreground">{tab.url}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </main>
   );

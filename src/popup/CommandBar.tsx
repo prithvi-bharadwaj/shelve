@@ -8,14 +8,14 @@ export function CommandBar({
   acknowledged,
   onAcknowledge,
   onRunningChange,
-  onGroupCreated,
+  onMutation,
 }: {
   windowId?: number;
   disabled: boolean;
   acknowledged: boolean;
   onAcknowledge: () => Promise<void>;
   onRunningChange: (running: boolean) => void;
-  onGroupCreated?: () => Promise<void>;
+  onMutation?: () => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   const [running, setRunning] = useState(false);
@@ -72,9 +72,9 @@ export function CommandBar({
         hasContentPermission,
       });
       setResult(res ?? { error: "Something went wrong." });
-      if (res?.action === "create_group" && !res.error) {
+      if (["create_group", "ungroup", "remove_duplicates", "merge_groups"].includes(res?.action || "") && !res.error) {
         setQuery("");
-        await onGroupCreated?.().catch(() => undefined);
+        await onMutation?.().catch(() => undefined);
       }
     } catch {
       setResult({ error: "Command was interrupted. Try again." });
@@ -137,6 +137,14 @@ export function CommandBar({
                 ? `Jumped to “${result.tabTitle}”`
                 : result.action === "create_group"
                   ? `Created “${result.groupName}” with ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"}`
+                : result.action === "ungroup"
+                  ? `Ungrouped ${result.tabCount} tab${result.tabCount === 1 ? "" : "s"} from ${result.groupCount} group${result.groupCount === 1 ? "" : "s"}`
+                : result.action === "remove_duplicates"
+                  ? result.closedCount
+                    ? `Closed ${result.closedCount} duplicate tab${result.closedCount === 1 ? "" : "s"}`
+                    : "No duplicate tabs found"
+                : result.action === "merge_groups"
+                  ? `Merged ${result.groupCount} groups into “${result.groupName}” · ${result.tabCount} tabs`
                 : result.reply}
           </p>
           {result.action === "answer" && typeof result.tabId === "number" && (
@@ -148,6 +156,20 @@ export function CommandBar({
             </button>
           )}
         </div>
+      )}
+
+      {result?.action === "remove_duplicates" && result.closedTabs && result.closedTabs.length > 0 && (
+        <ul
+          aria-label="Closed duplicate tabs"
+          className="mt-2 max-h-32 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted/20 p-2 text-xs"
+        >
+          {result.closedTabs.map((tab, index) => (
+            <li key={`${tab.url}-${index}`} className="min-w-0">
+              <p className="break-words font-medium leading-snug text-foreground">{tab.title || "Untitled tab"}</p>
+              <p className="break-all leading-snug text-muted-foreground">{tab.url}</p>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

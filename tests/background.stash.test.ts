@@ -178,7 +178,9 @@ describe("all-or-nothing resume", () => {
     expect(response.done).toBe(true);
     expect(response.tabCount).toBe(2);
     expect(mock.chrome.tabs.group).toHaveBeenCalledTimes(1);
-    expect(mock.chrome.tabGroups.update).toHaveBeenCalledTimes(1);
+    // Title/color update plus the best-effort collapse call.
+    expect(mock.chrome.tabGroups.update).toHaveBeenCalledTimes(2);
+    expect(mock.chrome.tabGroups.update).toHaveBeenLastCalledWith(500, { collapsed: true });
     expect(storedStashes(mock)).toHaveLength(0);
   });
 

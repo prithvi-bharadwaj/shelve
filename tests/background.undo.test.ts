@@ -51,7 +51,7 @@ function snapFixture(overrides: Partial<UndoSnapshot> = {}): UndoSnapshot {
       { id: 101, url: "https://a.test/", index: 0, pinned: false, groupId: 5 },
       { id: 103, url: "https://c.test/", index: 1, pinned: false, groupId: -1 },
     ],
-    groups: [{ id: 5, title: "Work", color: "blue" }],
+    groups: [{ id: 5, title: "Work", color: "blue", collapsed: true }],
     closedTabs: [{ originalId: 103, url: "https://c.test/", reopenedId: null }],
     ...overrides,
   };
@@ -92,11 +92,18 @@ describe("duplicate identity keeps fragments", () => {
     mock.chrome.tabs.query.mockResolvedValue([
       { id: 41, windowId: 1, url, active: false, pinned: true, groupId: -1, index: 0 },
       { id: 42, windowId: 1, url, active: true, pinned: false, groupId: -1, index: 1 },
-      { id: 43, windowId: 1, url, active: false, pinned: false, groupId: -1, index: 2 },
-      { id: 44, windowId: 1, url, active: false, pinned: false, groupId: -1, index: 3 },
+      { id: 43, windowId: 1, url, title: "Old copy", active: false, pinned: false, groupId: -1, index: 2 },
+      { id: 44, windowId: 1, url, title: "Older copy", active: false, pinned: false, groupId: -1, index: 3 },
     ]);
-    const response = (await invokeMessage({ type: "cleanDuplicates", windowId: 1 })) as { closedCount?: number };
+    const response = (await invokeMessage({ type: "cleanDuplicates", windowId: 1 })) as {
+      closedCount?: number;
+      closedTabs?: Array<{ title: string; url: string }>;
+    };
     expect(response.closedCount).toBe(2);
+    expect(response.closedTabs).toEqual([
+      { title: "Old copy", url },
+      { title: "Older copy", url },
+    ]);
     expect(mock.chrome.tabs.remove).toHaveBeenCalledWith([43, 44]);
     const stored = mock.sessionData[UNDO_KEY] as UndoSnapshot;
     expect(stored.closedTabs).toEqual([
@@ -164,6 +171,10 @@ describe("retryable undo", () => {
       skippedCount?: number;
     };
     expect(response).toEqual({ done: true, tabCount: 2, reopenedCount: 1, skippedCount: 0 });
+    expect(mock.chrome.tabGroups.update).toHaveBeenCalledWith(
+      expect.any(Number),
+      { title: "Work", color: "blue", collapsed: true }
+    );
     expect(mock.sessionData[UNDO_KEY]).toBeUndefined();
   });
 
