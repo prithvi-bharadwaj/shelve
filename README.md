@@ -40,9 +40,7 @@ Model lists are fetched live after provider settings are saved, with built-in fa
 
 ## Install
 
-**Fast path:** run `node scripts/build-zips.mjs`, unzip `site/focused.zip`, and load the folder as an unpacked extension (steps below).
-
-**From source:**
+Prerequisites: Node `^20.19.0` or `>=22.12.0` and pnpm 10.
 
 ```sh
 pnpm install
