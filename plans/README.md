@@ -20,7 +20,7 @@ These plans implement the selected **recommended cleanup**:
 |------|-------|----------|--------|------------|--------|
 | 001 | Remove the redundant hackathon delivery surface | P0 | S | — | DONE |
 | 002 | Establish a deterministic verification baseline | P1 | M | 001 | DONE |
-| 003 | Enforce AI consent and isolate undo by browsing context | P0 | M | 002 | TODO |
+| 003 | Enforce AI consent and isolate undo by browsing context | P0 | M | 002 | DONE |
 | 004 | Remove merge, monitor, and duplicate popup settings | P1 | M | 003 | TODO |
 | 005 | Make the stash lifecycle loss-resistant | P1 | M | 004 | TODO |
 | 006 | Preserve distinct URLs and retain partial undo recovery | P1 | L | 005 | TODO |

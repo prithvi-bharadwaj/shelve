@@ -1,7 +1,8 @@
 // Service worker: gathers tabs, classifies them with the configured provider, and applies tab groups.
 
 const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
-const UNDO_KEY = "undoSnapshot";
+const LEGACY_UNDO_KEY = "undoSnapshot";
+const UNDO_KEY_PREFIX = "undoSnapshot:v2:";
 const STASH_KEY = "stashes";
 const ORGANIZE_JOB_PREFIX = "organizeJob:";
 const ORGANIZE_RESULT_TTL_MS = 5 * 60 * 1000;
@@ -359,8 +360,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     applyPlan: () => applyPlan(msg.groups, msg.minSize || 1, { windowId: msg.windowId, snapshot: true }),
     ungroupAll: () => ungroupAll(msg.windowId),
     cleanDuplicates: () => cleanDuplicates(msg.windowId, { snapshot: true }),
-    undo: () => undo(),
-    hasUndo: () => hasUndo(),
+    undo: () => undo(msg.windowId),
+    hasUndo: () => hasUndo(msg.windowId),
     mergeWindows: () => mergeWindows(msg.windowId),
     windowCount: () => windowCount(),
     monitorState: () => getMonitorState(msg.windowId),
@@ -385,6 +386,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 async function organize(hasContentPermission, { automatic = false, windowId } = {}) {
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  // Consent is enforced here, not in the popup: UI state is not a security
+  // boundary, and no job/tab/provider work may happen before this check.
+  if (!(await hasDataNoticeAck())) {
+    return { error: "Acknowledge the AI data notice in the popup first." };
+  }
   const active = organizeJobs.get(targetWindowId);
   if (active?.status === "running") {
     return automatic ? { skipped: true } : { running: true, job: publicOrganizeJob(active) };
@@ -893,12 +899,17 @@ function normalizedDuplicateUrl(value) {
 }
 
 async function captureSnapshot(windowId) {
-  const [tabs, groups] = await Promise.all([
+  // If the window cannot be read, this throws and the destructive action that
+  // wanted a snapshot fails before touching any tabs.
+  const [targetWindow, tabs, groups] = await Promise.all([
+    chrome.windows.get(windowId),
     chrome.tabs.query({ windowId }),
     chrome.tabGroups.query({ windowId })
   ]);
   return {
+    version: 2,
     windowId,
+    incognito: Boolean(targetWindow.incognito),
     tabs: tabs.map((tab) => ({
       id: tab.id,
       url: tab.url || "",
@@ -912,41 +923,94 @@ async function captureSnapshot(windowId) {
   };
 }
 
-async function storeUndoSnapshot(snapshot) {
-  try {
-    if (!chrome.storage.session) throw new Error();
-    await chrome.storage.session.set({ [UNDO_KEY]: snapshot });
-    await chrome.storage.local.remove(UNDO_KEY);
-  } catch {
-    await chrome.storage.local.set({ [UNDO_KEY]: snapshot });
+// Incognito undo lives only in worker memory: chrome.storage.session and
+// chrome.storage.local are shared with regular browsing, so persisting these
+// snapshots would leak private URLs. It intentionally dies with the worker.
+const incognitoUndoByWindow = new Map();
+
+function undoStorageKey(windowId) {
+  return Number.isInteger(windowId) ? `${UNDO_KEY_PREFIX}${windowId}` : null;
+}
+
+// The legacy global key never recorded which browsing context wrote it, so it
+// is deleted, never migrated. Losing one old undo record is the safe choice.
+async function purgeLegacyUndo() {
+  await chrome.storage.local.remove(LEGACY_UNDO_KEY).catch(() => undefined);
+  if (chrome.storage.session) {
+    await chrome.storage.session.remove(LEGACY_UNDO_KEY).catch(() => undefined);
   }
 }
 
-async function getUndoSnapshot() {
+async function storeUndoSnapshot(snapshot) {
+  if (
+    !snapshot ||
+    snapshot.version !== 2 ||
+    !Number.isInteger(snapshot.windowId) ||
+    typeof snapshot.incognito !== "boolean"
+  ) {
+    throw new Error("Invalid undo snapshot.");
+  }
+  if (snapshot.incognito) {
+    incognitoUndoByWindow.set(snapshot.windowId, snapshot);
+    return;
+  }
+  const key = undoStorageKey(snapshot.windowId);
+  try {
+    if (!chrome.storage.session) throw new Error();
+    await chrome.storage.session.set({ [key]: snapshot });
+    await chrome.storage.local.remove(key);
+  } catch {
+    await chrome.storage.local.set({ [key]: snapshot });
+  }
+}
+
+async function getUndoSnapshot(windowId) {
+  if (!Number.isInteger(windowId)) return null;
+  const targetWindow = await chrome.windows.get(windowId).catch(() => null);
+  if (!targetWindow) return null;
+  if (targetWindow.incognito) {
+    return incognitoUndoByWindow.get(windowId) || null;
+  }
+  const key = undoStorageKey(windowId);
+  let stored = null;
   try {
     if (chrome.storage.session) {
-      const session = await chrome.storage.session.get(UNDO_KEY);
-      if (session[UNDO_KEY]) return session[UNDO_KEY];
+      stored = (await chrome.storage.session.get(key))[key] || null;
     }
   } catch {
     // Fall through to local storage.
   }
-  const local = await chrome.storage.local.get(UNDO_KEY);
-  return local[UNDO_KEY] || null;
+  if (!stored) {
+    stored = (await chrome.storage.local.get(key))[key] || null;
+  }
+  if (!stored) return null;
+  if (stored.version !== 2 || stored.windowId !== windowId || stored.incognito !== false) {
+    await removeStoredUndo(key);
+    return null;
+  }
+  return stored;
 }
 
-async function clearUndoSnapshot() {
-  const tasks = [chrome.storage.local.remove(UNDO_KEY)];
-  if (chrome.storage.session) tasks.push(chrome.storage.session.remove(UNDO_KEY).catch(() => undefined));
+async function removeStoredUndo(key) {
+  if (!key) return;
+  const tasks = [chrome.storage.local.remove(key).catch(() => undefined)];
+  if (chrome.storage.session) tasks.push(chrome.storage.session.remove(key).catch(() => undefined));
   await Promise.all(tasks);
 }
 
-async function hasUndo() {
-  return { hasUndo: Boolean(await getUndoSnapshot()) };
+async function clearUndoSnapshot(windowId) {
+  incognitoUndoByWindow.delete(windowId);
+  await removeStoredUndo(undoStorageKey(windowId));
 }
 
-async function undo() {
-  const snapshot = await getUndoSnapshot();
+async function hasUndo(windowId) {
+  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  return { hasUndo: Boolean(await getUndoSnapshot(targetWindowId)) };
+}
+
+async function undo(windowId) {
+  const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  const snapshot = await getUndoSnapshot(targetWindowId);
   if (!snapshot) return { error: "Nothing to undo." };
 
   const idMap = new Map();
@@ -1003,7 +1067,7 @@ async function undo() {
     }
   }
 
-  await clearUndoSnapshot();
+  await clearUndoSnapshot(targetWindowId);
   scheduleAutoCheck();
   return { done: true, tabCount: restored.length, reopenedCount: idMap.size };
 }
@@ -1539,7 +1603,11 @@ chrome.runtime.onStartup.addListener(scheduleAutoCheck);
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "sync" && (changes.auto || changes.autoThreshold)) scheduleAutoCheck();
 });
+chrome.windows.onRemoved.addListener((windowId) => {
+  incognitoUndoByWindow.delete(windowId);
+});
 scheduleAutoCheck();
+purgeLegacyUndo().catch(() => undefined);
 
 async function anthropicRequest(apiKey, body) {
   const resp = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {

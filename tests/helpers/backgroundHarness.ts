@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import vm from "node:vm";
+import { vi } from "vitest";
 import { createChromeMock, type ChromeMock } from "./chromeMock";
 
 // Vitest runs from the project root; import.meta.url is http-scheme under jsdom.
@@ -8,8 +9,27 @@ const WORKER_PATH = resolve(process.cwd(), "public/background.js");
 
 // Appended inside the VM only — production background.js stays untouched.
 const TEST_EXPORTS = `
-;globalThis.__focusedTestExports = { sanitizePlan, safeImportUrl, normalizedDuplicateUrl };
+;globalThis.__focusedTestExports = {
+  sanitizePlan,
+  safeImportUrl,
+  normalizedDuplicateUrl,
+  captureSnapshot,
+  storeUndoSnapshot,
+  getUndoSnapshot,
+  clearUndoSnapshot,
+  undoStorageKey,
+};
 `;
+
+export interface UndoSnapshot {
+  version: number;
+  windowId: number;
+  incognito: boolean;
+  tabs: Array<{ id: number; url: string; index: number; pinned: boolean; groupId: number }>;
+  groups: Array<{ id: number; title: string; color: string }>;
+  closedUrls: string[];
+  closedTabIds: number[];
+}
 
 interface WorkerExports {
   sanitizePlan: (
@@ -20,6 +40,11 @@ interface WorkerExports {
   ) => Array<{ name: string; color: string; tabIds: number[]; existingGroupId: number | null; importance: number }>;
   safeImportUrl: (value: unknown) => boolean;
   normalizedDuplicateUrl: (value: unknown) => string | null;
+  captureSnapshot: (windowId: number) => Promise<UndoSnapshot>;
+  storeUndoSnapshot: (snapshot: UndoSnapshot) => Promise<void>;
+  getUndoSnapshot: (windowId: number) => Promise<UndoSnapshot | null>;
+  clearUndoSnapshot: (windowId: number) => Promise<void>;
+  undoStorageKey: (windowId: number) => string | null;
 }
 
 type MessageListener = (
@@ -33,11 +58,16 @@ export interface BackgroundHarness {
   exports: WorkerExports;
   messageListener: MessageListener;
   invokeMessage: (message: Record<string, unknown>) => Promise<unknown>;
+  fetchMock: ReturnType<typeof vi.fn>;
+  flush: () => Promise<void>;
   cleanup: () => void;
 }
 
-export function loadBackground(): BackgroundHarness {
+// `prepare` runs before the worker script is evaluated, so tests can seed
+// storage that startup code (e.g. the legacy-undo purge) must observe.
+export function loadBackground(prepare?: (mock: ChromeMock) => void): BackgroundHarness {
   const mock = createChromeMock();
+  prepare?.(mock);
   const source = readFileSync(WORKER_PATH, "utf8");
 
   // Timers are inert: callbacks are recorded, never executed, so the startup
@@ -53,12 +83,13 @@ export function loadBackground(): BackgroundHarness {
     if (id !== undefined) pendingTimers.delete(id);
   };
 
+  const fetchMock = vi.fn(() => Promise.reject(new Error("Network access is not available in tests.")));
   const sandbox: Record<string, unknown> = {
     chrome: mock.chrome,
     URL,
     AbortController,
     Promise,
-    fetch: () => Promise.reject(new Error("Network access is not available in tests.")),
+    fetch: fetchMock,
     setTimeout: inertSetTimer,
     clearTimeout: inertClearTimer,
     setInterval: inertSetTimer,
@@ -106,6 +137,8 @@ export function loadBackground(): BackgroundHarness {
     exports: (sandbox as { __focusedTestExports?: WorkerExports }).__focusedTestExports as WorkerExports,
     messageListener,
     invokeMessage,
+    fetchMock,
+    flush: () => new Promise((resolve) => setTimeout(resolve, 0)),
     cleanup: () => pendingTimers.clear(),
   };
 }

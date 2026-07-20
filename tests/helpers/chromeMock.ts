@@ -74,6 +74,7 @@ export function createChromeMock() {
     tabsOnCreated: createEvent(),
     tabsOnRemoved: createEvent(),
     tabsOnUpdated: createEvent(),
+    windowsOnRemoved: createEvent(),
     notificationsOnClicked: createEvent(),
     notificationsOnButtonClicked: createEvent(),
   };
@@ -93,6 +94,8 @@ export function createChromeMock() {
       onStartup: events.runtimeOnStartup,
       getPlatformInfo: vi.fn(async () => ({ os: "mac" })),
       getURL: vi.fn((path: string) => `chrome-extension://test-id/${path}`),
+      sendMessage: vi.fn(async () => ({} as unknown)),
+      openOptionsPage: vi.fn(async () => undefined),
       lastError: undefined as { message: string } | undefined,
     },
     storage: {
@@ -132,14 +135,16 @@ export function createChromeMock() {
       move: vi.fn(async () => undefined),
     },
     windows: {
+      onRemoved: events.windowsOnRemoved,
       getCurrent: vi.fn(async () => ({ ...currentWindow })),
-      get: vi.fn(async () => ({ ...currentWindow })),
+      get: vi.fn(async (_windowId: number) => ({ ...currentWindow })),
       getAll: vi.fn(async () => [{ ...currentWindow }]),
       update: vi.fn(async () => undefined),
     },
     action: {
       setBadgeText: vi.fn(async () => undefined),
       openPopup: vi.fn(async () => undefined),
+      getUserSettings: vi.fn(async () => ({ isOnToolbar: true })),
     },
     notifications: {
       onClicked: events.notificationsOnClicked,

@@ -50,7 +50,8 @@ export function Popup() {
   const [basicSettingsOpen, setBasicSettingsOpen] = useState(false);
   const [monitorPromptDismissed, setMonitorPromptDismissed] = useState(false);
   const [showPinPrompt, setShowPinPrompt] = useState(false);
-  const [acknowledged, setAcknowledged] = useState(true);
+  // null = storage not yet read; the UI must stay inert until this resolves.
+  const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [groupList, setGroupList] = useState<GroupInfo[]>([]);
   const [stashes, setStashes] = useState<Stash[]>([]);
@@ -59,10 +60,11 @@ export function Popup() {
   const ownsOrganizeRequest = useRef(false);
   const handledJobId = useRef<string | null>(null);
 
-  const refreshUndo = useCallback(async () => {
-    const result = await chrome.runtime.sendMessage({ type: "hasUndo" });
+  const refreshUndo = useCallback(async (targetWindowId: number | undefined = windowId) => {
+    if (!targetWindowId) return;
+    const result = await chrome.runtime.sendMessage({ type: "hasUndo", windowId: targetWindowId });
     setHasUndo(Boolean(result?.hasUndo));
-  }, []);
+  }, [windowId]);
 
   const refreshPanels = useCallback(async () => {
     if (!windowId) return;
@@ -123,10 +125,10 @@ export function Popup() {
 
   useEffect(() => {
     (async () => {
-      const [window, windows, undoState, sync, local] = await Promise.all([
-        chrome.windows.getCurrent(),
+      const window = await chrome.windows.getCurrent();
+      const [windows, undoState, sync, local] = await Promise.all([
         chrome.runtime.sendMessage({ type: "windowCount" }),
-        chrome.runtime.sendMessage({ type: "hasUndo" }),
+        chrome.runtime.sendMessage({ type: "hasUndo", windowId: window.id }),
         chrome.storage.sync.get({
           minGroupSize: 2,
           dedupeOnOrganize: false,
@@ -315,7 +317,7 @@ export function Popup() {
   const undo = async () => {
     setRunning("undo");
     setStatus(null);
-    const res = await chrome.runtime.sendMessage({ type: "undo" });
+    const res = await chrome.runtime.sendMessage({ type: "undo", windowId });
     setRunning(null);
     await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
     setStatus(res?.error ? { text: res.error, error: true } : { text: "Previous tab layout restored" });
@@ -377,7 +379,8 @@ export function Popup() {
 
   const reviewing = groups.length > 0;
   const organizing = running === "organize" || organizeJob?.status === "running";
-  const disabled = Boolean(running) || reviewing || stashBusy !== null;
+  const disabled =
+    Boolean(running) || reviewing || stashBusy !== null || acknowledged === null || windowId === undefined;
   const showMonitorPrompt = monitorEnabled && tabCount >= monitorThreshold && !monitorPromptDismissed;
   const icon = (action: Action, idle: ReactNode) =>
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
@@ -422,7 +425,7 @@ export function Popup() {
             />
           )}
 
-          <CommandBar windowId={windowId} disabled={disabled} acknowledged={acknowledged} onAcknowledge={acknowledgeNotice} />
+          <CommandBar windowId={windowId} disabled={disabled} acknowledged={acknowledged === true} onAcknowledge={acknowledgeNotice} />
 
           {showMonitorPrompt && (
             <section className="mt-5 rounded-lg border border-primary/35 bg-primary/10 p-3" aria-live="polite">
