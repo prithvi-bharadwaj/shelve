@@ -66,6 +66,7 @@ async function runCommand() {
 
   const topic = topicFor(query);
   const match = findTab(query) || (topic ? state.tabs.find((tab) => tab.group === topic) : null);
+  const isGroupRequest = /\b(group|collect|bundle)\b/i.test(query);
   const isQuestion = /\?|^(which|what|where|who|how)\b/i.test(query);
   cmdResult.hidden = false;
   cmdGoto.hidden = true;
@@ -73,6 +74,19 @@ async function runCommand() {
   if (!match) {
     cmdResult.classList.add("error");
     cmdResultText.textContent = "No open tab matches that.";
+    return;
+  }
+  if (isGroupRequest && topic) {
+    const members = state.tabs.filter((tab) => tab.group === topic);
+    if (!state.appliedGroups.includes(topic)) {
+      snapshot();
+      state.appliedGroups.push(topic);
+      state.collapsed.delete(topic);
+      renderStrip();
+      renderPanels();
+    }
+    cmdInput.value = "";
+    cmdResultText.textContent = `Created “${GROUP_DEFS[topic].name}” with ${members.length} tab${members.length === 1 ? "" : "s"}`;
     return;
   }
   if (isQuestion) {

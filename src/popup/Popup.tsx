@@ -422,7 +422,15 @@ export function Popup() {
             />
           )}
 
-          <CommandBar windowId={windowId} disabled={disabled} acknowledged={acknowledged} onAcknowledge={acknowledgeNotice} />
+          <CommandBar
+            windowId={windowId}
+            disabled={disabled}
+            acknowledged={acknowledged}
+            onAcknowledge={acknowledgeNotice}
+            onGroupCreated={async () => {
+              await Promise.all([refreshUndo(), refreshCounts(), refreshPanels()]);
+            }}
+          />
 
           {showMonitorPrompt && (
             <section className="mt-5 rounded-lg border border-primary/35 bg-primary/10 p-3" aria-live="polite">
