@@ -317,6 +317,118 @@ test("a command can merge multiple related groups into the first selected group"
   expect(calls.session).toHaveLength(1);
 });
 
+test("a command can move loose and regrouped tabs into an existing group", async () => {
+  const { calls, tabs, runCommand } = await makeHarness({
+    action: "add_to_group",
+    tabId: null,
+    reply: "",
+    tabIds: [1, 2, 4, 3, 999],
+    groupIds: [88],
+    allGroups: false,
+    groupName: "",
+    color: "grey",
+    needsContent: [],
+  });
+
+  const result = await runCommand("move my membership tabs into Fellowships");
+
+  expect(result.action).toBe("add_to_group");
+  expect(result.groupId).toBe(88);
+  expect(result.groupName).toBe("Fellowships");
+  expect(result.tabCount).toBe(3);
+  expect(calls.grouped).toEqual([{ tabIds: [1, 2, 4], groupId: 88 }]);
+  expect(tabs.find((tab) => tab.id === 4)!.groupId).toBe(88);
+  expect(tabs.find((tab) => tab.id === 3)!.groupId, "pinned tab remains untouched").toBe(-1);
+  expect(calls.session, "the mutation stores one undo snapshot").toHaveLength(1);
+});
+
+test("moving tabs is rejected without an explicit move/add request", async () => {
+  const { calls, runCommand } = await makeHarness({
+    action: "add_to_group",
+    tabId: null,
+    reply: "",
+    tabIds: [1, 2],
+    groupIds: [88],
+    allGroups: false,
+    groupName: "",
+    color: "grey",
+    needsContent: [],
+  });
+
+  const result = await runCommand("memberships belong with fellowships maybe?");
+
+  expect(result.error).toMatch(/Explicitly ask to move or add/i);
+  expect(calls.grouped).toEqual([]);
+  expect(calls.session).toEqual([]);
+});
+
+test("a command can rename and recolor an existing group", async () => {
+  const { calls, runCommand } = await makeHarness({
+    action: "update_group",
+    tabId: null,
+    reply: "",
+    tabIds: [],
+    groupIds: [77],
+    allGroups: false,
+    groupName: "ML Research",
+    color: "purple",
+    needsContent: [],
+  });
+
+  const result = await runCommand("rename AI Development to ML Research and make it purple");
+
+  expect(result.action).toBe("update_group");
+  expect(result.groupId).toBe(77);
+  expect(result.groupName).toBe("ML Research");
+  expect(result.previousName).toBe("AI Development");
+  expect(calls.updated).toEqual([
+    { id: 77, changes: { title: "ML Research", color: "purple" } },
+  ]);
+  expect(calls.session, "the mutation stores one undo snapshot").toHaveLength(1);
+});
+
+test("a recolor-only command keeps the current group name", async () => {
+  const { calls, runCommand } = await makeHarness({
+    action: "update_group",
+    tabId: null,
+    reply: "",
+    tabIds: [],
+    groupIds: [89],
+    allGroups: false,
+    groupName: "",
+    color: "yellow",
+    needsContent: [],
+  });
+
+  const result = await runCommand("color the memberships group yellow");
+
+  expect(result.action).toBe("update_group");
+  expect(result.groupName).toBe("Memberships");
+  expect(calls.updated).toEqual([
+    { id: 89, changes: { title: "Memberships", color: "yellow" } },
+  ]);
+});
+
+test("a group update is rejected without explicit rename/recolor wording", async () => {
+  const { calls, runCommand } = await makeHarness({
+    action: "update_group",
+    tabId: null,
+    reply: "",
+    tabIds: [],
+    groupIds: [77],
+    allGroups: false,
+    groupName: "ML",
+    color: "red",
+    needsContent: [],
+  });
+
+  const result = await runCommand("that first group looks wrong");
+
+  expect(result.error).toMatch(/Explicitly ask to rename or recolor/i);
+  expect(calls.updated).toEqual([]);
+  expect(calls.session).toEqual([]);
+});
+
 test("a model-selected broad mutation is rejected unless the user explicitly requested it", async () => {
   const { calls, runCommand } = await makeHarness({
     action: "ungroup",

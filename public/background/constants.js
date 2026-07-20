@@ -79,7 +79,7 @@ export const COMMAND_SCHEMA = {
   properties: {
     action: {
       type: "string",
-      enum: ["open_tab", "answer", "create_group", "ungroup", "remove_duplicates", "merge_groups", "not_found"],
+      enum: ["open_tab", "answer", "create_group", "add_to_group", "update_group", "ungroup", "remove_duplicates", "merge_groups", "not_found"],
       description: "The single browser action that best matches the command."
     },
     tabId: {
@@ -92,12 +92,12 @@ export const COMMAND_SCHEMA = {
     },
     tabIds: {
       type: "array",
-      description: "create_group only: every eligible tab id that belongs in the requested new group. Empty for other actions.",
+      description: "create_group or add_to_group only: every eligible tab id that belongs in the requested group. Empty for other actions.",
       items: { type: "integer" }
     },
     groupIds: {
       type: "array",
-      description: "ungroup or merge_groups only: current-window group ids selected by the command. Empty for other actions.",
+      description: "ungroup, merge_groups, update_group, or add_to_group (single destination) only: current-window group ids selected by the command. Empty for other actions.",
       items: { type: "integer" }
     },
     allGroups: {
@@ -106,12 +106,12 @@ export const COMMAND_SCHEMA = {
     },
     groupName: {
       type: "string",
-      description: "create_group or merge_groups only: a short, specific 1-3 word destination group name. Empty for other actions."
+      description: "create_group or merge_groups: a short, specific 1-3 word destination group name. update_group: the new name, or empty to keep the current name. Empty for other actions."
     },
     color: {
       type: "string",
       enum: GROUP_COLORS,
-      description: "Chrome color for create_group or merge_groups. Use grey for other actions."
+      description: "Chrome color for create_group or merge_groups. update_group: the requested color, or the group's current color when only renaming. Use grey for other actions."
     },
     needsContent: {
       type: "array",
