@@ -61,6 +61,7 @@ describe("CommandBar busy propagation", () => {
     const { props } = renderBar();
     await typeAndSubmit(user, "find my tab");
     expect(props.onRunningChange).toHaveBeenCalledWith(true);
+    await waitFor(() => expect(screen.getByTestId("command-beam")).toHaveAttribute("data-active"));
     const busyOrder = props.onRunningChange.mock.invocationCallOrder[0];
     const permissionOrder = mock.chrome.permissions.contains.mock.invocationCallOrder[0];
     expect(busyOrder).toBeLessThan(permissionOrder);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { CopyX, LoaderCircle, Settings, Sparkles, Undo2 } from "lucide-react";
+import { BorderBeam } from "border-beam";
+import { CopyX, LoaderCircle, MailPlus, Settings, Sparkles, Undo2 } from "lucide-react";
 import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { CommandBar } from "@/popup/CommandBar";
@@ -417,15 +418,25 @@ export function Popup() {
             }}
           />
 
-          <button
-            onClick={organize}
-            disabled={disabled}
-            className="mt-3 flex h-20 w-full flex-col items-center justify-center gap-2 rounded-lg border border-border bg-transparent text-sm font-medium text-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
-            aria-label="Organize tabs"
+          <BorderBeam
+            size="md"
+            colorVariant="ocean"
+            theme="dark"
+            strength={0.4}
+            active={confirming}
+            className="mt-3 w-full focus-within:ring-2 focus-within:ring-ring"
+            data-testid="organize-beam"
           >
-            <Sparkles className="size-5 text-primary" />
-            <span>{confirming ? "Continue organizing" : "Organize tabs"}</span>
-          </button>
+            <button
+              onClick={organize}
+              disabled={disabled}
+              className="flex h-20 w-full flex-col items-center justify-center gap-2 rounded-lg border border-border bg-transparent text-sm font-medium text-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-primary/50 hover:bg-muted active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
+              aria-label="Organize tabs"
+            >
+              <Sparkles className="size-5 text-primary" />
+              <span>{confirming ? "Continue organizing" : "Organize tabs"}</span>
+            </button>
+          </BorderBeam>
 
           <div className="mt-3 grid grid-cols-3 gap-2">
             <QuickAction label="Ungroup" onClick={ungroup} disabled={disabled} icon={icon("ungroup", <UngroupIcon className="size-[18px]" />)} />
@@ -446,26 +457,36 @@ export function Popup() {
       )}
 
       {!organizing && (
-        <div className="mt-4 min-h-4 text-xs" aria-live="polite">
-          <p className={status?.error ? "text-destructive" : "text-muted-foreground"}>
-            {status?.text ?? ""}
-          </p>
-          {status?.closedTabs && status.closedTabs.length > 0 && (
-            <ul
-              aria-label="Closed duplicate tabs"
-              className="mt-2 max-h-36 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted/20 p-2"
-            >
-              {status.closedTabs.map((tab, index) => (
-                <li key={`${tab.url}-${index}`} className="min-w-0">
-                  <p className="break-words font-medium leading-snug text-foreground">
-                    {tab.title || "Untitled tab"}
-                  </p>
-                  <p className="break-all leading-snug text-muted-foreground">{tab.url}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <>
+          <div className="mt-4 min-h-4 text-xs" aria-live="polite">
+            <p className={status?.error ? "text-destructive" : "text-muted-foreground"}>
+              {status?.text ?? ""}
+            </p>
+            {status?.closedTabs && status.closedTabs.length > 0 && (
+              <ul
+                aria-label="Closed duplicate tabs"
+                className="mt-2 max-h-36 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted/20 p-2"
+              >
+                {status.closedTabs.map((tab, index) => (
+                  <li key={`${tab.url}-${index}`} className="min-w-0">
+                    <p className="break-words font-medium leading-snug text-foreground">
+                      {tab.title || "Untitled tab"}
+                    </p>
+                    <p className="break-all leading-snug text-muted-foreground">{tab.url}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <a
+            href="mailto:prithvi@skive.in?subject=Focused%20feature%20request&body=Hi%20Prithvi%2C%0A%0AI%27d%20like%20to%20request%3A%0A%0A"
+            className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-transparent text-xs text-muted-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-border hover:bg-muted/50 hover:text-foreground active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MailPlus className="size-3.5" />
+            Request a feature
+          </a>
+        </>
       )}
     </main>
   );
