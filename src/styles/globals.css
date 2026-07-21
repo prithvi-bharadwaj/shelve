@@ -100,6 +100,9 @@ body {
 :root[data-overlay] .popup-shell {
   border-radius: 16px;
   color-scheme: dark;
+  /* Verified against real page content: 0.9 reads as opaque; 0.78 lets the
+     blurred page glow through without costing text contrast. */
+  background: oklch(0.145 0 0 / 0.78);
 }
 
 .popup-shell {

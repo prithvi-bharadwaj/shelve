@@ -68,7 +68,7 @@
       width: `${CARET_SIZE}px`,
       height: `${CARET_SIZE}px`,
       transform: "rotate(45deg)",
-      background: "rgba(10, 10, 10, 0.9)",
+      background: "rgba(10, 10, 10, 0.78)",
       border: "1px solid rgba(255, 255, 255, 0.12)",
       borderTopLeftRadius: "3px",
       backdropFilter: "blur(24px) saturate(1.15)",
