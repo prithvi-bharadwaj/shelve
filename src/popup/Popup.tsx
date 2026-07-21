@@ -372,6 +372,7 @@ export function Popup() {
       colorVariant="ocean"
       theme="dark"
       strength={0.45}
+      borderRadius={0}
       active={organizing || commandRunning}
       className="popup-frame"
       data-testid="window-beam"
