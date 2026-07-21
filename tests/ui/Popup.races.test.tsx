@@ -68,6 +68,7 @@ describe("organize status polling", () => {
     statusResponse = () => ({ job: { ...RUNNING_JOB } });
     const { unmount } = render(<Popup />);
     await screen.findByText("Safe to close — progress continues");
+    await waitFor(() => expect(screen.getByTestId("window-beam")).toHaveAttribute("data-active"));
     await vi.advanceTimersByTimeAsync(2000);
     expect(statusCallCount()).toBeGreaterThan(2);
 
@@ -75,6 +76,7 @@ describe("organize status polling", () => {
       job: { ...RUNNING_JOB, status: "done", result: { done: true, groupCount: 1, tabCount: 2 } },
     });
     await waitFor(() => expect(screen.getByText("1 group · 2 tabs sorted")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("window-beam")).not.toHaveAttribute("data-active"));
     const settled = statusCallCount();
     await vi.advanceTimersByTimeAsync(3000);
     expect(statusCallCount()).toBe(settled);
@@ -96,6 +98,9 @@ describe("organize status polling", () => {
     statusResponse = () => new Promise(() => {});
     const { unmount } = render(<Popup />);
     await screen.findByRole("button", { name: "Organize tabs" });
+    // The mount-time fetch lands on its own async schedule; wait for it before
+    // asserting that no further polls pile up behind the still-pending one.
+    await waitFor(() => expect(statusCallCount()).toBe(1));
     await vi.advanceTimersByTimeAsync(3000);
     expect(statusCallCount()).toBe(1);
     unmount();

@@ -70,6 +70,41 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Ambient glow layer behind the glass panel. Chrome popups cannot be
+   transparent to the page beneath, so this is what the panel "sees through" to. */
+.popup-frame {
+  display: block;
+  background:
+    radial-gradient(120% 90% at 12% 0%, oklch(0.45 0.14 263.3 / 0.4), transparent 62%),
+    radial-gradient(120% 90% at 92% 100%, oklch(0.48 0.15 302 / 0.32), transparent 62%),
+    oklch(0.1 0 0);
+}
+
+/* Overlay mode: the popup runs as a rounded iframe floating over the real
+   page (public/overlay.js). The host applies the backdrop blur; everything
+   behind the glass shell must stay transparent so the page shows through. */
+:root[data-overlay] {
+  /* Must match the host iframe's color-scheme or Chrome paints an opaque
+     canvas behind the document, killing the see-through effect. */
+  color-scheme: light;
+}
+
+:root[data-overlay] body {
+  background: transparent;
+}
+
+:root[data-overlay] .popup-frame {
+  background: none;
+}
+
+:root[data-overlay] .popup-shell {
+  border-radius: 16px;
+  color-scheme: dark;
+  /* Verified against real page content: 0.9 reads as opaque; 0.78 lets the
+     blurred page glow through without costing text contrast. */
+  background: oklch(0.145 0 0 / 0.78);
+}
+
 .popup-shell {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -85,7 +120,10 @@ body {
   --accent-foreground: oklch(0.985 0 0);
   --ring: oklch(0.704 0.191 263.3);
   min-height: 100%;
-  background: var(--background);
+  /* 90% opaque glass over the ambient frame glow; full-bleed — the popup
+     window's own corner rounding is the only frame. */
+  background: oklch(0.145 0 0 / 0.9);
+  backdrop-filter: blur(24px) saturate(1.15);
   color: var(--foreground);
   color-scheme: dark;
 }
@@ -216,6 +254,21 @@ body {
   }
 }
 
+/* Auto-dismiss countdown on the closed-duplicates toast. The bar depletes
+   right-to-left; onAnimationEnd in Popup hides the toast. Hover pauses both. */
+@keyframes closed-toast-deplete {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.closed-toast-timer {
+  animation: closed-toast-deplete 8s linear forwards;
+}
+
+.closed-toast:hover .closed-toast-timer {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .review-item {
     animation: fade 150ms ease forwards;
@@ -228,6 +281,17 @@ body {
   .tab-rail-item,
   .tab-rail-groups {
     animation: none;
+  }
+
+  /* border-beam's rotate presets (md/line) leave reduced-motion to the consumer;
+     killing the animation keeps --beam-opacity at its initial 0, hiding the beam. */
+  [data-beam][data-active],
+  [data-beam][data-fading],
+  [data-beam][data-active]::before,
+  [data-beam][data-active]::after,
+  [data-beam][data-fading]::before,
+  [data-beam][data-fading]::after {
+    animation: none !important;
   }
 
   .tab-rail-item {

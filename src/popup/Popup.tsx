@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { CopyX, LoaderCircle, Settings, Sparkles, Undo2 } from "lucide-react";
+import { BorderBeam } from "border-beam";
+import { CopyX, LoaderCircle, MailPlus, Settings, Sparkles, Undo2 } from "lucide-react";
 import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { CommandBar } from "@/popup/CommandBar";
@@ -15,6 +16,16 @@ import type {
   ProposedGroup,
   Stash,
 } from "@/types";
+
+// True when running inside the in-page iframe overlay (see public/overlay.js);
+// the panel then has rounded corners the window beam must follow.
+const isOverlay =
+  typeof window !== "undefined" && new URLSearchParams(window.location.search).has("overlay");
+
+// popup.html is web-accessible, so any site can iframe it — not just our
+// overlay script. Embedded instances must prove the toolbar icon was clicked
+// (single-use token minted by the background) before the UI unlocks.
+const isEmbedded = typeof window !== "undefined" && window.self !== window.top;
 
 type Action = "organize" | "ungroup" | "duplicates" | "undo" | "apply";
 type Status = { text: string; error?: boolean; closedTabs?: ClosedDuplicateTab[] } | null;
@@ -38,8 +49,26 @@ export function Popup() {
   const [stashBusy, setStashBusy] = useState<number | string | null>(null);
   const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
   const [organizeClosedTabs, setOrganizeClosedTabs] = useState<ClosedDuplicateTab[]>([]);
+  // null = handshake pending (embedded only); top-level windows are trusted.
+  const [embedAllowed, setEmbedAllowed] = useState<boolean | null>(isEmbedded ? null : true);
   const ownsOrganizeRequest = useRef(false);
   const handledJobId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isEmbedded) return;
+    let cancelled = false;
+    chrome.runtime
+      .sendMessage({ type: "overlayHandshake" })
+      .then((res: { allowed?: boolean } | undefined) => {
+        if (!cancelled) setEmbedAllowed(res?.allowed === true);
+      })
+      .catch(() => {
+        if (!cancelled) setEmbedAllowed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshUndo = useCallback(async (targetWindowId: number | undefined = windowId) => {
     if (!targetWindowId) return;
@@ -174,7 +203,6 @@ export function Popup() {
     handledJobId.current = null;
     ownsOrganizeRequest.current = true;
     let hasContentPermission = await chrome.permissions.contains({
-      permissions: ["scripting"],
       origins: ["<all_urls>"],
     });
     if (!hasContentPermission) {
@@ -365,7 +393,28 @@ export function Popup() {
   const icon = (action: Action, idle: ReactNode) =>
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
 
+  if (embedAllowed === null) return null;
+  if (embedAllowed === false) {
+    return (
+      <main className="popup-shell w-[340px] p-4">
+        <p className="text-xs text-muted-foreground">
+          Open Focused from the toolbar icon to use it here.
+        </p>
+      </main>
+    );
+  }
+
   return (
+    <BorderBeam
+      size="md"
+      colorVariant="ocean"
+      theme="dark"
+      strength={0.45}
+      borderRadius={isOverlay ? 16 : 0}
+      active={organizing || commandRunning}
+      className="popup-frame"
+      data-testid="window-beam"
+    >
     <main className="popup-shell w-[340px] p-4">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -417,15 +466,25 @@ export function Popup() {
             }}
           />
 
-          <button
-            onClick={organize}
-            disabled={disabled}
-            className="mt-3 flex h-20 w-full flex-col items-center justify-center gap-2 rounded-lg border border-border bg-transparent text-sm font-medium text-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
-            aria-label="Organize tabs"
+          <BorderBeam
+            size="md"
+            colorVariant="ocean"
+            theme="dark"
+            strength={0.4}
+            active={confirming}
+            className="mt-3 w-full has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+            data-testid="organize-beam"
           >
-            <Sparkles className="size-5 text-primary" />
-            <span>{confirming ? "Continue organizing" : "Organize tabs"}</span>
-          </button>
+            <button
+              onClick={organize}
+              disabled={disabled}
+              className="flex h-20 w-full flex-col items-center justify-center gap-2 rounded-lg border border-border bg-transparent text-sm font-medium text-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-primary/50 hover:bg-muted active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
+              aria-label="Organize tabs"
+            >
+              <Sparkles className="size-5 text-primary" />
+              <span>{confirming ? "Continue organizing" : "Organize tabs"}</span>
+            </button>
+          </BorderBeam>
 
           <div className="mt-3 grid grid-cols-3 gap-2">
             <QuickAction label="Ungroup" onClick={ungroup} disabled={disabled} icon={icon("ungroup", <UngroupIcon className="size-[18px]" />)} />
@@ -446,28 +505,59 @@ export function Popup() {
       )}
 
       {!organizing && (
-        <div className="mt-4 min-h-4 text-xs" aria-live="polite">
-          <p className={status?.error ? "text-destructive" : "text-muted-foreground"}>
-            {status?.text ?? ""}
-          </p>
-          {status?.closedTabs && status.closedTabs.length > 0 && (
-            <ul
-              aria-label="Closed duplicate tabs"
-              className="mt-2 max-h-36 space-y-1.5 overflow-y-auto rounded-md border border-border bg-muted/20 p-2"
-            >
-              {status.closedTabs.map((tab, index) => (
-                <li key={`${tab.url}-${index}`} className="min-w-0">
-                  <p className="break-words font-medium leading-snug text-foreground">
-                    {tab.title || "Untitled tab"}
-                  </p>
-                  <p className="break-all leading-snug text-muted-foreground">{tab.url}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <>
+          <div className="mt-4 min-h-4 text-xs" aria-live="polite">
+            <p className={status?.error ? "text-destructive" : "text-muted-foreground"}>
+              {status?.text ?? ""}
+            </p>
+            {status?.closedTabs && status.closedTabs.length > 0 && (
+              <div className="closed-toast relative mt-2 overflow-hidden rounded-md border border-border bg-muted/20">
+                <ul
+                  aria-label="Closed duplicate tabs"
+                  className="max-h-36 space-y-1.5 overflow-y-auto p-2 pb-2.5"
+                >
+                  {status.closedTabs.map((tab, index) => (
+                    <li key={`${tab.url}-${index}`} className="flex min-w-0 items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-medium leading-snug text-foreground">
+                          {tab.title || "Untitled tab"}
+                        </p>
+                        <p className="break-all leading-snug text-muted-foreground">{tab.url}</p>
+                      </div>
+                      {tab.keptTabId !== undefined && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            chrome.runtime.sendMessage({ type: "focusTab", tabId: tab.keptTabId })
+                          }
+                          className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          View existing
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <div
+                  data-testid="closed-toast-timer"
+                  className="closed-toast-timer absolute inset-x-0 bottom-0 h-0.5 origin-left bg-primary/60"
+                  onAnimationEnd={() => setStatus(null)}
+                />
+              </div>
+            )}
+          </div>
+
+          <a
+            href="mailto:prithvi@skive.in?subject=Focused%20feature%20request&body=Hi%20Prithvi%2C%0A%0AI%27d%20like%20to%20request%3A%0A%0A"
+            className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-transparent text-xs text-muted-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-border hover:bg-muted/50 hover:text-foreground active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MailPlus className="size-3.5" />
+            Request a feature
+          </a>
+        </>
       )}
     </main>
+    </BorderBeam>
   );
 }
 
@@ -489,7 +579,7 @@ function QuickAction({
       className="flex h-16 flex-col items-center justify-center gap-1.5 rounded-lg border border-border bg-transparent text-xs text-muted-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:bg-muted hover:text-foreground active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
     >
       {icon}
-      <span>{label}</span>
+      <span className="px-1 text-center leading-tight">{label}</span>
     </button>
   );
 }

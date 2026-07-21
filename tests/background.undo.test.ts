@@ -97,12 +97,13 @@ describe("duplicate identity keeps fragments", () => {
     ]);
     const response = (await invokeMessage({ type: "cleanDuplicates", windowId: 1 })) as {
       closedCount?: number;
-      closedTabs?: Array<{ title: string; url: string }>;
+      closedTabs?: Array<{ title: string; url: string; keptTabId?: number }>;
     };
     expect(response.closedCount).toBe(2);
+    // The active tab (42) wins over the pinned one (41) as the surviving target.
     expect(response.closedTabs).toEqual([
-      { title: "Old copy", url },
-      { title: "Older copy", url },
+      { title: "Old copy", url, keptTabId: 42 },
+      { title: "Older copy", url, keptTabId: 42 },
     ]);
     expect(mock.chrome.tabs.remove).toHaveBeenCalledWith([43, 44]);
     const stored = mock.sessionData[UNDO_KEY] as UndoSnapshot;

@@ -22,22 +22,31 @@ export async function cleanDuplicates(windowId, { snapshot = true } = {}) {
       const newest = [...duplicates].sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
       keep.add(newest.id);
     }
-    toClose.push(...duplicates.filter((tab) => !keep.has(tab.id)));
+    const keeper =
+      duplicates.find((tab) => tab.active && keep.has(tab.id)) ||
+      duplicates.find((tab) => keep.has(tab.id));
+    for (const tab of duplicates) {
+      if (!keep.has(tab.id)) toClose.push({ tab, keptTabId: keeper.id });
+    }
   }
   if (!toClose.length) return { done: true, closedCount: 0, closedTabs: [] };
 
   if (snapshot) {
     const captured = await captureSnapshot(targetWindowId);
     captured.closedTabs = toClose
-      .filter((tab) => tab.url)
-      .map((tab) => ({ originalId: tab.id, url: tab.url, reopenedId: null }));
+      .filter(({ tab }) => tab.url)
+      .map(({ tab }) => ({ originalId: tab.id, url: tab.url, reopenedId: null }));
     await storeUndoSnapshot(captured);
   }
-  await chrome.tabs.remove(toClose.map((tab) => tab.id));
+  await chrome.tabs.remove(toClose.map(({ tab }) => tab.id));
   return {
     done: true,
     closedCount: toClose.length,
-    closedTabs: toClose.map((tab) => ({ title: tab.title || "", url: tab.url || "" }))
+    closedTabs: toClose.map(({ tab, keptTabId }) => ({
+      title: tab.title || "",
+      url: tab.url || "",
+      keptTabId
+    }))
   };
 }
 

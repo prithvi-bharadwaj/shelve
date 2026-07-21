@@ -14,6 +14,15 @@ const GROUP_DOT: Record<string, string> = {
   orange: "bg-orange-500",
 };
 
+// Stable Chrome has no per-tab memory API (chrome.processes is dev-channel
+// only), so loaded (non-discarded) tab count is the best available proxy.
+function ramEstimate(group: GroupInfo) {
+  const loaded = group.loadedCount ?? group.tabCount;
+  if (loaded >= 7) return { label: "high", className: "text-orange-400" };
+  if (loaded >= 3) return { label: "med", className: "text-yellow-500" };
+  return { label: "low", className: "text-muted-foreground" };
+}
+
 function timeAgo(timestamp: number) {
   const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
   if (minutes < 1) return "just now";
@@ -65,6 +74,12 @@ export function StashPanel({
               <div key={group.id} className="flex h-8 items-center gap-2 rounded-md px-1.5 hover:bg-muted/50">
                 <span className={`size-2 shrink-0 rounded-full ${GROUP_DOT[group.color] ?? GROUP_DOT.grey}`} />
                 <span className="min-w-0 flex-1 truncate text-xs">{group.title}</span>
+                <span
+                  title={`Approximate memory use: ${group.loadedCount ?? group.tabCount} of ${group.tabCount} tabs loaded`}
+                  className={`text-[10px] font-medium uppercase tracking-wide ${ramEstimate(group).className}`}
+                >
+                  {ramEstimate(group).label}
+                </span>
                 <span className="text-[11px] tabular-nums text-muted-foreground">{group.tabCount}</span>
                 <IconButton
                   title={`Stash “${group.title}”`}

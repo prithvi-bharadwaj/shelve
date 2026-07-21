@@ -72,6 +72,7 @@ describe("Popup consent initialization", () => {
     await user.click(organizeButton());
     expect(await screen.findByText(/Sends tab titles & URLs/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Organize tabs" })).toHaveTextContent("Continue organizing");
+    await waitFor(() => expect(screen.getByTestId("organize-beam")).toHaveAttribute("data-active"));
     expect(mock.chrome.runtime.sendMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: "organize" })
     );
@@ -92,6 +93,16 @@ describe("Popup consent initialization", () => {
     expect(screen.getByRole("textbox", { name: "Command" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Ungroup" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Close duplicates" })).toBeEnabled();
+    unmount();
+  });
+
+  it("offers a pre-addressed feature request email", async () => {
+    mock.seedLocal({ dataNoticeAck: true });
+    const { unmount } = await renderResolved();
+    expect(screen.getByRole("link", { name: "Request a feature" })).toHaveAttribute(
+      "href",
+      "mailto:prithvi@skive.in?subject=Focused%20feature%20request&body=Hi%20Prithvi%2C%0A%0AI%27d%20like%20to%20request%3A%0A%0A"
+    );
     unmount();
   });
 

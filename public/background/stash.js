@@ -150,12 +150,16 @@ export async function listGroups(windowId) {
   return {
     groups: [...groups]
       .sort((a, b) => firstGroupIndex(tabs, a.id) - firstGroupIndex(tabs, b.id))
-      .map((group) => ({
-        id: group.id,
-        title: group.title || "Untitled",
-        color: group.color,
-        tabCount: tabs.filter((tab) => tab.groupId === group.id).length
-      }))
+      .map((group) => {
+        const groupTabs = tabs.filter((tab) => tab.groupId === group.id);
+        return {
+          id: group.id,
+          title: group.title || "Untitled",
+          color: group.color,
+          tabCount: groupTabs.length,
+          loadedCount: groupTabs.filter((tab) => !tab.discarded).length
+        };
+      })
   };
 }
 
@@ -178,7 +182,6 @@ export async function stashGroup(windowId, groupId) {
   let snippets = {};
   const urlById = Object.fromEntries(savable.map((tab) => [tab.id, tab.url]));
   const hasContentPermission = await chrome.permissions.contains({
-    permissions: ["scripting"],
     origins: ["<all_urls>"]
   }).catch(() => false);
   if (hasContentPermission) {

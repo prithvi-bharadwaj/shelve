@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BorderBeam } from "border-beam";
 import { ArrowRight, LoaderCircle, SendHorizontal } from "lucide-react";
 import type { CommandResponse } from "@/types";
 
@@ -52,7 +53,6 @@ export function CommandBar({
     setResult(null);
     try {
       let hasContentPermission = await chrome.permissions.contains({
-        permissions: ["scripting"],
         origins: ["<all_urls>"],
       });
       if (!hasContentPermission) {
@@ -91,33 +91,43 @@ export function CommandBar({
 
   return (
     <section className="mt-4" aria-label="Command bar">
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-2.5 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") submit();
-          }}
-          disabled={disabled || running}
-          placeholder={'Try “group my O-1 visa memberships”'}
-          aria-label="Command"
-          className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground disabled:opacity-50"
-        />
-        {running ? (
-          <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-        ) : (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={disabled || !query.trim()}
-            title="Send"
-            aria-label="Send"
-            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 [&:not(:disabled)]:text-primary"
-          >
-            <SendHorizontal className="size-3.5" />
-          </button>
-        )}
-      </div>
+      <BorderBeam
+        size="line"
+        colorVariant="ocean"
+        theme="dark"
+        strength={0.35}
+        active={running}
+        className="w-full focus-within:ring-2 focus-within:ring-ring/30"
+        data-testid="command-beam"
+      >
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-2.5 focus-within:border-ring">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") submit();
+            }}
+            disabled={disabled || running}
+            placeholder={'Try “group my O-1 visa memberships”'}
+            aria-label="Command"
+            className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground disabled:opacity-50"
+          />
+          {running ? (
+            <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={disabled || !query.trim()}
+              title="Send"
+              aria-label="Send"
+              className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 [&:not(:disabled)]:text-primary"
+            >
+              <SendHorizontal className="size-3.5" />
+            </button>
+          )}
+        </div>
+      </BorderBeam>
 
       {confirming && (
         <p className="mt-2 text-xs leading-snug text-muted-foreground" aria-live="polite">

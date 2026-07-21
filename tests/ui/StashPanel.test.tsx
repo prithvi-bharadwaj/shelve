@@ -35,6 +35,24 @@ function renderPanel(overrides: Partial<Parameters<typeof StashPanel>[0]> = {}) 
   return props;
 }
 
+describe("StashPanel RAM estimates", () => {
+  it("labels groups low/med/high from their loaded tab counts", async () => {
+    const user = userEvent.setup();
+    renderPanel({
+      groups: [
+        { id: 1, title: "Docs", color: "blue", tabCount: 4, loadedCount: 2 },
+        { id: 2, title: "Research", color: "red", tabCount: 5, loadedCount: 4 },
+        { id: 3, title: "Media", color: "green", tabCount: 9, loadedCount: 8 },
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: /Groups · 3/i }));
+    expect(screen.getByText("low")).toBeInTheDocument();
+    expect(screen.getByText("med")).toBeInTheDocument();
+    expect(screen.getByText("high")).toBeInTheDocument();
+    expect(screen.getByTitle("Approximate memory use: 8 of 9 tabs loaded")).toBeInTheDocument();
+  });
+});
+
 describe("StashPanel delete confirmation", () => {
   it("does not delete on the first click", async () => {
     const user = userEvent.setup();

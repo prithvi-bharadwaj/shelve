@@ -94,6 +94,7 @@ export function createChromeMock() {
     tabsOnRemoved: createEvent(),
     tabsOnUpdated: createEvent(),
     windowsOnRemoved: createEvent(),
+    actionOnClicked: createEvent(),
     notificationsOnClicked: createEvent(),
     notificationsOnButtonClicked: createEvent(),
   };
@@ -146,6 +147,9 @@ export function createChromeMock() {
       update: vi.fn(async (_tabId: number, _props: object) => undefined),
       group: vi.fn(async (_options: { tabIds: number | number[]; groupId?: number }) => nextGroupId++),
       ungroup: vi.fn(async (_tabIds: number | number[]) => undefined),
+      sendMessage: vi.fn(async (_tabId: number, _message: unknown): Promise<unknown> => {
+        throw new Error("Could not establish connection. Receiving end does not exist.");
+      }),
     },
     tabGroups: {
       query: vi.fn(async (_query?: { windowId?: number }): Promise<MockTabGroup[]> => []),
@@ -161,8 +165,11 @@ export function createChromeMock() {
       get: vi.fn(async (_windowId: number) => ({ ...currentWindow })),
       getAll: vi.fn(async () => [{ ...currentWindow }]),
       update: vi.fn(async () => undefined),
+      create: vi.fn(async (_props?: object) => ({ id: 2 })),
     },
     action: {
+      onClicked: events.actionOnClicked,
+      setPopup: vi.fn(async (_props: { tabId?: number; popup: string }) => undefined),
       setBadgeText: vi.fn(async () => undefined),
       openPopup: vi.fn(async () => undefined),
       getUserSettings: vi.fn(async () => ({ isOnToolbar: true })),

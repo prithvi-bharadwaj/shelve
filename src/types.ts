@@ -10,6 +10,8 @@ export type ProposedGroup = {
 export type ClosedDuplicateTab = {
   title: string;
   url: string;
+  /** Surviving tab with the same URL, so the UI can jump to it. */
+  keptTabId?: number;
 };
 
 export type OrganizeResponse = {
@@ -45,6 +47,8 @@ export type GroupInfo = {
   title: string;
   color: string;
   tabCount: number;
+  /** Non-discarded tabs — proxy for memory use; no per-tab RAM API in stable Chrome. */
+  loadedCount?: number;
 };
 
 export type Stash = {
