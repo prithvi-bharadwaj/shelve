@@ -230,6 +230,17 @@ body {
     animation: none;
   }
 
+  /* border-beam's rotate presets (md/line) leave reduced-motion to the consumer;
+     killing the animation keeps --beam-opacity at its initial 0, hiding the beam. */
+  [data-beam][data-active],
+  [data-beam][data-fading],
+  [data-beam][data-active]::before,
+  [data-beam][data-active]::after,
+  [data-beam][data-fading]::before,
+  [data-beam][data-fading]::after {
+    animation: none !important;
+  }
+
   .tab-rail-item {
     opacity: 0.7;
   }
