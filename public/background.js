@@ -56,7 +56,7 @@ purgeLegacyUndo().catch(() => undefined);
 
 // The action has no default_popup: clicking it toggles the in-page overlay
 // panel (rounded, glass) via activeTab. Pages we cannot script (chrome://,
-// Web Store, other extensions) fall back to a small popup window.
+// Web Store, other extensions) fall back to the browser's anchored popup.
 chrome.action.onClicked.addListener(async (tab) => {
   if (tab?.id != null) {
     try {
@@ -81,5 +81,13 @@ chrome.action.onClicked.addListener(async (tab) => {
       // openPopup needs Chrome 127+; if unavailable the per-tab popup is
       // still set, so the next click opens it natively.
     }
+  }
+});
+
+// The per-tab fallback popup must not outlive the restricted page that needed
+// it: clear it when the tab navigates so scriptable pages get the overlay back.
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.url) {
+    chrome.action.setPopup({ tabId, popup: "" }).catch(() => undefined);
   }
 });

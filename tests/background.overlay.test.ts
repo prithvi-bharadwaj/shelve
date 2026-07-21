@@ -44,6 +44,17 @@ describe("action click overlay routing", () => {
     expect(harness.mock.chrome.windows.create).not.toHaveBeenCalled();
   });
 
+  it("clears the per-tab fallback popup when the tab navigates away", async () => {
+    harness = await loadBackground();
+    harness.mock.chrome.scripting.executeScript.mockRejectedValueOnce(new Error("restricted"));
+    await clickAction();
+    expect(harness.mock.chrome.action.setPopup).toHaveBeenCalledWith({ tabId: 7, popup: "popup.html" });
+    await Promise.all(
+      harness.mock.events.tabsOnUpdated.emit(7, { url: "https://example.com/" }, { id: 7 })
+    );
+    expect(harness.mock.chrome.action.setPopup).toHaveBeenLastCalledWith({ tabId: 7, popup: "" });
+  });
+
   it("never opens a separate window", async () => {
     harness = await loadBackground();
     harness.mock.chrome.scripting.executeScript.mockRejectedValue(new Error("nope"));

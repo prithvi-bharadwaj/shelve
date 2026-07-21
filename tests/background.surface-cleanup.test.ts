@@ -48,7 +48,9 @@ describe("merge and monitor surface removal", () => {
     expect(events.notificationsOnButtonClicked.listeners).toHaveLength(0);
     expect(events.tabsOnCreated.listeners).toHaveLength(0);
     expect(events.tabsOnRemoved.listeners).toHaveLength(0);
-    expect(events.tabsOnUpdated.listeners).toHaveLength(0);
+    // Exactly one onUpdated listener: the fallback-popup clearer in
+    // background.js. Anything more means monitor-style listeners crept back.
+    expect(events.tabsOnUpdated.listeners).toHaveLength(1);
     expect(events.runtimeOnStartup.listeners).toHaveLength(0);
     expect(events.storageOnChanged.listeners).toHaveLength(0);
   });
