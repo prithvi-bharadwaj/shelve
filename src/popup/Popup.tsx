@@ -22,6 +22,11 @@ import type {
 const isOverlay =
   typeof window !== "undefined" && new URLSearchParams(window.location.search).has("overlay");
 
+// popup.html is web-accessible, so any site can iframe it — not just our
+// overlay script. Embedded instances must prove the toolbar icon was clicked
+// (single-use token minted by the background) before the UI unlocks.
+const isEmbedded = typeof window !== "undefined" && window.self !== window.top;
+
 type Action = "organize" | "ungroup" | "duplicates" | "undo" | "apply";
 type Status = { text: string; error?: boolean; closedTabs?: ClosedDuplicateTab[] } | null;
 
@@ -44,8 +49,26 @@ export function Popup() {
   const [stashBusy, setStashBusy] = useState<number | string | null>(null);
   const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
   const [organizeClosedTabs, setOrganizeClosedTabs] = useState<ClosedDuplicateTab[]>([]);
+  // null = handshake pending (embedded only); top-level windows are trusted.
+  const [embedAllowed, setEmbedAllowed] = useState<boolean | null>(isEmbedded ? null : true);
   const ownsOrganizeRequest = useRef(false);
   const handledJobId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isEmbedded) return;
+    let cancelled = false;
+    chrome.runtime
+      .sendMessage({ type: "overlayHandshake" })
+      .then((res: { allowed?: boolean } | undefined) => {
+        if (!cancelled) setEmbedAllowed(res?.allowed === true);
+      })
+      .catch(() => {
+        if (!cancelled) setEmbedAllowed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshUndo = useCallback(async (targetWindowId: number | undefined = windowId) => {
     if (!targetWindowId) return;
@@ -369,6 +392,17 @@ export function Popup() {
     windowId === undefined;
   const icon = (action: Action, idle: ReactNode) =>
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
+
+  if (embedAllowed === null) return null;
+  if (embedAllowed === false) {
+    return (
+      <main className="popup-shell w-[340px] p-4">
+        <p className="text-xs text-muted-foreground">
+          Open Focused from the toolbar icon to use it here.
+        </p>
+      </main>
+    );
+  }
 
   return (
     <BorderBeam

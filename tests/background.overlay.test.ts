@@ -64,6 +64,29 @@ describe("action click overlay routing", () => {
   });
 });
 
+describe("overlay embed handshake", () => {
+  function handshake(sender: Record<string, unknown>) {
+    return new Promise((resolve) => {
+      const handled = harness.messageListener({ type: "overlayHandshake" }, sender, resolve);
+      if (!handled) resolve({ unhandled: true });
+    });
+  }
+
+  it("allows one handshake per action click, then burns the token", async () => {
+    harness = await loadBackground();
+    await clickAction();
+    await expect(handshake({ tab: { id: 7 } })).resolves.toEqual({ allowed: true });
+    await expect(handshake({ tab: { id: 7 } })).resolves.toEqual({ allowed: false });
+  });
+
+  it("rejects tabs that never saw an action click and senders without a tab", async () => {
+    harness = await loadBackground();
+    await clickAction();
+    await expect(handshake({ tab: { id: 99 } })).resolves.toEqual({ allowed: false });
+    await expect(handshake({})).resolves.toEqual({ allowed: false });
+  });
+});
+
 describe("overlay manifest surface", () => {
   const manifest = JSON.parse(readFileSync(resolve(process.cwd(), "public/manifest.json"), "utf8"));
 
