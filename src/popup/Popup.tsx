@@ -424,7 +424,7 @@ export function Popup() {
             theme="dark"
             strength={0.4}
             active={confirming}
-            className="mt-3 w-full focus-within:ring-2 focus-within:ring-ring"
+            className="mt-3 w-full has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
             data-testid="organize-beam"
           >
             <button
