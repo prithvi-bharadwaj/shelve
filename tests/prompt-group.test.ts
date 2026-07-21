@@ -286,7 +286,9 @@ test("a command can remove duplicate tabs and report the closed copy", async () 
 
   expect(result.action).toBe("remove_duplicates");
   expect(result.closedCount).toBe(1);
-  expect(result.closedTabs).toEqual([{ title: "Old copy", url: "https://duplicate.test/" }]);
+  expect(result.closedTabs).toEqual([
+    { title: "Old copy", url: "https://duplicate.test/", keptTabId: 10 },
+  ]);
   expect(calls.removed).toEqual([[11]]);
 });
 

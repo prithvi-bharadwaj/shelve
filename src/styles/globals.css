@@ -251,6 +251,21 @@ body {
   }
 }
 
+/* Auto-dismiss countdown on the closed-duplicates toast. The bar depletes
+   right-to-left; onAnimationEnd in Popup hides the toast. Hover pauses both. */
+@keyframes closed-toast-deplete {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.closed-toast-timer {
+  animation: closed-toast-deplete 8s linear forwards;
+}
+
+.closed-toast:hover .closed-toast-timer {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .review-item {
     animation: fade 150ms ease forwards;

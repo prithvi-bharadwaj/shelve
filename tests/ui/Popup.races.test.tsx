@@ -98,6 +98,9 @@ describe("organize status polling", () => {
     statusResponse = () => new Promise(() => {});
     const { unmount } = render(<Popup />);
     await screen.findByRole("button", { name: "Organize tabs" });
+    // The mount-time fetch lands on its own async schedule; wait for it before
+    // asserting that no further polls pile up behind the still-pending one.
+    await waitFor(() => expect(statusCallCount()).toBe(1));
     await vi.advanceTimersByTimeAsync(3000);
     expect(statusCallCount()).toBe(1);
     unmount();

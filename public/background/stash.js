@@ -150,12 +150,16 @@ export async function listGroups(windowId) {
   return {
     groups: [...groups]
       .sort((a, b) => firstGroupIndex(tabs, a.id) - firstGroupIndex(tabs, b.id))
-      .map((group) => ({
-        id: group.id,
-        title: group.title || "Untitled",
-        color: group.color,
-        tabCount: tabs.filter((tab) => tab.groupId === group.id).length
-      }))
+      .map((group) => {
+        const groupTabs = tabs.filter((tab) => tab.groupId === group.id);
+        return {
+          id: group.id,
+          title: group.title || "Untitled",
+          color: group.color,
+          tabCount: groupTabs.length,
+          loadedCount: groupTabs.filter((tab) => !tab.discarded).length
+        };
+      })
   };
 }
 

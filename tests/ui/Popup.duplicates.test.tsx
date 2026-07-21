@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Popup } from "@/popup/Popup";
 import { createChromeMock, type ChromeMock } from "../helpers/chromeMock";
@@ -18,7 +18,7 @@ beforeEach(() => {
           done: true,
           closedCount: 2,
           closedTabs: [
-            { title: "Project brief", url: "https://docs.example/project" },
+            { title: "Project brief", url: "https://docs.example/project", keptTabId: 11 },
             { title: "Issue #42", url: "https://github.example/issues/42" },
           ],
         };
@@ -49,6 +49,38 @@ describe("duplicate cleanup details", () => {
     expect(screen.getByText("https://docs.example/project")).toBeInTheDocument();
     expect(screen.getByText("Issue #42")).toBeInTheDocument();
     expect(screen.getByText("https://github.example/issues/42")).toBeInTheDocument();
+    unmount();
+  });
+
+  it("jumps to the surviving tab via View existing, only for entries that have one", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Popup />);
+    const button = await screen.findByRole("button", { name: "Close duplicates" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+
+    const viewButtons = await screen.findAllByRole("button", { name: "View existing" });
+    expect(viewButtons).toHaveLength(1);
+    await user.click(viewButtons[0]);
+    expect(mock.chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: "focusTab", tabId: 11 });
+    unmount();
+  });
+
+  it("hides the toast when the countdown bar finishes depleting", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<Popup />);
+    const button = await screen.findByRole("button", { name: "Close duplicates" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await user.click(button);
+
+    expect(await screen.findByRole("list", { name: "Closed duplicate tabs" })).toBeInTheDocument();
+    fireEvent.animationEnd(screen.getByTestId("closed-toast-timer"), {
+      animationName: "closed-toast-deplete",
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("list", { name: "Closed duplicate tabs" })).not.toBeInTheDocument()
+    );
+    expect(screen.queryByText("Closed 2 duplicate tabs")).not.toBeInTheDocument();
     unmount();
   });
 });
