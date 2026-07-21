@@ -26,7 +26,7 @@ Everyone I showed this to said they needed it — and then told me what was brok
 
 - "I don't like the groups it made" → one-click undo, plus custom instructions so it follows your rules.
 - "My browser is eating RAM" → per-group loaded-tab counts, so you can see which group to stash or close.
-- "I have four windows open at once" and "I'm too lazy to click the button" → window merging and a tab-count auto-sort trigger both shipped too; I later removed them in a cleanup pass (`b8cd783`) to keep the core a single predictable click.
+- "I have four windows open at once" and "I'm too lazy to click the button" → window merging and a tab-count auto-sort trigger both shipped too; they're temporarily out while I rework them (`b8cd783`) and will be back.
 
 Around thirty people use it so far, and I haven't posted about it anywhere yet. Up next: a Chrome Web Store release, session memory so grouping gets better the more you use it, and a hosted option so an API key isn't required.
 
