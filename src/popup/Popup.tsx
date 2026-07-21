@@ -367,6 +367,15 @@ export function Popup() {
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
 
   return (
+    <BorderBeam
+      size="md"
+      colorVariant="ocean"
+      theme="dark"
+      strength={0.45}
+      active={organizing || commandRunning}
+      className="popup-frame"
+      data-testid="window-beam"
+    >
     <main className="popup-shell w-[340px] p-4">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -489,6 +498,7 @@ export function Popup() {
         </>
       )}
     </main>
+    </BorderBeam>
   );
 }
 
