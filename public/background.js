@@ -10,6 +10,7 @@ import { undo, hasUndo, purgeLegacyUndo, dropIncognitoUndo } from "./background/
 import { exportGroups, importGroups } from "./background/importexport.js";
 import { listGroups, stashGroup, listStashes, resumeStash, deleteStash } from "./background/stash.js";
 import { runCommand, focusTab } from "./background/command.js";
+import { mergeWindows, windowCount } from "./background/merge.js";
 
 // Single-use, short-lived tokens proving the toolbar icon was clicked on a
 // tab. popup.html is web-accessible (the overlay iframe needs it), so any
@@ -44,6 +45,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     cleanDuplicates: () => cleanDuplicates(msg.windowId, { snapshot: true }),
     undo: () => undo(msg.windowId),
     hasUndo: () => hasUndo(msg.windowId),
+    mergeWindows: () => mergeWindows(msg.windowId),
+    windowCount: () => windowCount(),
     listModels: () => listModels(msg.provider),
     migrateLegacyCredential: () => migrateLegacyCredential().then(() => ({ done: true })),
     exportGroups: () => exportGroups(msg.windowId),
@@ -67,10 +70,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 chrome.windows.onRemoved.addListener((windowId) => {
   dropIncognitoUndo(windowId);
 });
-// Clean up settings persisted by the removed merge and tab-monitor features.
+// Clean up settings persisted by the removed tab-monitor feature.
 chrome.runtime.onInstalled.addListener(() => {
   Promise.all([
-    chrome.storage.sync.remove(["mergeOnOrganize", "auto", "autoThreshold"]),
+    chrome.storage.sync.remove(["auto", "autoThreshold"]),
     chrome.storage.local.remove("monitorAlertedWindows"),
     migrateLegacyCredential()
   ]).catch(() => undefined);

@@ -82,6 +82,14 @@ export interface MockTabGroup {
   collapsed?: boolean;
 }
 
+export interface MockWindow {
+  id: number;
+  incognito: boolean;
+  type: string;
+  focused: boolean;
+  tabs?: MockTab[];
+}
+
 export type ChromeMock = ReturnType<typeof createChromeMock>;
 
 export function createChromeMock() {
@@ -163,7 +171,7 @@ export function createChromeMock() {
       onRemoved: events.windowsOnRemoved,
       getCurrent: vi.fn(async () => ({ ...currentWindow })),
       get: vi.fn(async (_windowId: number) => ({ ...currentWindow })),
-      getAll: vi.fn(async () => [{ ...currentWindow }]),
+      getAll: vi.fn(async (_query?: object): Promise<MockWindow[]> => [{ ...currentWindow }]),
       update: vi.fn(async () => undefined),
       create: vi.fn(async (_props?: object) => ({ id: 2 })),
     },

@@ -355,6 +355,18 @@ export function Options() {
               <span className="mt-1 block text-xs text-muted-foreground">Keeps the active or most recently used copy.</span>
             </span>
           </label>
+          <label htmlFor="merge-on-organize" className="flex cursor-pointer items-start gap-3">
+            <Checkbox
+              id="merge-on-organize"
+              className="mt-0.5"
+              checked={settings.mergeOnOrganize}
+              onCheckedChange={(value) => set("mergeOnOrganize", value === true)}
+            />
+            <span>
+              <span className="block text-sm font-medium leading-none">Merge windows when organizing</span>
+              <span className="mt-1 block text-xs text-muted-foreground">Brings all windows together first.</span>
+            </span>
+          </label>
         </section>
 
         <Divider />

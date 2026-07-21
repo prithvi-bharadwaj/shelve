@@ -7,6 +7,7 @@ import { getSettings, hasDataNoticeAck, hasProviderAccess, missingCredentialMess
 import { callProvider, ensureModel } from "./providers.js";
 import { organizeJobs, updateOrganizeJob, finishOrganizeJob, publicOrganizeJob, persistOrganizeJob } from "./jobs.js";
 import { cleanDuplicates } from "./dedupe.js";
+import { mergeWindows } from "./merge.js";
 import { captureSnapshot, storeUndoSnapshot } from "./undo.js";
 import { collectSnippets } from "./snippets.js";
 
@@ -44,6 +45,10 @@ export async function organize(hasContentPermission, windowId) {
       return finishOrganizeJob(job, { error: missingCredentialMessage(settings.provider) });
     }
     settings = await ensureModel(settings);
+
+    if (settings.mergeOnOrganize) {
+      await mergeWindows(targetWindowId);
+    }
 
     let dedupeMutated = false;
     if (settings.dedupeOnOrganize) {

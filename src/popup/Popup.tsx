@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { BorderBeam } from "border-beam";
-import { CopyX, LoaderCircle, MailPlus, Settings, Sparkles, Undo2 } from "lucide-react";
+import { Combine, CopyX, LoaderCircle, MailPlus, Settings, Sparkles, Undo2 } from "lucide-react";
 import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { CommandBar } from "@/popup/CommandBar";
@@ -11,6 +11,7 @@ import { StashPanel } from "@/popup/StashPanel";
 import type {
   ClosedDuplicateTab,
   GroupInfo,
+  MergeResponse,
   OrganizeJob,
   OrganizeResponse,
   ProposedGroup,
@@ -27,7 +28,7 @@ const isOverlay =
 // (single-use token minted by the background) before the UI unlocks.
 const isEmbedded = typeof window !== "undefined" && window.self !== window.top;
 
-type Action = "organize" | "ungroup" | "duplicates" | "undo" | "apply";
+type Action = "organize" | "ungroup" | "duplicates" | "merge" | "undo" | "apply";
 type Status = { text: string; error?: boolean; closedTabs?: ClosedDuplicateTab[] } | null;
 
 export function Popup() {
@@ -38,6 +39,7 @@ export function Popup() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [reviewMinSize, setReviewMinSize] = useState(1);
   const [windowId, setWindowId] = useState<number>();
+  const [windowCount, setWindowCount] = useState(1);
   const [hasUndo, setHasUndo] = useState(false);
   const [showPinPrompt, setShowPinPrompt] = useState(false);
   // null = storage not yet read; the UI must stay inert until this resolves.
@@ -75,6 +77,25 @@ export function Popup() {
     const result = await chrome.runtime.sendMessage({ type: "hasUndo", windowId: targetWindowId });
     setHasUndo(Boolean(result?.hasUndo));
   }, [windowId]);
+
+  const refreshWindowCount = useCallback(async () => {
+    const windows = await chrome.runtime.sendMessage({ type: "windowCount" });
+    if (windows?.count) setWindowCount(windows.count);
+  }, []);
+
+  // The in-page overlay outlives window changes; a mount-time count would
+  // leave "Merge windows" wrongly disabled (or enabled) as windows come and go.
+  useEffect(() => {
+    const onWindowsChanged = () => {
+      refreshWindowCount().catch(() => undefined);
+    };
+    chrome.windows.onCreated?.addListener(onWindowsChanged);
+    chrome.windows.onRemoved.addListener(onWindowsChanged);
+    return () => {
+      chrome.windows.onCreated?.removeListener(onWindowsChanged);
+      chrome.windows.onRemoved.removeListener(onWindowsChanged);
+    };
+  }, [refreshWindowCount]);
 
   const refreshPanels = useCallback(async () => {
     if (!windowId) return;
@@ -134,8 +155,9 @@ export function Popup() {
   useEffect(() => {
     (async () => {
       const window = await chrome.windows.getCurrent();
-      const [undoState, local] = await Promise.all([
+      const [undoState, windows, local] = await Promise.all([
         chrome.runtime.sendMessage({ type: "hasUndo", windowId: window.id }),
+        chrome.runtime.sendMessage({ type: "windowCount" }),
         chrome.storage.local.get({ dataNoticeAck: false, pinPromptDismissed: false }),
       ]);
       try {
@@ -145,6 +167,7 @@ export function Popup() {
         // Not every Chromium fork exposes getUserSettings; skip the prompt there.
       }
       setWindowId(window.id);
+      if (windows?.count) setWindowCount(windows.count);
       setHasUndo(Boolean(undoState?.hasUndo));
       setAcknowledged(Boolean(local.dataNoticeAck));
     })();
@@ -308,6 +331,19 @@ export function Popup() {
             closedTabs: Array.isArray(res.closedTabs) ? res.closedTabs : [],
           }
     );
+  };
+
+  const merge = async () => {
+    setRunning("merge");
+    setStatus(null);
+    const res: MergeResponse = await chrome.runtime.sendMessage({ type: "mergeWindows", windowId });
+    setRunning(null);
+    if (res?.error) {
+      setStatus({ text: res.error, error: true });
+      return;
+    }
+    await Promise.all([refreshWindowCount(), refreshPanels()]);
+    setStatus({ text: `Merged ${res.windows} window${res.windows === 1 ? "" : "s"} · ${res.tabs} tabs` });
   };
 
   const undo = async () => {
@@ -486,9 +522,10 @@ export function Popup() {
             </button>
           </BorderBeam>
 
-          <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <QuickAction label="Ungroup" onClick={ungroup} disabled={disabled} icon={icon("ungroup", <UngroupIcon className="size-[18px]" />)} />
             <QuickAction label="Close duplicates" onClick={cleanDuplicates} disabled={disabled} icon={icon("duplicates", <CopyX className="size-4" />)} />
+            <QuickAction label="Merge windows" onClick={merge} disabled={disabled || windowCount <= 1} icon={icon("merge", <Combine className="size-4" />)} />
             <QuickAction label="Undo" onClick={undo} disabled={disabled || !hasUndo} icon={icon("undo", <Undo2 className="size-4" />)} />
           </div>
 
