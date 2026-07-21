@@ -37,8 +37,8 @@
     iframe.setAttribute("aria-label", "Focused tab organizer");
     Object.assign(iframe.style, {
       position: "fixed",
-      top: "12px",
-      right: "12px",
+      top: "4px",
+      right: "8px",
       width: `${PANEL_WIDTH}px`,
       height: "200px",
       border: "0",
