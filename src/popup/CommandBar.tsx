@@ -53,7 +53,6 @@ export function CommandBar({
     setResult(null);
     try {
       let hasContentPermission = await chrome.permissions.contains({
-        permissions: ["scripting"],
         origins: ["<all_urls>"],
       });
       if (!hasContentPermission) {

@@ -80,6 +80,28 @@ body {
     oklch(0.1 0 0);
 }
 
+/* Overlay mode: the popup runs as a rounded iframe floating over the real
+   page (public/overlay.js). The host applies the backdrop blur; everything
+   behind the glass shell must stay transparent so the page shows through. */
+:root[data-overlay] {
+  /* Must match the host iframe's color-scheme or Chrome paints an opaque
+     canvas behind the document, killing the see-through effect. */
+  color-scheme: light;
+}
+
+:root[data-overlay] body {
+  background: transparent;
+}
+
+:root[data-overlay] .popup-frame {
+  background: none;
+}
+
+:root[data-overlay] .popup-shell {
+  border-radius: 16px;
+  color-scheme: dark;
+}
+
 .popup-shell {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

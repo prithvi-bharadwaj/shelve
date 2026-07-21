@@ -17,6 +17,11 @@ import type {
   Stash,
 } from "@/types";
 
+// True when running inside the in-page iframe overlay (see public/overlay.js);
+// the panel then has rounded corners the window beam must follow.
+const isOverlay =
+  typeof window !== "undefined" && new URLSearchParams(window.location.search).has("overlay");
+
 type Action = "organize" | "ungroup" | "duplicates" | "undo" | "apply";
 type Status = { text: string; error?: boolean; closedTabs?: ClosedDuplicateTab[] } | null;
 
@@ -175,7 +180,6 @@ export function Popup() {
     handledJobId.current = null;
     ownsOrganizeRequest.current = true;
     let hasContentPermission = await chrome.permissions.contains({
-      permissions: ["scripting"],
       origins: ["<all_urls>"],
     });
     if (!hasContentPermission) {
@@ -372,7 +376,7 @@ export function Popup() {
       colorVariant="ocean"
       theme="dark"
       strength={0.45}
-      borderRadius={0}
+      borderRadius={isOverlay ? 16 : 0}
       active={organizing || commandRunning}
       className="popup-frame"
       data-testid="window-beam"

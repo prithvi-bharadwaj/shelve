@@ -178,7 +178,6 @@ export async function stashGroup(windowId, groupId) {
   let snippets = {};
   const urlById = Object.fromEntries(savable.map((tab) => [tab.id, tab.url]));
   const hasContentPermission = await chrome.permissions.contains({
-    permissions: ["scripting"],
     origins: ["<all_urls>"]
   }).catch(() => false);
   if (hasContentPermission) {

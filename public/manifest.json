@@ -3,8 +3,7 @@
   "name": "Focused",
   "version": "0.4.0",
   "description": "One click: understands your open tabs and sorts them into named Chrome tab groups.",
-  "permissions": ["tabs", "tabGroups", "storage"],
-  "optional_permissions": ["scripting"],
+  "permissions": ["tabs", "tabGroups", "storage", "scripting", "activeTab"],
   "host_permissions": [
     "https://api.anthropic.com/*",
     "https://api.openai.com/*",
@@ -18,7 +17,6 @@
     "type": "module"
   },
   "action": {
-    "default_popup": "popup.html",
     "default_title": "Organize tabs",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -33,5 +31,11 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "options_page": "options.html"
+  "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html", "assets/*", "icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

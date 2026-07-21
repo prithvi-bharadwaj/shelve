@@ -53,3 +53,29 @@ chrome.runtime.onInstalled.addListener(() => {
   ]).catch(() => undefined);
 });
 purgeLegacyUndo().catch(() => undefined);
+
+// The action has no default_popup: clicking it toggles the in-page overlay
+// panel (rounded, glass) via activeTab. Pages we cannot script (chrome://,
+// Web Store, other extensions) fall back to a small popup window.
+chrome.action.onClicked.addListener(async (tab) => {
+  if (tab?.id != null) {
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: "toggleOverlay" });
+      return;
+    } catch {
+      // No overlay script in the tab yet — inject it (mounts on load).
+      try {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["overlay.js"] });
+        return;
+      } catch {
+        // Restricted page; fall through to the window fallback.
+      }
+    }
+  }
+  await chrome.windows.create({
+    url: chrome.runtime.getURL("popup.html"),
+    type: "popup",
+    width: 372,
+    height: 648
+  }).catch(() => undefined);
+});
