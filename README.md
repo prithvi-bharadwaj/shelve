@@ -4,6 +4,25 @@ One click: understands your open tabs and sorts them into named Chrome tab group
 
 Works in Chrome, Brave, Edge, Arc, Vivaldi — any Chromium browser that supports Manifest V3 tab groups.
 
+## How this was built (for Build Week judges)
+
+This is the private development repo — the real history, not a curated snapshot. What you're looking at: 71 commits on `main`, ten merged feature branches, and a [`plans/`](plans/) directory that came out of a Codex audit (more on that below). The clean public mirror for end users lives at [focused-source](https://github.com/prithvi-bharadwaj/focused-source).
+
+I built Focused during OpenAI Build Week in a loop between GPT-5.6 Codex (`gpt-5.6-sol` in the session metadata) and Claude, running in parallel Conductor workspaces — 24 workspaces and 42 sessions by the end. I used the two interchangeably, but a pattern emerged fast: one agent implements, the other reviews the diff, and I make the product call. Nothing merged just because an agent said it was done.
+
+Where Codex did the heavy lifting:
+
+- **The core build.** One Codex session read `SPEC.md` and implemented essentially the whole v0.3 platform in a single run — the OpenAI/Anthropic/Gemini/Ollama adapters, settings migration, spend caps, snapshot undo, duplicate cleanup, review mode, import/export, and the popup/options UI. 83 tool calls, two builds, and four edge cases it caught in its own final diff re-read. That session maps to commit `53fa138` (+1,706/−355) and is the one I submitted via `/feedback`.
+- **The mid-hackathon audit.** The code was getting fast and loose, so I pointed a max-reasoning Codex session at it. It produced the seven executor-ready plans in [`plans/`](plans/): consent gating, incognito isolation, transactional stash resume, retryable partial undo, async races. Claude executed the big one (PR #7: +6,394/−2,788, zero → 94 tests), then Codex came back to review and integrate.
+- **Catching real bugs.** A high-effort Codex review of the command engine found an incognito metadata leak, a swallowed post-mutation error, and broken cascade timing — all fixed before merge. I wouldn't have caught any of those by eyeballing the diff.
+- **Later features.** The natural-language command actions (PRs #8 and #9, which also split the ~2,090-line service worker into 12 modules), targeted prompt-created groups, and the toolbar-to-page overlay (PR #10).
+
+What stayed mine: the product idea and spec, the bring-your-own-key/no-backend privacy architecture, the stash/resume and command-bar interactions, the visual direction, what got cut, and every merge and licensing decision.
+
+Final state: 124 tests in 17 files, TypeScript and production build green.
+
+**Codex `/feedback` session ID (majority of core functionality):** `019f7252-7505-75d3-8b9a-17edff07b4b3`
+
 ## Features
 
 - **Organize tabs** — groups loose tabs by task and intent, adds relevant tabs to existing groups, and orders focused work before entertainment. Tabs file into their groups as a visible ~2.5s cascade.
@@ -72,4 +91,4 @@ Stack: React 19, TypeScript, Tailwind v4, shadcn-style components, Radix primiti
 
 ## License
 
-MIT
+This private repo is shared for hackathon judging only. The public source-available release is licensed under [PolyForm Shield 1.0.0](https://github.com/prithvi-bharadwaj/focused-source/blob/main/LICENSE); the `LICENSE` file here predates that decision. Licensing and third-party attribution live in [focused-source](https://github.com/prithvi-bharadwaj/focused-source).
