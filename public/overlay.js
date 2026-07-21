@@ -16,6 +16,16 @@
   const RADIUS = 16;
 
   let iframe = null;
+  let contentHeight = 200;
+
+  // The frame is fixed, so anything past the viewport bottom is unreachable —
+  // cap against the live viewport, not just MAX_HEIGHT (the popup body
+  // scrolls internally when clamped).
+  const applyHeight = () => {
+    if (!iframe) return;
+    const viewportCap = Math.max(120, window.innerHeight - 12);
+    iframe.style.height = `${Math.min(contentHeight, MAX_HEIGHT, viewportCap)}px`;
+  };
 
   const onDocMouseDown = (event) => {
     if (iframe && event.target !== iframe) close();
@@ -23,13 +33,15 @@
   const onDocKeyDown = (event) => {
     if (event.key === "Escape") close();
   };
+  const onResize = () => applyHeight();
   const onMessage = (event) => {
     if (!iframe || event.source !== iframe.contentWindow) return;
     const data = event.data;
     if (!data || data.__focusedOverlay !== true) return;
     if (data.close) close();
     else if (typeof data.height === "number" && data.height > 0) {
-      iframe.style.height = `${Math.min(Math.ceil(data.height), MAX_HEIGHT)}px`;
+      contentHeight = Math.ceil(data.height);
+      applyHeight();
     }
   };
 
@@ -67,8 +79,10 @@
       iframe.style.opacity = "1";
       iframe.style.transform = "translateY(0)";
     });
+    applyHeight();
     document.addEventListener("mousedown", onDocMouseDown, true);
     document.addEventListener("keydown", onDocKeyDown, true);
+    window.addEventListener("resize", onResize);
     window.addEventListener("message", onMessage);
   }
 
@@ -78,6 +92,7 @@
     iframe = null;
     document.removeEventListener("mousedown", onDocMouseDown, true);
     document.removeEventListener("keydown", onDocKeyDown, true);
+    window.removeEventListener("resize", onResize);
     window.removeEventListener("message", onMessage);
   }
 
