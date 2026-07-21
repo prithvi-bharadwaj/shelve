@@ -83,6 +83,20 @@ export function Popup() {
     if (windows?.count) setWindowCount(windows.count);
   }, []);
 
+  // The in-page overlay outlives window changes; a mount-time count would
+  // leave "Merge windows" wrongly disabled (or enabled) as windows come and go.
+  useEffect(() => {
+    const onWindowsChanged = () => {
+      refreshWindowCount().catch(() => undefined);
+    };
+    chrome.windows.onCreated?.addListener(onWindowsChanged);
+    chrome.windows.onRemoved.addListener(onWindowsChanged);
+    return () => {
+      chrome.windows.onCreated?.removeListener(onWindowsChanged);
+      chrome.windows.onRemoved.removeListener(onWindowsChanged);
+    };
+  }, [refreshWindowCount]);
+
   const refreshPanels = useCallback(async () => {
     if (!windowId) return;
     const [groupsRes, stashRes] = await Promise.all([

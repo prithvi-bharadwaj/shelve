@@ -1,7 +1,17 @@
 // Window merging: pull every other same-profile window into the target
 // window, keeping whole groups intact and pinned tabs pinned.
 
-export async function mergeWindows(targetWindowId) {
+// Concurrent merges (two popups, or a quick action racing merge-on-organize)
+// would each move tabs from a stale window snapshot; queue them instead.
+let mergeQueue = Promise.resolve();
+
+export function mergeWindows(targetWindowId) {
+  const run = mergeQueue.then(() => doMergeWindows(targetWindowId));
+  mergeQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function doMergeWindows(targetWindowId) {
   const current = targetWindowId ? await chrome.windows.get(targetWindowId) : await chrome.windows.getCurrent();
   const windows = await chrome.windows.getAll({ windowTypes: ["normal"], populate: true });
   const others = windows.filter((window) => window.id !== current.id && window.incognito === current.incognito);
