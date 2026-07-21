@@ -169,6 +169,7 @@ export function createChromeMock() {
     },
     action: {
       onClicked: events.actionOnClicked,
+      setPopup: vi.fn(async (_props: { tabId?: number; popup: string }) => undefined),
       setBadgeText: vi.fn(async () => undefined),
       openPopup: vi.fn(async () => undefined),
       getUserSettings: vi.fn(async () => ({ isOnToolbar: true })),

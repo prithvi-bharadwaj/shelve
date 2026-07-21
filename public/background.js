@@ -68,14 +68,18 @@ chrome.action.onClicked.addListener(async (tab) => {
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["overlay.js"] });
         return;
       } catch {
-        // Restricted page; fall through to the window fallback.
+        // Restricted page; fall through to the anchored-popup fallback.
       }
     }
+    // Pages we cannot script get the classic action popup, anchored to the
+    // toolbar — never a separate window. setPopup persists per-tab, so later
+    // clicks on this tab open the popup natively without hitting onClicked.
+    try {
+      await chrome.action.setPopup({ tabId: tab.id, popup: "popup.html" });
+      await chrome.action.openPopup();
+    } catch {
+      // openPopup needs Chrome 127+; if unavailable the per-tab popup is
+      // still set, so the next click opens it natively.
+    }
   }
-  await chrome.windows.create({
-    url: chrome.runtime.getURL("popup.html"),
-    type: "popup",
-    width: 372,
-    height: 648
-  }).catch(() => undefined);
 });

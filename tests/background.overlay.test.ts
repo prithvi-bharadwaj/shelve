@@ -33,15 +33,23 @@ describe("action click overlay routing", () => {
     expect(harness.mock.chrome.windows.create).not.toHaveBeenCalled();
   });
 
-  it("falls back to a popup window on pages it cannot script", async () => {
+  it("falls back to the anchored action popup on pages it cannot script", async () => {
     harness = await loadBackground();
     harness.mock.chrome.scripting.executeScript.mockRejectedValueOnce(
       new Error("Cannot access a chrome:// URL")
     );
     await clickAction();
-    expect(harness.mock.chrome.windows.create).toHaveBeenCalledWith(
-      expect.objectContaining({ url: "chrome-extension://test-id/popup.html", type: "popup" })
-    );
+    expect(harness.mock.chrome.action.setPopup).toHaveBeenCalledWith({ tabId: 7, popup: "popup.html" });
+    expect(harness.mock.chrome.action.openPopup).toHaveBeenCalled();
+    expect(harness.mock.chrome.windows.create).not.toHaveBeenCalled();
+  });
+
+  it("never opens a separate window", async () => {
+    harness = await loadBackground();
+    harness.mock.chrome.scripting.executeScript.mockRejectedValue(new Error("nope"));
+    harness.mock.chrome.action.openPopup.mockRejectedValue(new Error("openPopup requires Chrome 127"));
+    await clickAction();
+    expect(harness.mock.chrome.windows.create).not.toHaveBeenCalled();
   });
 });
 
