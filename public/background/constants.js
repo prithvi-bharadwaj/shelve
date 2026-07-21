@@ -26,6 +26,7 @@ export const DEFAULT_PREFS = {
   groupEverything: false,
   reviewFirst: false,
   dedupeOnOrganize: false,
+  mergeOnOrganize: false,
   customInstructions: "",
   budgetUsd: 1
 };

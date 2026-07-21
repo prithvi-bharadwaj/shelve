@@ -10,33 +10,31 @@ afterEach(() => {
   harness = null;
 });
 
-describe("merge and monitor surface removal", () => {
+describe("tab-monitor surface removal", () => {
   it("no longer requests the notifications permission", () => {
     const manifest = JSON.parse(readFileSync(resolve(process.cwd(), "public/manifest.json"), "utf8"));
     expect(manifest.permissions).not.toContain("notifications");
   });
 
-  it("no longer dispatches mergeWindows, windowCount, or monitorState messages", async () => {
+  it("no longer dispatches monitorState messages", async () => {
     harness = await loadBackground();
-    for (const type of ["mergeWindows", "windowCount", "monitorState"]) {
-      const handled = harness.messageListener({ type, windowId: 1 }, {}, () => {
-        throw new Error(`${type} unexpectedly responded`);
-      });
-      expect(handled, `${type} should be unhandled`).toBe(false);
-    }
+    const handled = harness.messageListener({ type: "monitorState", windowId: 1 }, {}, () => {
+      throw new Error("monitorState unexpectedly responded");
+    });
+    expect(handled, "monitorState should be unhandled").toBe(false);
   });
 
-  it("removes persisted merge/monitor settings on install", async () => {
+  it("removes persisted monitor settings on install while keeping merge settings", async () => {
     harness = await loadBackground((mock) => {
       mock.seedSync({ mergeOnOrganize: true, auto: "badge", autoThreshold: 20, minGroupSize: 3 });
       mock.seedLocal({ monitorAlertedWindows: { "1": true }, geminiKey: "keep-me" });
     });
     harness.mock.events.runtimeOnInstalled.emit({ reason: "update" });
     await harness.flush();
-    expect(harness.mock.syncData.mergeOnOrganize).toBeUndefined();
     expect(harness.mock.syncData.auto).toBeUndefined();
     expect(harness.mock.syncData.autoThreshold).toBeUndefined();
     expect(harness.mock.localData.monitorAlertedWindows).toBeUndefined();
+    expect(harness.mock.syncData.mergeOnOrganize).toBe(true);
     expect(harness.mock.syncData.minGroupSize).toBe(3);
     expect(harness.mock.localData.geminiKey).toBe("keep-me");
   });

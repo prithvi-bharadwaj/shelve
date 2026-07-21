@@ -13,12 +13,12 @@ beforeEach(() => {
 });
 
 describe("Popup surface cleanup", () => {
-  it("keeps only the three intended quick actions", async () => {
+  it("keeps the four intended quick actions and no monitor surfaces", async () => {
     const { unmount } = render(<Popup />);
     expect(await screen.findByRole("button", { name: "Ungroup" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close duplicates" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Merge windows" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
-    expect(screen.queryByText(/Merge windows/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Basic settings/)).not.toBeInTheDocument();
     expect(screen.queryByText(/tab monitor/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/tabs open\. Do you want to organize/)).not.toBeInTheDocument();
@@ -27,12 +27,12 @@ describe("Popup surface cleanup", () => {
 });
 
 describe("Options surface cleanup", () => {
-  it("drops merge and monitor controls while keeping core behavior settings", async () => {
+  it("keeps merge and core behavior settings while dropping monitor controls", async () => {
     const { unmount } = render(<Options />);
     expect(await screen.findByText("Close duplicate tabs when organizing")).toBeInTheDocument();
+    expect(screen.getByText("Merge windows when organizing")).toBeInTheDocument();
     expect(screen.getByLabelText("Minimum tabs per group")).toBeInTheDocument();
     expect(screen.getByLabelText("Review before applying")).toBeInTheDocument();
-    expect(screen.queryByText(/Merge windows when organizing/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Tab monitor/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Tab threshold/)).not.toBeInTheDocument();
     unmount();

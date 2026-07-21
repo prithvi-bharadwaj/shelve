@@ -87,6 +87,13 @@ export type CommandResponse = {
   closedTabs?: ClosedDuplicateTab[];
 };
 
+export type MergeResponse = {
+  error?: string;
+  done?: boolean;
+  windows?: number;
+  tabs?: number;
+};
+
 export type Provider = "openai" | "anthropic" | "gemini" | "ollama";
 
 export type ModelByProvider = Record<Provider, string>;
@@ -102,6 +109,7 @@ export type Settings = {
   groupEverything: boolean;
   reviewFirst: boolean;
   dedupeOnOrganize: boolean;
+  mergeOnOrganize: boolean;
   customInstructions: string;
   budgetUsd: number;
 };
@@ -122,6 +130,7 @@ export const DEFAULT_SETTINGS: Settings = {
   groupEverything: false,
   reviewFirst: false,
   dedupeOnOrganize: false,
+  mergeOnOrganize: false,
   customInstructions: "",
   budgetUsd: 1,
 };
