@@ -4,6 +4,32 @@ One click: understands your open tabs and sorts them into named Chrome tab group
 
 Works in Chrome, Brave, Edge, Arc, Vivaldi — any Chromium browser that supports Manifest V3 tab groups.
 
+**Just want to try it?** [Download focused.zip](https://github.com/prithvi-bharadwaj/focused-source/releases/latest/download/focused.zip) (~200 KB), unzip it, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the unzipped `focused` folder — no clone, no build. Full steps in the [public repo README](https://github.com/prithvi-bharadwaj/focused-source#try-it-in-two-minutes).
+
+## Why I made this
+
+At any given moment I have somewhere between 20 and 40 tabs open. It got annoying — I was burning real time going back and forth working out which tab had what, where the audio was coming from, or where I'd saved that one thing I needed for later.
+
+Then I noticed I'd started leaving tabs open *on purpose*, as a sort of memory state — stuff to come back to later. So I was paying for that memory in navigation time, every single day. I wanted a fix I had full control over the UX of, which meant building it myself.
+
+The point isn't folder-by-domain sorting — Focused groups by *intent*. Ten Twitter tabs won't collapse into one "entertainment" pile: the research thread you had open goes to research, the self-improvement essay goes to self-improvement. Same site, different jobs, different groups.
+
+And you can just talk to it:
+
+- Forgot which hotel you liked? Describe it — mine was "the one under $200 a night" — and it finds the tab among twenty other hotel tabs.
+- Twenty LinkedIn profiles open for investor research and no memory of which name is which? Describe what you remember and it opens the right one.
+- Stash a whole task and get an AI "where you left off" brief when you resume it — or export your groups and drop the file into ChatGPT or Claude to see where your attention actually went.
+
+## Shaped by user feedback
+
+Everyone I showed this to said they needed it — and then told me what was broken. Each round of feedback shipped:
+
+- "I don't like the groups it made" → one-click undo, plus custom instructions so it follows your rules.
+- "My browser is eating RAM" → per-group loaded-tab counts, so you can see which group to stash or close.
+- "I have four windows open at once" and "I'm too lazy to click the button" → window merging and a tab-count auto-sort trigger both shipped too; I later removed them in a cleanup pass (`b8cd783`) to keep the core a single predictable click.
+
+Around thirty people use it so far, and I haven't posted about it anywhere yet. Up next: a Chrome Web Store release, session memory so grouping gets better the more you use it, and a hosted option so an API key isn't required.
+
 ## How this was built (for Build Week judges)
 
 This is the private development repo — the real history, not a curated snapshot. What you're looking at: 71 commits on `main`, ten merged feature branches, and a [`plans/`](plans/) directory that came out of a Codex audit (more on that below). The clean public mirror for end users lives at [focused-source](https://github.com/prithvi-bharadwaj/focused-source).
@@ -56,6 +82,8 @@ Open the extension popup, choose the gear, then select a provider and model:
 Model lists are fetched live after provider settings are saved, with built-in fallbacks for hosted providers.
 
 ## Install
+
+The easiest way to try Focused is the [packed zip](https://github.com/prithvi-bharadwaj/focused-source/releases/latest/download/focused.zip) — see the note at the top. To build from source instead:
 
 Prerequisites: Node `^20.19.0` or `>=22.12.0` and pnpm 10.
 
