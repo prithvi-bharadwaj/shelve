@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BorderBeam } from "border-beam";
 import { ArrowRight, LoaderCircle, SendHorizontal } from "lucide-react";
+import { COMMAND_PLACEHOLDERS, useRotatingPlaceholder } from "@/lib/rotatingPlaceholders";
 import type { CommandResponse } from "@/types";
 
 export function CommandBar({
@@ -22,6 +23,7 @@ export function CommandBar({
   const [running, setRunning] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState<CommandResponse | null>(null);
+  const placeholder = useRotatingPlaceholder(COMMAND_PLACEHOLDERS);
   // Synchronous guard: React state alone lets a rapid double-submit race the
   // re-render and send the command twice.
   const runningRef = useRef(false);
@@ -108,7 +110,7 @@ export function CommandBar({
               if (event.key === "Enter") submit();
             }}
             disabled={disabled || running}
-            placeholder={'Try “group my O-1 visa memberships”'}
+            placeholder={placeholder}
             aria-label="Command"
             className="h-9 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground disabled:opacity-50"
           />

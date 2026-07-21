@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { CUSTOM_INSTRUCTION_PLACEHOLDERS, useRotatingPlaceholder } from "@/lib/rotatingPlaceholders";
 import { DEFAULT_SETTINGS, type Provider, type Settings } from "@/types";
 
 type Model = { id: string; name: string };
@@ -46,6 +47,7 @@ export function Options() {
   const [modelStatus, setModelStatus] = useState("");
   const [importText, setImportText] = useState("");
   const [dataStatus, setDataStatus] = useState<{ text: string; error?: boolean } | null>(null);
+  const customInstructionsPlaceholder = useRotatingPlaceholder(CUSTOM_INSTRUCTION_PLACEHOLDERS);
   // Request identity: a slow model-list response for a previously selected
   // provider (or an unmounted page) must never overwrite current state.
   const providerRef = useRef<Provider>(DEFAULT_SETTINGS.provider);
@@ -334,7 +336,7 @@ export function Options() {
               maxLength={2000}
               value={settings.customInstructions}
               onChange={(event) => set("customInstructions", event.target.value)}
-              placeholder={'Example: Put all Wikipedia tabs in one group named "wowow".'}
+              placeholder={customInstructionsPlaceholder}
               className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed shadow-xs outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
             />
             <p className="text-xs text-muted-foreground">
