@@ -10,6 +10,7 @@ import { cleanDuplicates } from "./dedupe.js";
 import { mergeWindows } from "./merge.js";
 import { captureSnapshot, storeUndoSnapshot } from "./undo.js";
 import { collectSnippets } from "./snippets.js";
+import { recordAction } from "./stats.js";
 
 export async function organize(hasContentPermission, windowId) {
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
@@ -255,10 +256,12 @@ export async function applyPlan(groups, minSize = 1, { windowId, snapshot = true
   if (!applied.length) return { error: "Tabs closed or moved before groups could be created." };
   const newGroups = applied.map((item) => item.newGroup).filter(Boolean);
   await orderTabStrip(targetWindowId, newGroups);
+  const tabCount = applied.reduce((total, item) => total + item.tabCount, 0);
+  recordAction({ organizes: 1, tabsGrouped: tabCount, groupsCreated: newGroups.length }).catch(() => undefined);
   return {
     done: true,
     groupCount: applied.length,
-    tabCount: applied.reduce((total, item) => total + item.tabCount, 0),
+    tabCount,
     groupNames: applied.map((item) => item.name)
   };
 }
