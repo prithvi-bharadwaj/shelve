@@ -9,11 +9,11 @@ import { Popup } from "./Popup";
 if (new URLSearchParams(window.location.search).has("overlay")) {
   document.documentElement.dataset.overlay = "";
   const reportHeight = () =>
-    window.parent.postMessage({ __focusedOverlay: true, height: document.body.scrollHeight }, "*");
+    window.parent.postMessage({ __shelveOverlay: true, height: document.body.scrollHeight }, "*");
   new ResizeObserver(reportHeight).observe(document.body);
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      window.parent.postMessage({ __focusedOverlay: true, close: true }, "*");
+      window.parent.postMessage({ __shelveOverlay: true, close: true }, "*");
     }
   });
 }

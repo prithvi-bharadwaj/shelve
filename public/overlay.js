@@ -6,8 +6,8 @@
 // popup fallback, which the browser draws itself. Idempotent: re-injection
 // toggles the panel.
 (() => {
-  if (window.__focusedOverlay) {
-    window.__focusedOverlay.toggle();
+  if (window.__shelveOverlay) {
+    window.__shelveOverlay.toggle();
     return;
   }
 
@@ -37,7 +37,7 @@
   const onMessage = (event) => {
     if (!iframe || event.source !== iframe.contentWindow) return;
     const data = event.data;
-    if (!data || data.__focusedOverlay !== true) return;
+    if (!data || data.__shelveOverlay !== true) return;
     if (data.close) close();
     else if (typeof data.height === "number" && data.height > 0) {
       contentHeight = Math.ceil(data.height);
@@ -49,7 +49,7 @@
     if (iframe) return;
     iframe = document.createElement("iframe");
     iframe.src = chrome.runtime.getURL("popup.html?overlay=1");
-    iframe.setAttribute("aria-label", "Focused tab organizer");
+    iframe.setAttribute("aria-label", "Shelve tab organizer");
     Object.assign(iframe.style, {
       position: "fixed",
       top: "2px",
@@ -101,7 +101,7 @@
     else open();
   }
 
-  window.__focusedOverlay = { toggle };
+  window.__shelveOverlay = { toggle };
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg?.type === "toggleOverlay") toggle();
   });

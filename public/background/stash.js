@@ -292,7 +292,7 @@ export async function listStashes(windowId) {
 
 // Resume is all-or-nothing: the stash record is consumed only after every tab
 // and the group metadata succeed. Every failure path retains the stash — it may
-// be the only surviving copy of tabs Focused already closed.
+// be the only surviving copy of tabs Shelve already closed.
 export async function resumeStash(stashId, windowId) {
   const requestedWindowId = windowId || (await chrome.windows.getCurrent()).id;
   const targetWindow = await chrome.windows.get(requestedWindowId).catch(() => null);

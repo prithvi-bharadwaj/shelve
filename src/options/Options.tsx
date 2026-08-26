@@ -184,10 +184,10 @@ export function Options() {
     const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "focused.json";
+    anchor.download = "shelve.json";
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
-    setDataStatus({ text: copied ? "Copied and downloaded focused.json" : "Downloaded focused.json; clipboard unavailable" });
+    setDataStatus({ text: copied ? "Copied and downloaded shelve.json" : "Downloaded shelve.json; clipboard unavailable" });
   };
 
   const importData = async () => {
@@ -196,7 +196,7 @@ export function Options() {
     try {
       payload = JSON.parse(importText);
     } catch {
-      setDataStatus({ text: "Paste valid Focused JSON.", error: true });
+      setDataStatus({ text: "Paste valid Shelve JSON.", error: true });
       return;
     }
     const window = await chrome.windows.getCurrent();
@@ -397,7 +397,7 @@ export function Options() {
           <SectionHeading id="data-heading">Data</SectionHeading>
           <div>
             <Button variant="outline" onClick={exportData}>Export groups</Button>
-            <p className="mt-2 text-xs text-muted-foreground">Copies JSON and downloads focused.json.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Copies JSON and downloads shelve.json.</p>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="importJson">Import groups</Label>
@@ -406,7 +406,7 @@ export function Options() {
               rows={6}
               value={importText}
               onChange={(event) => setImportText(event.target.value)}
-              placeholder="Paste Focused JSON…"
+              placeholder="Paste Shelve JSON…"
               className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
             />
             <Button variant="outline" onClick={importData} disabled={!importText.trim()} className="self-start">Import groups</Button>
