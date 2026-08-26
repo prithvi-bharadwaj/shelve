@@ -11,6 +11,16 @@ import { exportGroups, importGroups } from "./background/importexport.js";
 import { listGroups, stashGroup, listStashes, resumeStash, deleteStash } from "./background/stash.js";
 import { runCommand, focusTab } from "./background/command.js";
 import { mergeWindows, windowCount } from "./background/merge.js";
+import { recordAction, getStats } from "./background/stats.js";
+
+// Local-only stats deltas derived from successful handler responses. Organize
+// is recorded inside applyPlan (the one-click path never passes through the
+// message router).
+const STATS_DELTAS = {
+  cleanDuplicates: (r) => (r?.done && r.closedCount > 0 ? { duplicatesClosed: r.closedCount } : null),
+  stashGroup: (r) => (r && !r.error ? { stashes: 1 } : null),
+  command: (r) => (r && !r.error ? { commands: 1 } : null)
+};
 
 // Single-use, short-lived tokens proving the toolbar icon was clicked on a
 // tab. popup.html is web-accessible (the overlay iframe needs it), so any
@@ -57,12 +67,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     resumeStash: () => resumeStash(msg.stashId, msg.windowId),
     deleteStash: () => deleteStash(msg.stashId),
     command: () => runCommand(msg.query, msg.windowId, msg.hasContentPermission),
-    focusTab: () => focusTab(msg.tabId)
+    focusTab: () => focusTab(msg.tabId),
+    getStats: () => getStats()
   };
   const handler = handlers[msg.type];
   if (!handler) return false;
   handler()
-    .then(sendResponse)
+    .then((result) => {
+      const delta = STATS_DELTAS[msg.type]?.(result);
+      if (delta) recordAction(delta).catch(() => undefined);
+      sendResponse(result);
+    })
     .catch((err) => sendResponse({ error: err.message || "Something went wrong." }));
   return true;
 });

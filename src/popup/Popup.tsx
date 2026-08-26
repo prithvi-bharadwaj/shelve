@@ -3,11 +3,13 @@ import { BorderBeam } from "border-beam";
 import { Combine, CopyX, LoaderCircle, MailPlus, Settings, Sparkles, Undo2 } from "lucide-react";
 import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { ClosedDuplicatesToast } from "@/popup/ClosedDuplicatesToast";
 import { CommandBar } from "@/popup/CommandBar";
 import { OrganizingRail } from "@/popup/OrganizingRail";
 import { PinPrompt } from "@/popup/PinPrompt";
 import { ReviewGroups } from "@/popup/ReviewGroups";
 import { StashPanel } from "@/popup/StashPanel";
+import { StatsCard } from "@/popup/StatsCard";
 import type {
   ClosedDuplicateTab,
   GroupInfo,
@@ -434,7 +436,7 @@ export function Popup() {
     return (
       <main className="popup-shell w-[340px] p-4">
         <p className="text-xs text-muted-foreground">
-          Open Focused from the toolbar icon to use it here.
+          Open Shelve from the toolbar icon to use it here.
         </p>
       </main>
     );
@@ -457,7 +459,7 @@ export function Popup() {
           <span className="flex size-8 items-center justify-center rounded-md border border-border bg-muted/50 text-foreground">
             <img src="icons/icon48.png" alt="" className="size-5 rounded-[5px]" />
           </span>
-          <span className="text-sm font-semibold tracking-tight">Focused</span>
+          <span className="text-sm font-semibold tracking-tight">Shelve</span>
         </div>
         <button
           onClick={() => chrome.runtime.openOptionsPage()}
@@ -548,44 +550,14 @@ export function Popup() {
               {status?.text ?? ""}
             </p>
             {status?.closedTabs && status.closedTabs.length > 0 && (
-              <div className="closed-toast relative mt-2 overflow-hidden rounded-md border border-border bg-muted/20">
-                <ul
-                  aria-label="Closed duplicate tabs"
-                  className="max-h-36 space-y-1.5 overflow-y-auto p-2 pb-2.5"
-                >
-                  {status.closedTabs.map((tab, index) => (
-                    <li key={`${tab.url}-${index}`} className="flex min-w-0 items-center gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words font-medium leading-snug text-foreground">
-                          {tab.title || "Untitled tab"}
-                        </p>
-                        <p className="break-all leading-snug text-muted-foreground">{tab.url}</p>
-                      </div>
-                      {tab.keptTabId !== undefined && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            chrome.runtime.sendMessage({ type: "focusTab", tabId: tab.keptTabId })
-                          }
-                          className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          View existing
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <div
-                  data-testid="closed-toast-timer"
-                  className="closed-toast-timer absolute inset-x-0 bottom-0 h-0.5 origin-left bg-primary/60"
-                  onAnimationEnd={() => setStatus(null)}
-                />
-              </div>
+              <ClosedDuplicatesToast closedTabs={status.closedTabs} onExpire={() => setStatus(null)} />
             )}
           </div>
 
+          <StatsCard refreshToken={status} />
+
           <a
-            href="mailto:prithvi@skive.in?subject=Focused%20feature%20request&body=Hi%20Prithvi%2C%0A%0AI%27d%20like%20to%20request%3A%0A%0A"
+            href="mailto:prithvi@skive.in?subject=Shelve%20feature%20request&body=Hi%20Prithvi%2C%0A%0AI%27d%20like%20to%20request%3A%0A%0A"
             className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-transparent text-xs text-muted-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:border-border hover:bg-muted/50 hover:text-foreground active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring"
           >
             <MailPlus className="size-3.5" />

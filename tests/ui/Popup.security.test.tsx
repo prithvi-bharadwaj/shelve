@@ -101,7 +101,7 @@ describe("Popup consent initialization", () => {
     const { unmount } = await renderResolved();
     expect(screen.getByRole("link", { name: "Request a feature" })).toHaveAttribute(
       "href",
-      "mailto:prithvi@skive.in?subject=Focused%20feature%20request&body=Hi%20Prithvi%2C%0A%0AI%27d%20like%20to%20request%3A%0A%0A"
+      "mailto:prithvi@skive.in?subject=Shelve%20feature%20request&body=Hi%20Prithvi%2C%0A%0AI%27d%20like%20to%20request%3A%0A%0A"
     );
     unmount();
   });

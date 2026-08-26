@@ -23,7 +23,7 @@ export async function exportGroups(windowId) {
 export async function importGroups(payload, windowId) {
   const data = typeof payload === "string" ? JSON.parse(payload) : payload;
   if (!data || data.version !== 1 || !Array.isArray(data.groups)) {
-    return { error: "Invalid Focused JSON." };
+    return { error: "Invalid Shelve JSON." };
   }
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
   let groupCount = 0;
