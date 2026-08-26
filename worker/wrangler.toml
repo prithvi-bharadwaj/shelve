@@ -1,0 +1,17 @@
+name = "shelve-free-actions"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Per-install free-action counts. Create with:
+#   wrangler kv namespace create METER
+# then paste the id below.
+[[kv_namespaces]]
+binding = "METER"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[vars]
+FREE_ACTIONS = "25"
+MODEL = "gemini-3.1-flash-lite"
+
+# Secret (never in this file):
+#   wrangler secret put GEMINI_API_KEY
