@@ -1,7 +1,7 @@
 // Service worker entry: wires messages and browser events to the feature
 // modules in ./background/. Requires "type": "module" in the manifest.
 
-import { migrateLegacyCredential, getInstallToken } from "./background/settings.js";
+import { migrateLegacyCredential, getInstallToken, getUpgradeInfo } from "./background/settings.js";
 import { listModels } from "./background/providers.js";
 import { organize, applyPlan, ungroupAll } from "./background/organize.js";
 import { getOrganizeStatus, consumeOrganizeResult } from "./background/jobs.js";
@@ -60,6 +60,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     listModels: () => listModels(msg.provider),
     migrateLegacyCredential: () => migrateLegacyCredential().then(() => ({ done: true })),
     getInstallToken: () => getInstallToken().then((token) => ({ token })),
+    getUpgradeInfo: () => getUpgradeInfo(),
     exportGroups: () => exportGroups(msg.windowId),
     importGroups: () => importGroups(msg.payload, msg.windowId),
     listGroups: () => listGroups(msg.windowId),

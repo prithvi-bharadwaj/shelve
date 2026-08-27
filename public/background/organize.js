@@ -151,7 +151,12 @@ export async function organize(hasContentPermission, windowId) {
     const message = error?.name === "TimeoutError"
       ? "The AI provider took too long to respond. Try again or choose a faster model."
       : error?.message || "Something went wrong.";
-    return finishOrganizeJob(job, { error: message, closedTabs: closedDuplicates });
+    return finishOrganizeJob(job, {
+      error: message,
+      closedTabs: closedDuplicates,
+      // Free-tier 402/429: the popup shows the upgrade screen instead of a bare error.
+      ...(error?.quota ? { quota: true } : {})
+    });
   } finally {
     stopKeepalive();
   }

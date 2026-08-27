@@ -11,6 +11,7 @@ import { QuickAction } from "@/popup/QuickAction";
 import { ReviewGroups } from "@/popup/ReviewGroups";
 import { StashPanel } from "@/popup/StashPanel";
 import { StatsCard } from "@/popup/StatsCard";
+import { UpgradeScreen } from "@/popup/UpgradeScreen";
 import { useOrganizeJob } from "@/popup/useOrganizeJob";
 import type {
   ClosedDuplicateTab,
@@ -55,6 +56,9 @@ export function Popup() {
   const [organizeClosedTabs, setOrganizeClosedTabs] = useState<ClosedDuplicateTab[]>([]);
   // null = handshake pending (embedded only); top-level windows are trusted.
   const [embedAllowed, setEmbedAllowed] = useState<boolean | null>(isEmbedded ? null : true);
+  // Set when the free tier runs out (proxy 402/429); replaces the action panel
+  // with the upgrade screen until dismissed or a new organize starts.
+  const [upgrade, setUpgrade] = useState<{ dailyLimit: boolean } | null>(null);
 
   useEffect(() => {
     if (!isEmbedded) return;
@@ -117,6 +121,11 @@ export function Popup() {
     return () => chrome.storage.onChanged.removeListener(onChanged);
   }, [refreshPanels]);
 
+  const onQuotaExhausted = useCallback((message: string) => {
+    setUpgrade({ dailyLimit: /reset tomorrow/i.test(message) });
+    setStatus(null);
+  }, []);
+
   const {
     organizeJob,
     setOrganizeJob,
@@ -136,6 +145,7 @@ export function Popup() {
     setOrganizeClosedTabs,
     refreshUndo,
     refreshPanels,
+    onQuotaExhausted,
   });
 
   useEffect(() => {
@@ -173,6 +183,7 @@ export function Popup() {
 
     setRunning("organize");
     setStatus(null);
+    setUpgrade(null);
     setOrganizeClosedTabs([]);
     handledJobId.current = null;
     ownsOrganizeRequest.current = true;
@@ -420,7 +431,9 @@ export function Popup() {
         </button>
       </header>
 
-      {organizing ? (
+      {upgrade && !organizing ? (
+        <UpgradeScreen dailyLimit={upgrade.dailyLimit} onDismiss={() => setUpgrade(null)} />
+      ) : organizing ? (
         <OrganizingRail job={organizeJob} />
       ) : reviewing || running === "apply" ? (
         <ReviewGroups
@@ -492,7 +505,7 @@ export function Popup() {
         </>
       )}
 
-      {!organizing && (
+      {!organizing && !upgrade && (
         <>
           <div className="mt-4 min-h-4 text-xs" aria-live="polite">
             <p className={status?.error ? "text-destructive" : "text-muted-foreground"}>

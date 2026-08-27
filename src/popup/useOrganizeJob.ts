@@ -18,6 +18,7 @@ export function useOrganizeJob({
   setOrganizeClosedTabs,
   refreshUndo,
   refreshPanels,
+  onQuotaExhausted,
 }: {
   windowId: number | undefined;
   running: Action | null;
@@ -29,6 +30,7 @@ export function useOrganizeJob({
   setOrganizeClosedTabs: Dispatch<SetStateAction<ClosedDuplicateTab[]>>;
   refreshUndo: () => Promise<void>;
   refreshPanels: () => Promise<void>;
+  onQuotaExhausted?: (message: string) => void;
 }) {
   const [organizeJob, setOrganizeJob] = useState<OrganizeJob | null>(null);
   const ownsOrganizeRequest = useRef(false);
@@ -49,6 +51,8 @@ export function useOrganizeJob({
     if (!res || res.error) {
       setOrganizeClosedTabs([]);
       setStatus({ text: res?.error ?? "Something went wrong.", error: true, closedTabs });
+      // Out-of-quota (proxy 402/429) upgrades the bare error into the upgrade screen.
+      if (res?.quota) onQuotaExhausted?.(res.error ?? "");
       await consumeJob(jobId);
       return;
     }
@@ -67,7 +71,7 @@ export function useOrganizeJob({
     });
     await consumeJob(jobId);
     await refreshPanels();
-  }, [consumeJob, refreshUndo, refreshPanels, setGroups, setOrganizeClosedTabs, setReviewMinSize, setRunning, setSelected, setStatus]);
+  }, [consumeJob, refreshUndo, refreshPanels, onQuotaExhausted, setGroups, setOrganizeClosedTabs, setReviewMinSize, setRunning, setSelected, setStatus]);
 
   // One restoration query on mount, then poll only while a job is actually
   // running — an idle popup must not send status requests forever. The

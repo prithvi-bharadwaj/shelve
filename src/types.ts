@@ -27,6 +27,7 @@ export type OrganizeResponse = {
   windowId?: number;
   minSize?: number;
   closedTabs?: ClosedDuplicateTab[];
+  quota?: boolean;
 };
 
 export type OrganizeStage = "collecting" | "classifying" | "reading" | "applying";
