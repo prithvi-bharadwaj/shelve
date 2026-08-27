@@ -59,6 +59,9 @@ export function Popup() {
   const [upgrade, setUpgrade] = useState<{ dailyLimit: boolean } | null>(null);
   // Easter egg: clicking the logo flips it over.
   const [logoFlipped, setLogoFlipped] = useState(false);
+  // True while the command bar holds unsent text — the one state a tab switch
+  // must not throw away.
+  const [hasDraft, setHasDraft] = useState(false);
 
   useEffect(() => {
     if (!isEmbedded) return;
@@ -307,6 +310,20 @@ export function Popup() {
   const icon = (action: Action, idle: ReactNode) =>
     running === action ? <LoaderCircle className="size-4 animate-spin" /> : idle;
 
+  // Overlay mode: switching tabs closes the popup instead of leaving it to
+  // ambush the next visit — unless it holds a draft or work is in flight.
+  const keepOpenWhileHidden =
+    hasDraft || Boolean(running) || organizing || commandRunning || reviewing || stashBusy !== null;
+  useEffect(() => {
+    if (!isOverlay) return;
+    const onVisibility = () => {
+      if (document.visibilityState !== "hidden" || keepOpenWhileHidden) return;
+      window.parent.postMessage({ __shelveOverlay: true, close: true }, "*");
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [keepOpenWhileHidden]);
+
   if (embedAllowed === null) return null;
   if (embedAllowed === false) {
     return (
@@ -394,6 +411,7 @@ export function Popup() {
             acknowledged={acknowledged === true}
             onAcknowledge={acknowledgeNotice}
             onRunningChange={setCommandRunning}
+            onDraftChange={setHasDraft}
             onMutation={async () => {
               await Promise.all([refreshUndo(), refreshPanels()]);
             }}

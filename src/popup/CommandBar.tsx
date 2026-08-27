@@ -10,6 +10,7 @@ export function CommandBar({
   acknowledged,
   onAcknowledge,
   onRunningChange,
+  onDraftChange,
   onMutation,
   onQuotaExhausted,
 }: {
@@ -18,6 +19,7 @@ export function CommandBar({
   acknowledged: boolean;
   onAcknowledge: () => Promise<void>;
   onRunningChange: (running: boolean) => void;
+  onDraftChange?: (hasDraft: boolean) => void;
   onMutation?: () => Promise<void>;
   onQuotaExhausted?: (message: string) => void;
 }) {
@@ -31,6 +33,15 @@ export function CommandBar({
   const runningRef = useRef(false);
   const notifyRunning = useRef(onRunningChange);
   notifyRunning.current = onRunningChange;
+  const notifyDraft = useRef(onDraftChange);
+  notifyDraft.current = onDraftChange;
+
+  // The popup's tab-switch behavior needs to know whether a draft would be
+  // lost; an unmounted bar has no draft.
+  useEffect(() => {
+    notifyDraft.current?.(Boolean(query.trim()));
+  }, [query]);
+  useEffect(() => () => notifyDraft.current?.(false), []);
 
   useEffect(
     () => () => {
