@@ -47,6 +47,10 @@ export const PROVIDERS = {
         error.quota = true; // out-of-quota, not a failure: surfaces the upgrade screen
         throw error;
       }
+      if (resp.status === 503) {
+        // Global capacity / budget breaker on the relay — not the user's quota.
+        throw new Error("Shelve Free is at capacity right now — try again later, or add your own API key in Settings.");
+      }
       const data = await readApiResponse(resp);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       const usage = {
