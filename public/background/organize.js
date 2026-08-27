@@ -194,21 +194,27 @@ export function formatGroupName(value, groupNameStyle = "text") {
     const first = firstGrapheme(title);
     const canonical = MONOCHROME_BY_BASE.get(first.replace(VARIATION_SELECTORS, ""));
     if (canonical) return canonical;
-    if (!EMOJI_GLYPH.test(first)) return title;
-    // A provider that ignores the allowlist must not leak a color emoji into
-    // monochrome mode. Keep the remaining topic ("📚 Research" → "Research");
-    // only an emoji-only answer falls back to the neutral project symbol.
-    const rest = title.slice(first.length).trim();
-    return rest ? rest.slice(0, 80) : "◆";
+    // A provider that ignores the allowlist must not leak color emoji into
+    // monochrome mode — scrub them wherever they appear ("Research 📚",
+    // "📚 🔬"), keep the remaining topic text, and only an emoji-only answer
+    // falls back to the neutral project symbol.
+    const scrubbed = graphemes(title)
+      .filter((glyph) => !EMOJI_GLYPH.test(glyph))
+      .join("")
+      .replace(VARIATION_SELECTORS, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    return scrubbed ? scrubbed.slice(0, 80) : "◆";
   }
   if (groupNameStyle === "emoji") {
     const first = firstGrapheme(title);
     if (!EMOJI_GLYPH.test(first)) return title;
-    // Single-codepoint pictographs below U+1F000 (dingbats like ⚙ ☀) default
-    // to text presentation; force the emoji selector so the label renders in
-    // color. Multi-codepoint sequences pass through untouched.
+    // Pictographs without default emoji presentation (⚙ ☀ 🖥 …) render as
+    // monochrome text glyphs unless the emoji selector is appended; glyphs
+    // with Emoji_Presentation (😀 📚) never need it. Multi-codepoint
+    // sequences pass through untouched.
     const base = first.replace(VARIATION_SELECTORS, "");
-    if (Array.from(base).length === 1 && (base.codePointAt(0) || 0) < 0x1f000) {
+    if (Array.from(base).length === 1 && !/\p{Emoji_Presentation}/u.test(base)) {
       return base + "\uFE0F";
     }
     return first.replace(/\uFE0E/gu, "\uFE0F");
@@ -216,13 +222,17 @@ export function formatGroupName(value, groupNameStyle = "text") {
   return title;
 }
 
-function firstGrapheme(value) {
+function graphemes(value) {
   if (typeof Intl?.Segmenter === "function") {
-    const segment = new Intl.Segmenter(undefined, { granularity: "grapheme" })
-      .segment(value)[Symbol.iterator]().next().value;
-    if (segment?.segment) return segment.segment;
+    return [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(value)].map(
+      (segment) => segment.segment
+    );
   }
-  return Array.from(value)[0] || "";
+  return Array.from(value);
+}
+
+function firstGrapheme(value) {
+  return graphemes(value)[0] || "";
 }
 
 export function groupNameInstruction(groupNameStyle) {
