@@ -1,3 +1,6 @@
+import { useRef, useState } from "react";
+import { Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,13 +52,7 @@ export function ProviderSection({
         </Select>
       </div>
 
-      {settings.provider === "shelve" && (
-        <p className="text-xs text-muted-foreground">
-          No key, no signup — 30 free AI actions a day on Shelve's hosted model
-          {freeActionsRemaining !== null ? ` (${freeActionsRemaining} left)` : ""}. When they run out,
-          pick a provider above and paste your own key: Shelve stays free.
-        </p>
-      )}
+      {settings.provider === "shelve" && <ShelveFreeHint freeActionsRemaining={freeActionsRemaining} />}
 
       {settings.provider === "openai" && (
         <CredentialField
@@ -116,6 +113,54 @@ export function ProviderSection({
         <p className="text-xs text-muted-foreground">{modelStatus || "Fetched live after your provider settings are saved."}</p>
       </div>
     </section>
+  );
+}
+
+function ShelveFreeHint({ freeActionsRemaining }: { freeActionsRemaining: string | null }) {
+  const [copyStatus, setCopyStatus] = useState<"copied" | "failed" | null>(null);
+  const copyResetTimer = useRef<number | undefined>(undefined);
+
+  const copyInstallCode = async () => {
+    setCopyStatus(null);
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "getInstallToken" });
+      if (!res?.token) throw new Error("no token");
+      await navigator.clipboard.writeText(res.token);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+    window.clearTimeout(copyResetTimer.current);
+    copyResetTimer.current = window.setTimeout(() => setCopyStatus(null), 2000);
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {freeActionsRemaining === "unlimited" ? (
+        <p className="text-xs text-muted-foreground">
+          No key, no signup — unlimited actions on Shelve's hosted model. This install is on the
+          unlimited list.
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No key, no signup — 30 free AI actions a day on Shelve's hosted model
+          {freeActionsRemaining !== null ? ` (${freeActionsRemaining} left)` : ""}. When they run out,
+          pick a provider above and paste your own key: Shelve stays free.
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={copyInstallCode}>
+          <Copy className="size-3.5" />
+          Copy my install code
+        </Button>
+        <span className="text-xs text-muted-foreground" aria-live="polite">
+          {copyStatus === "copied" ? "Copied" : copyStatus === "failed" ? "Couldn't copy — try again." : ""}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Your install code is an anonymous ID. Send it to Shelve's developer to get more free actions.
+      </p>
+    </div>
   );
 }
 

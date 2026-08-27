@@ -271,27 +271,33 @@ export function Options() {
           </label>
         </section>
 
-        <Divider />
+        {/* The free tier runs on Shelve's own key — a Budget/spend section
+            would wrongly imply the user is paying for tokens. */}
+        {settings.provider !== "shelve" && (
+          <>
+            <Divider />
 
-        <section className="flex flex-col gap-4" aria-labelledby="budget-heading">
-          <SectionHeading id="budget-heading">Budget</SectionHeading>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="budget">Spend cap ($)</Label>
-            <Input
-              id="budget"
-              type="number"
-              min={0}
-              step="0.01"
-              value={settings.budgetUsd}
-              onChange={(event) => set("budgetUsd", Math.max(0, Number(event.target.value) || 0))}
-            />
-            <p className="text-xs text-muted-foreground">Estimated from provider token usage. Ollama is free.</p>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-xs tabular-nums text-muted-foreground">Spent: ${spentUsd.toFixed(4)}</p>
-            <Button variant="outline" size="sm" onClick={resetSpend}>Reset spend</Button>
-          </div>
-        </section>
+            <section className="flex flex-col gap-4" aria-labelledby="budget-heading">
+              <SectionHeading id="budget-heading">Budget</SectionHeading>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="budget">Spend cap ($)</Label>
+                <Input
+                  id="budget"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={settings.budgetUsd}
+                  onChange={(event) => set("budgetUsd", Math.max(0, Number(event.target.value) || 0))}
+                />
+                <p className="text-xs text-muted-foreground">Estimated from provider token usage. Ollama is free.</p>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs tabular-nums text-muted-foreground">Spent: ${spentUsd.toFixed(4)}</p>
+                <Button variant="outline" size="sm" onClick={resetSpend}>Reset spend</Button>
+              </div>
+            </section>
+          </>
+        )}
 
         <Divider />
 
