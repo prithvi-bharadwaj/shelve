@@ -152,7 +152,9 @@ export function Options() {
       budgetUsd: Math.max(0, Number(settings.budgetUsd) || 0),
     };
     setSettings(normalized);
-    const { openaiKey, anthropicKey, geminiKey, ollamaUrl, ...prefs } = normalized;
+    // groupNameStyle is popup-owned and has no control here; saving it back
+    // would silently revert a choice made in the popup while this tab was open.
+    const { openaiKey, anthropicKey, geminiKey, ollamaUrl, groupNameStyle: _popupOwned, ...prefs } = normalized;
     await Promise.all([
       chrome.storage.sync.set(prefs),
       chrome.storage.local.set({ openaiKey, anthropicKey, geminiKey, ollamaUrl }),

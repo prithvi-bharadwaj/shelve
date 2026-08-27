@@ -194,14 +194,24 @@ export function formatGroupName(value, groupNameStyle = "text") {
     const first = firstGrapheme(title);
     const canonical = MONOCHROME_BY_BASE.get(first.replace(VARIATION_SELECTORS, ""));
     if (canonical) return canonical;
+    if (!EMOJI_GLYPH.test(first)) return title;
     // A provider that ignores the allowlist must not leak a color emoji into
-    // monochrome mode. Keep meaningful text, but replace an emoji-only answer
-    // with the compact neutral project symbol.
-    return EMOJI_GLYPH.test(first) ? "◆" : title;
+    // monochrome mode. Keep the remaining topic ("📚 Research" → "Research");
+    // only an emoji-only answer falls back to the neutral project symbol.
+    const rest = title.slice(first.length).trim();
+    return rest ? rest.slice(0, 80) : "◆";
   }
   if (groupNameStyle === "emoji") {
     const first = firstGrapheme(title);
-    return EMOJI_GLYPH.test(first) ? first.replace(/\uFE0E/gu, "\uFE0F") : title;
+    if (!EMOJI_GLYPH.test(first)) return title;
+    // Single-codepoint pictographs below U+1F000 (dingbats like ⚙ ☀) default
+    // to text presentation; force the emoji selector so the label renders in
+    // color. Multi-codepoint sequences pass through untouched.
+    const base = first.replace(VARIATION_SELECTORS, "");
+    if (Array.from(base).length === 1 && (base.codePointAt(0) || 0) < 0x1f000) {
+      return base + "\uFE0F";
+    }
+    return first.replace(/\uFE0E/gu, "\uFE0F");
   }
   return title;
 }

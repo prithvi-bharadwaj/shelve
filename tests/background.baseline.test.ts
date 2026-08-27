@@ -61,11 +61,22 @@ describe("background worker baseline", () => {
     expect(exports.groupNameInstruction("monochrome")).toContain("monochrome-safe list");
   });
 
+  it("keeps the topic when an unsupported emoji leads a monochrome label", async () => {
+    const { exports } = await load();
+    expect(exports.formatGroupName("📚 Research", "monochrome")).toBe("Research");
+  });
+
   it("keeps one grapheme for color emoji labels", async () => {
     const { exports } = await load();
     expect(exports.formatGroupName("👨‍💻 Development", "emoji")).toBe("👨‍💻");
     expect(exports.formatGroupName("⚙︎ Settings", "emoji")).toBe("⚙️");
     expect(exports.formatGroupName("O1 Visa", "emoji")).toBe("O1 Visa");
+  });
+
+  it("forces emoji presentation for bare text-default pictographs", async () => {
+    const { exports } = await load();
+    expect(exports.formatGroupName("⚙ Settings", "emoji")).toBe("⚙️");
+    expect(exports.formatGroupName("☀", "emoji")).toBe("☀️");
   });
 
   it("answers a read-only message through sendResponse with a serializable object", async () => {

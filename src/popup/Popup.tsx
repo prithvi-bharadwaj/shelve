@@ -3,11 +3,12 @@ import { BorderBeam } from "border-beam";
 import { Combine, CopyX, LoaderCircle, MailPlus, Settings, Sparkles, Undo2 } from "lucide-react";
 import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { ClosedDuplicatesToast } from "@/popup/ClosedDuplicatesToast";
 import { CommandBar } from "@/popup/CommandBar";
+import { GroupStylePicker } from "@/popup/GroupStylePicker";
 import { OrganizingRail } from "@/popup/OrganizingRail";
 import { PinPrompt } from "@/popup/PinPrompt";
+import { QuickAction } from "@/popup/QuickAction";
 import { ReviewGroups } from "@/popup/ReviewGroups";
 import { StashPanel } from "@/popup/StashPanel";
 import { StatsCard } from "@/popup/StatsCard";
@@ -57,6 +58,7 @@ export function Popup() {
   const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
   const [organizeClosedTabs, setOrganizeClosedTabs] = useState<ClosedDuplicateTab[]>([]);
   const [groupNameStyle, setGroupNameStyle] = useState<GroupNameStyle>(DEFAULT_SETTINGS.groupNameStyle);
+  const styleWrite = useRef<Promise<unknown>>(Promise.resolve());
   // null = handshake pending (embedded only); top-level windows are trusted.
   const [embedAllowed, setEmbedAllowed] = useState<boolean | null>(isEmbedded ? null : true);
   const ownsOrganizeRequest = useRef(false);
@@ -221,6 +223,7 @@ export function Popup() {
   }, [handleOrganizeResult, windowId, organizeActive]);
 
   const organize = async () => {
+    await styleWrite.current;
     if (!acknowledged && !confirming) {
       setConfirming(true);
       setStatus({ text: "Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider." });
@@ -271,8 +274,12 @@ export function Popup() {
   };
 
   const changeGroupNameStyle = (style: GroupNameStyle) => {
+    const previous = groupNameStyle;
     setGroupNameStyle(style);
-    chrome.storage.sync.set({ groupNameStyle: style }).catch(() => {
+    // Tracked so organize() can await it — otherwise the worker's getSettings()
+    // may read the pre-toggle style when the user clicks Organize immediately.
+    styleWrite.current = chrome.storage.sync.set({ groupNameStyle: style }).catch(() => {
+      setGroupNameStyle(previous);
       setStatus({ text: "Couldn't save the group-label preference. Try again.", error: true });
     });
   };
@@ -541,39 +548,7 @@ export function Popup() {
             </button>
           </BorderBeam>
 
-          <fieldset className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
-            <legend className="sr-only">Group label style</legend>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="text-xs font-medium text-foreground">Group labels</span>
-              <span className="text-[11px] text-muted-foreground">Both off uses text</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <label
-                htmlFor="monochrome-group-labels"
-                className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-background/50 px-2.5 text-xs text-foreground transition-colors duration-150 hover:bg-muted"
-              >
-                <span>Monochrome</span>
-                <Switch
-                  id="monochrome-group-labels"
-                  checked={groupNameStyle === "monochrome"}
-                  disabled={disabled}
-                  onCheckedChange={(checked) => changeGroupNameStyle(checked ? "monochrome" : "text")}
-                />
-              </label>
-              <label
-                htmlFor="emoji-group-labels"
-                className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-background/50 px-2.5 text-xs text-foreground transition-colors duration-150 hover:bg-muted"
-              >
-                <span>Emoji</span>
-                <Switch
-                  id="emoji-group-labels"
-                  checked={groupNameStyle === "emoji"}
-                  disabled={disabled}
-                  onCheckedChange={(checked) => changeGroupNameStyle(checked ? "emoji" : "text")}
-                />
-              </label>
-            </div>
-          </fieldset>
+          <GroupStylePicker value={groupNameStyle} disabled={disabled} onChange={changeGroupNameStyle} />
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <QuickAction label="Ungroup" onClick={ungroup} disabled={disabled} icon={icon("ungroup", <UngroupIcon className="size-[18px]" />)} />
@@ -618,28 +593,5 @@ export function Popup() {
       )}
     </main>
     </BorderBeam>
-  );
-}
-
-function QuickAction({
-  label,
-  icon,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  icon: ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="flex h-16 flex-col items-center justify-center gap-1.5 rounded-lg border border-border bg-transparent text-xs text-muted-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:bg-muted hover:text-foreground active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
-    >
-      {icon}
-      <span className="px-1 text-center leading-tight">{label}</span>
-    </button>
   );
 }
