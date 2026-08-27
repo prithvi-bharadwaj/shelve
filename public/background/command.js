@@ -234,7 +234,7 @@ Rules:
     const message = error?.name === "TimeoutError"
       ? "The AI provider took too long to respond."
       : error?.message || "Something went wrong.";
-    return { error: message };
+    return { error: message, ...(error?.quota ? { quota: true } : {}) };
   } finally {
     stopKeepalive();
   }

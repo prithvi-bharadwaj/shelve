@@ -49,3 +49,29 @@ describe("shelve free tier", () => {
     expect(call[1].headers.Authorization).toBe("Bearer 11111111-2222-3333-4444-555555555555");
   });
 });
+
+describe("quota propagation and budget exemption", () => {
+  it("commands surface the quota marker and ignore the BYOK budget cap on shelve", async () => {
+    harness = await loadBackground((mock) => {
+      mock.seedLocal({ dataNoticeAck: true, spentUsd: 99 });
+      mock.seedSync({ provider: "shelve", budgetUsd: 1 });
+    });
+    harness.mock.chrome.tabs.query.mockImplementation(async () => [
+      { id: 21, windowId: 1, url: "https://docs.test/one", title: "One", active: false, pinned: false, incognito: false, groupId: -1, index: 0 },
+      { id: 22, windowId: 1, url: "https://docs.test/two", title: "Two", active: false, pinned: false, incognito: false, groupId: -1, index: 1 },
+    ]);
+    harness.fetchMock.mockResolvedValue({
+      status: 402,
+      ok: false,
+      headers: { get: (name: string) => (name === "x-shelve-actions-remaining" ? "0" : null) },
+      json: async () => ({ error: "free_actions_exhausted" }),
+      text: async () => JSON.stringify({ error: "free_actions_exhausted" }),
+    });
+    const res = (await harness.invokeMessage({ type: "command", query: "group my docs tabs", windowId: 1 })) as {
+      error?: string;
+      quota?: boolean;
+    };
+        expect(res.quota).toBe(true);
+    expect(res.error).toMatch(/included Shelve actions/i);
+  });
+});

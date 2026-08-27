@@ -123,7 +123,9 @@ export function Popup() {
 
   const onQuotaExhausted = useCallback((message: string) => {
     setUpgrade({ dailyLimit: /reset tomorrow/i.test(message) });
-    setStatus(null);
+    // The organize path may have just reported closed duplicates; keep that
+    // toast so dismissing the upgrade screen still shows what was closed.
+    setStatus((current) => (current?.closedTabs?.length ? { text: "", closedTabs: current.closedTabs } : null));
   }, []);
 
   const {
@@ -464,6 +466,7 @@ export function Popup() {
             onMutation={async () => {
               await Promise.all([refreshUndo(), refreshPanels()]);
             }}
+            onQuotaExhausted={onQuotaExhausted}
           />
 
           <BorderBeam

@@ -64,6 +64,7 @@ export type Stash = {
 };
 
 export type CommandResponse = {
+  quota?: boolean;
   error?: string;
   done?: boolean;
   action?:
