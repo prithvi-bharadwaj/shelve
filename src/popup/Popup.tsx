@@ -57,6 +57,8 @@ export function Popup() {
   // Set when the free tier runs out (proxy 402/429); replaces the action panel
   // with the upgrade screen until dismissed or a new organize starts.
   const [upgrade, setUpgrade] = useState<{ dailyLimit: boolean } | null>(null);
+  // Easter egg: clicking the logo flips it over.
+  const [logoFlipped, setLogoFlipped] = useState(false);
 
   useEffect(() => {
     if (!isEmbedded) return;
@@ -329,8 +331,22 @@ export function Popup() {
     >
     <main className="popup-shell w-[340px] p-4">
       <header className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <img src="icons/logo.svg" alt="" className="size-14" />
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setLogoFlipped((f) => !f)}
+            className="relative size-9 shrink-0 cursor-pointer outline-none"
+            tabIndex={-1}
+            aria-hidden="true"
+          >
+            <img src="icons/logo.svg" alt="" className="absolute inset-0 size-9 opacity-60 blur-md saturate-150" />
+            <img
+              src="icons/logo.svg"
+              alt=""
+              className="relative size-9 transition-transform duration-500"
+              style={{ transform: logoFlipped ? "rotateY(180deg)" : "none" }}
+            />
+          </button>
           <span className="flex items-baseline gap-1.5">
             <span className="text-base font-semibold tracking-tight">Shelve</span>
             <span className="text-[9px] font-normal tracking-wide text-muted-foreground/50">
