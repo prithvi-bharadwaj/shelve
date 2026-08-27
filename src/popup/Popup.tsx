@@ -13,10 +13,11 @@ import { StashPanel } from "@/popup/StashPanel";
 import { StatsCard } from "@/popup/StatsCard";
 import { UpgradeScreen } from "@/popup/UpgradeScreen";
 import { useOrganizeJob } from "@/popup/useOrganizeJob";
+import { useQuickActions } from "@/popup/useQuickActions";
+import { useStashActions } from "@/popup/useStashActions";
 import type {
   ClosedDuplicateTab,
   GroupInfo,
-  MergeResponse,
   OrganizeResponse,
   ProposedGroup,
   Stash,
@@ -50,8 +51,6 @@ export function Popup() {
   const [commandRunning, setCommandRunning] = useState(false);
   const [groupList, setGroupList] = useState<GroupInfo[]>([]);
   const [stashes, setStashes] = useState<Stash[]>([]);
-  const [stashBusy, setStashBusy] = useState<number | string | null>(null);
-  const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
   const [organizeClosedTabs, setOrganizeClosedTabs] = useState<ClosedDuplicateTab[]>([]);
   // null = handshake pending (embedded only); top-level windows are trusted.
   const [embedAllowed, setEmbedAllowed] = useState<boolean | null>(isEmbedded ? null : true);
@@ -272,114 +271,27 @@ export function Popup() {
     setOrganizeClosedTabs([]);
   };
 
-  const ungroup = async () => {
-    setRunning("ungroup");
-    setStatus(null);
-    const res = await chrome.runtime.sendMessage({ type: "ungroupAll", windowId });
-    setRunning(null);
-    await Promise.all([refreshUndo(), refreshPanels()]);
-    setStatus(res?.error ? { text: res.error, error: true } : { text: `${res.tabCount} tab${res.tabCount === 1 ? "" : "s"} ungrouped` });
-  };
-
-  const cleanDuplicates = async () => {
-    setRunning("duplicates");
-    setStatus(null);
-    const res = await chrome.runtime.sendMessage({ type: "cleanDuplicates", windowId });
-    setRunning(null);
-    await Promise.all([refreshUndo(), refreshPanels()]);
-    setStatus(
-      res?.error
-        ? { text: res.error, error: true }
-        : {
-            text: res.closedCount ? `Closed ${res.closedCount} duplicate tab${res.closedCount === 1 ? "" : "s"}` : "No duplicate tabs found",
-            closedTabs: Array.isArray(res.closedTabs) ? res.closedTabs : [],
-          }
-    );
-  };
-
-  const merge = async () => {
-    setRunning("merge");
-    setStatus(null);
-    const res: MergeResponse = await chrome.runtime.sendMessage({ type: "mergeWindows", windowId });
-    setRunning(null);
-    if (res?.error) {
-      setStatus({ text: res.error, error: true });
-      return;
-    }
-    await Promise.all([refreshWindowCount(), refreshPanels()]);
-    setStatus({ text: `Merged ${res.windows} window${res.windows === 1 ? "" : "s"} · ${res.tabs} tabs` });
-  };
-
-  const undo = async () => {
-    setRunning("undo");
-    setStatus(null);
-    const res = await chrome.runtime.sendMessage({ type: "undo", windowId });
-    setRunning(null);
-    await Promise.all([refreshUndo(), refreshPanels()]);
-    if (res?.error) {
-      setStatus({ text: res.error, error: true });
-      return;
-    }
-    setStatus({
-      text: res?.skippedCount
-        ? `Restored the available layout — ${res.skippedCount} tab${res.skippedCount === 1 ? "" : "s"} closed since couldn't be brought back`
-        : "Previous tab layout restored",
-    });
-  };
-
   const acknowledgeNotice = useCallback(async () => {
     setAcknowledged(true);
     await chrome.storage.local.set({ dataNoticeAck: true });
   }, []);
 
-  const stashGroup = async (groupId: number) => {
-    if (!acknowledged) {
-      if (confirmingStash !== groupId) {
-        setConfirmingStash(groupId);
-        setStatus({ text: "Stash briefs send tab titles & URLs (and, if allowed, page snippets) to your configured AI provider. Click again to continue." });
-        return;
-      }
-      setConfirmingStash(null);
-      await acknowledgeNotice();
-    }
-    setStashBusy(groupId);
-    setStatus(null);
-    let res;
-    try {
-      res = await chrome.runtime.sendMessage({ type: "stashGroup", windowId, groupId });
-    } finally {
-      setStashBusy(null);
-    }
-    await refreshPanels();
-    setStatus(
-      res?.error
-        ? { text: res.error, error: true }
-        : { text: `Stashed “${res.stash?.name}” · ${res.stash?.tabCount} tabs` }
-    );
-  };
+  const { ungroup, cleanDuplicates, merge, undo } = useQuickActions({
+    windowId,
+    setRunning,
+    setStatus,
+    refreshUndo,
+    refreshPanels,
+    refreshWindowCount,
+  });
 
-  const resumeStash = async (stashId: string) => {
-    setStashBusy(stashId);
-    setStatus(null);
-    let res;
-    try {
-      res = await chrome.runtime.sendMessage({ type: "resumeStash", stashId, windowId });
-    } finally {
-      setStashBusy(null);
-    }
-    await refreshPanels();
-    setStatus(
-      res?.error
-        ? { text: res.error, error: true }
-        : { text: `Restored ${res.tabCount} tab${res.tabCount === 1 ? "" : "s"}` }
-    );
-  };
-
-  const deleteStash = async (stashId: string) => {
-    const res = await chrome.runtime.sendMessage({ type: "deleteStash", stashId });
-    await refreshPanels();
-    setStatus(res?.error ? { text: res.error, error: true } : { text: "Stash deleted" });
-  };
+  const { stashBusy, stashGroup, resumeStash, deleteStash } = useStashActions({
+    windowId,
+    acknowledged,
+    acknowledgeNotice,
+    setStatus,
+    refreshPanels,
+  });
 
   const reviewing = groups.length > 0;
   const organizing = organizeActive;
@@ -417,9 +329,14 @@ export function Popup() {
     >
     <main className="popup-shell w-[340px] p-4">
       <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <img src="icons/logo.svg" alt="" className="size-9" />
-          <span className="text-base font-semibold tracking-tight">Shelve</span>
+        <div className="flex items-center gap-3">
+          <img src="icons/logo.svg" alt="" className="size-14" />
+          <span className="flex items-baseline gap-1.5">
+            <span className="text-base font-semibold tracking-tight">Shelve</span>
+            <span className="text-[9px] font-normal tracking-wide text-muted-foreground/50">
+              beta {chrome.runtime.getManifest?.().version ?? ""}b
+            </span>
+          </span>
         </div>
         <button
           onClick={() => chrome.runtime.openOptionsPage()}
@@ -529,9 +446,6 @@ export function Popup() {
         </>
       )}
 
-      <p className="mt-2 text-center text-[10px] tracking-wide text-muted-foreground/60">
-        beta {chrome.runtime.getManifest?.().version ?? ""}b
-      </p>
     </main>
     </BorderBeam>
   );
