@@ -106,6 +106,9 @@ body {
 }
 
 .popup-shell {
+  /* No visible scrollbar: the popup should read as a single sleek surface;
+     content still scrolls if it ever overflows. */
+  scrollbar-width: none;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --muted: oklch(0.205 0 0);
@@ -306,4 +309,14 @@ body {
   .popup-shell .animate-spin {
     animation: none;
   }
+}
+
+html:has(.popup-shell),
+body:has(.popup-shell) {
+  scrollbar-width: none;
+}
+html:has(.popup-shell)::-webkit-scrollbar,
+body:has(.popup-shell)::-webkit-scrollbar,
+.popup-shell::-webkit-scrollbar {
+  display: none;
 }

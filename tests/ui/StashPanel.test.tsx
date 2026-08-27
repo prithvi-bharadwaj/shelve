@@ -57,25 +57,25 @@ describe("StashPanel delete confirmation", () => {
   it("does not delete on the first click", async () => {
     const user = userEvent.setup();
     const props = renderPanel();
-    await user.click(screen.getByRole("button", { name: "Delete stash" }));
+    await user.click(screen.getByRole("button", { name: "Delete shelved project" }));
     expect(props.onDelete).not.toHaveBeenCalled();
-    expect(screen.getByText("Delete this stash?")).toBeInTheDocument();
+    expect(screen.getByText("Delete this shelved project?")).toBeInTheDocument();
   });
 
   it("cancel restores the row without deleting", async () => {
     const user = userEvent.setup();
     const props = renderPanel();
-    await user.click(screen.getByRole("button", { name: "Delete stash" }));
+    await user.click(screen.getByRole("button", { name: "Delete shelved project" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(props.onDelete).not.toHaveBeenCalled();
-    expect(screen.queryByText("Delete this stash?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete this shelved project?")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Resume" })).toBeInTheDocument();
   });
 
   it("confirming calls delete exactly once", async () => {
     const user = userEvent.setup();
     const props = renderPanel();
-    await user.click(screen.getByRole("button", { name: "Delete stash" }));
+    await user.click(screen.getByRole("button", { name: "Delete shelved project" }));
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(props.onDelete).toHaveBeenCalledTimes(1);
     expect(props.onDelete).toHaveBeenCalledWith("stash-1");
@@ -84,8 +84,8 @@ describe("StashPanel delete confirmation", () => {
   it("disables resume and delete while a stash is resuming", () => {
     renderPanel({ stashes: [stashFixture({ resumeStatus: "resuming" })] });
     expect(screen.getByRole("button", { name: "Resume" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Delete stash" })).toBeDisabled();
-    expect(screen.getByText("Resuming this stash…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete shelved project" })).toBeDisabled();
+    expect(screen.getByText("Resuming…")).toBeInTheDocument();
   });
 });
 
@@ -121,7 +121,7 @@ describe("Popup stash delete errors", () => {
   it("shows the worker's delete failure as an error status", async () => {
     const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
     const { unmount } = render(<Popup />);
-    await user.click(await screen.findByRole("button", { name: "Delete stash" }));
+    await user.click(await screen.findByRole("button", { name: "Delete shelved project" }));
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(await screen.findByText("This stash is being resumed — try again in a moment.")).toBeInTheDocument();
     unmount();
