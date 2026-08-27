@@ -45,7 +45,7 @@ export function Options() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [models, setModels] = useState<Model[]>(FALLBACK_MODELS.gemini);
   const [spentUsd, setSpentUsd] = useState(0);
-  const [freeActionsRemaining, setFreeActionsRemaining] = useState<number | null>(null);
+  const [freeActionsRemaining, setFreeActionsRemaining] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [modelStatus, setModelStatus] = useState("");
   const [importText, setImportText] = useState("");
@@ -96,7 +96,7 @@ export function Options() {
       const { openaiKey, anthropicKey, geminiKey, ollamaUrl, ...prefs } = DEFAULT_SETTINGS;
       const [sync, local] = await Promise.all([
         chrome.storage.sync.get({ ...prefs, model: "" }),
-        chrome.storage.local.get({ openaiKey, anthropicKey, geminiKey, ollamaUrl, spentUsd: 0, freeActionsRemaining: -1 }),
+        chrome.storage.local.get({ openaiKey, anthropicKey, geminiKey, ollamaUrl, spentUsd: 0, freeActionsRemaining: "" }),
       ]);
       const modelByProvider = { ...DEFAULT_SETTINGS.modelByProvider, ...(sync.modelByProvider || {}) };
       if (sync.model && !sync.modelByProvider?.anthropic) modelByProvider.anthropic = sync.model;
@@ -114,7 +114,7 @@ export function Options() {
       providerRef.current = loaded.provider;
       setSettings(loaded);
       setSpentUsd(Number(local.spentUsd) || 0);
-      setFreeActionsRemaining(Number(local.freeActionsRemaining) >= 0 ? Number(local.freeActionsRemaining) : null);
+      setFreeActionsRemaining(String(local.freeActionsRemaining || "") || null);
       await refreshModels(loaded.provider);
     })();
     return () => {
@@ -239,7 +239,7 @@ export function Options() {
 
           {settings.provider === "shelve" && (
             <p className="text-xs text-muted-foreground">
-              No key, no signup — Shelve's hosted model, 25 free AI actions
+              No key, no signup — a bundle of free AI actions on Shelve's hosted model
               {freeActionsRemaining !== null ? ` (${freeActionsRemaining} left)` : ""}. When they run out,
               pick a provider above and paste your own key: Shelve stays free.
             </p>

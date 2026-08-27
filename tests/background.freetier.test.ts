@@ -36,7 +36,7 @@ describe("shelve free tier", () => {
     ).rejects.toThrow(/free actions are used up/i);
     await flushMicrotasks();
     expect(harness.mock.localData.installToken).toMatch(/^[0-9a-f-]{36}$/);
-    expect(harness.mock.localData.freeActionsRemaining).toBe(0);
+    expect(harness.mock.localData.freeActionsRemaining).toBe("0");
   });
 
   it("reuses the same install token across calls", async () => {

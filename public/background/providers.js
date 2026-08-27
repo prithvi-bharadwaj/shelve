@@ -36,10 +36,13 @@ export const PROVIDERS = {
       }, PROVIDER_TIMEOUT_MS);
       const remaining = resp.headers?.get?.("x-shelve-actions-remaining");
       if (remaining !== null && remaining !== undefined) {
-        chrome.storage.local.set({ freeActionsRemaining: Number(remaining) }).catch(() => undefined);
+        chrome.storage.local.set({ freeActionsRemaining: String(remaining) }).catch(() => undefined);
       }
       if (resp.status === 402) {
         throw new Error("Your free actions are used up — add your own API key in Settings. Shelve stays free with your key.");
+      }
+      if (resp.status === 429) {
+        throw new Error("Today's free actions are used up — they reset tomorrow, or add your own API key in Settings.");
       }
       const data = await readApiResponse(resp);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
