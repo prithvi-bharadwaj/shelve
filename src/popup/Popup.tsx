@@ -47,7 +47,6 @@ export function Popup() {
   const [showPinPrompt, setShowPinPrompt] = useState(false);
   // null = storage not yet read; the UI must stay inert until this resolves.
   const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
-  const [confirming, setConfirming] = useState(false);
   const [commandRunning, setCommandRunning] = useState(false);
   const [groupList, setGroupList] = useState<GroupInfo[]>([]);
   const [stashes, setStashes] = useState<Stash[]>([]);
@@ -172,19 +171,20 @@ export function Popup() {
   }, []);
 
   const organize = async () => {
-    if (!acknowledged && !confirming) {
-      setConfirming(true);
-      setStatus({ text: "Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider." });
-      return;
-    }
-    if (confirming) {
-      setConfirming(false);
+    // First run: no blocking confirm step — disclose in the status line, mark
+    // the notice acknowledged, and go straight to the permission prompt.
+    const firstRun = !acknowledged;
+    if (firstRun) {
       setAcknowledged(true);
       await chrome.storage.local.set({ dataNoticeAck: true });
     }
 
     setRunning("organize");
-    setStatus(null);
+    setStatus(
+      firstRun
+        ? { text: "Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider." }
+        : null
+    );
     setUpgrade(null);
     setOrganizeClosedTabs([]);
     handledJobId.current = null;
@@ -418,10 +418,8 @@ export function Popup() {
     <main className="popup-shell w-[340px] p-4">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-md border border-border bg-muted/50 text-foreground">
-            <img src="icons/icon48.png" alt="" className="size-5 rounded-[5px]" />
-          </span>
-          <span className="text-sm font-semibold tracking-tight">Shelve</span>
+          <img src="icons/logo.svg" alt="" className="size-9" />
+          <span className="text-base font-semibold tracking-tight">Shelve</span>
         </div>
         <button
           onClick={() => chrome.runtime.openOptionsPage()}
@@ -474,7 +472,7 @@ export function Popup() {
             colorVariant="ocean"
             theme="dark"
             strength={0.4}
-            active={confirming}
+            active={acknowledged === false || (running === "organize" && !organizing)}
             className="mt-3 w-full has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
             data-testid="organize-beam"
           >
@@ -485,7 +483,7 @@ export function Popup() {
               aria-label="Organize tabs"
             >
               <Sparkles className="size-5 text-primary" />
-              <span>{confirming ? "Continue organizing" : "Organize tabs"}</span>
+              <span>Organize tabs</span>
             </button>
           </BorderBeam>
 
@@ -530,6 +528,10 @@ export function Popup() {
           </a>
         </>
       )}
+
+      <p className="mt-2 text-center text-[10px] tracking-wide text-muted-foreground/60">
+        beta {chrome.runtime.getManifest?.().version ?? ""}b
+      </p>
     </main>
     </BorderBeam>
   );

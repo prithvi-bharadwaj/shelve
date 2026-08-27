@@ -64,18 +64,20 @@ describe("Popup consent initialization", () => {
     unmount();
   });
 
-  it("enters the disclosure flow instead of organizing when consent is unacknowledged", async () => {
+  it("first click organizes immediately, disclosing in the status line instead of a confirm step", async () => {
     mock.seedLocal({ dataNoticeAck: false });
     const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
     const { unmount } = await renderResolved();
 
-    await user.click(organizeButton());
-    expect(await screen.findByText(/Sends tab titles & URLs/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Organize tabs" })).toHaveTextContent("Continue organizing");
+    // Pre-click invitation: the outline animation runs until first consent.
     await waitFor(() => expect(screen.getByTestId("organize-beam")).toHaveAttribute("data-active"));
-    expect(mock.chrome.runtime.sendMessage).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "organize" })
+    await user.click(organizeButton());
+    await waitFor(() =>
+      expect(mock.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "organize" })
+      )
     );
+    expect(mock.chrome.storage.local.set).toHaveBeenCalledWith({ dataNoticeAck: true });
     unmount();
   });
 

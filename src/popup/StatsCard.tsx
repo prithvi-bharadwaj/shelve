@@ -37,33 +37,22 @@ export function StatsCard({ refreshToken }: { refreshToken: unknown }) {
   if (!stats || tabs < 1) return null;
 
   const nextMilestone = MILESTONES.find((m) => m > tabs);
-  const subline = [
+  const line = [
+    `${tabs.toLocaleString()} tabs sorted`,
+    (stats.totals.stashes ?? 0) > 0 ? `${(stats.totals.stashes ?? 0).toLocaleString()} shelved` : null,
+    stats.streak > 1 ? `${stats.streak}-day streak` : null,
     stats.weekTabs > 0 ? `${stats.weekTabs.toLocaleString()} this week` : null,
-    nextMilestone ? `${(nextMilestone - tabs).toLocaleString()} to ${nextMilestone.toLocaleString()}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
 
   return (
-    <section
+    <p
       aria-label="Your stats"
-      className="mt-2 rounded-md border border-border bg-muted/20 px-3 py-2"
+      title={nextMilestone ? `${(nextMilestone - tabs).toLocaleString()} tabs to ${nextMilestone.toLocaleString()}` : undefined}
+      className="mt-2 text-[11px] leading-snug text-muted-foreground tabular-nums"
     >
-      <div className="flex items-baseline justify-between gap-2 tabular-nums">
-        <Stat value={tabs} label="tabs sorted" />
-        {(stats.totals.stashes ?? 0) > 0 && <Stat value={stats.totals.stashes ?? 0} label="projects shelved" />}
-        {stats.streak > 1 && <Stat value={stats.streak} label="day streak" />}
-      </div>
-      {subline && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{subline}</p>}
-    </section>
-  );
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="min-w-0">
-      <span className="text-sm font-semibold text-foreground">{value.toLocaleString()}</span>
-      <span className="ml-1 text-[11px] text-muted-foreground">{label}</span>
-    </div>
+      {line}
+    </p>
   );
 }
