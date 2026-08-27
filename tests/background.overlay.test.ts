@@ -96,10 +96,10 @@ describe("overlay manifest surface", () => {
     expect(manifest.action.default_popup).toBeUndefined();
   });
 
-  it("exposes the popup document and its assets to web pages", () => {
+  it("exposes only the popup document to web pages — subresources load same-origin from the extension frame", () => {
     const resources = manifest.web_accessible_resources?.flatMap(
       (entry: { resources: string[] }) => entry.resources
     );
-    expect(resources).toEqual(expect.arrayContaining(["popup.html", "assets/*"]));
+    expect(resources).toEqual(["popup.html"]);
   });
 });

@@ -36,6 +36,12 @@ export function ProviderSection({
 }) {
   const activeModel = settings.modelByProvider[settings.provider];
   const modelInList = models.some((model) => model.id === activeModel);
+  const keyByProvider: Partial<Record<Provider, string>> = {
+    openai: settings.openaiKey,
+    anthropic: settings.anthropicKey,
+    gemini: settings.geminiKey,
+  };
+  const missingKey = settings.provider in keyByProvider && !keyByProvider[settings.provider]?.trim();
 
   return (
     <section className="flex flex-col gap-4" aria-labelledby="provider-heading">
@@ -53,6 +59,13 @@ export function ProviderSection({
       </div>
 
       {settings.provider === "shelve" && <ShelveFreeHint freeActionsRemaining={freeActionsRemaining} />}
+
+      {missingKey && (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400" role="status">
+          Not set up yet — {PROVIDER_NAMES[settings.provider]} needs an API key before Shelve can run.
+          Paste one below, or switch to Shelve Free above to start instantly.
+        </p>
+      )}
 
       {settings.provider === "openai" && (
         <CredentialField
