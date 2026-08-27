@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Shelve",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "One click: understands your open tabs and sorts them into named Chrome tab groups.",
   "permissions": ["tabs", "tabGroups", "storage", "scripting", "activeTab"],
   "host_permissions": [
     "https://api.anthropic.com/*",
     "https://api.openai.com/*",
     "https://generativelanguage.googleapis.com/*",
+    "https://tryshelve.com/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
   ],

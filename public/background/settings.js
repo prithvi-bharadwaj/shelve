@@ -54,11 +54,22 @@ export async function hasDataNoticeAck() {
 }
 
 export function hasProviderAccess(settings) {
-  if (settings.provider === "ollama") return true;
+  // "shelve" is the hosted free tier: no credential, metered server-side.
+  if (settings.provider === "ollama" || settings.provider === "shelve") return true;
   return Boolean(settings[`${settings.provider}Key`]);
 }
 
 export function missingCredentialMessage(provider) {
   const names = { openai: "OpenAI", anthropic: "Anthropic", gemini: "Gemini" };
   return `No ${names[provider] || "provider"} API key set — open Settings and add one.`;
+}
+
+// One anonymous UUID per install, minted lazily; it is the free tier's
+// metering identity and carries no user information.
+export async function getInstallToken() {
+  const stored = await chrome.storage.local.get({ installToken: "" });
+  if (stored.installToken) return stored.installToken;
+  const token = crypto.randomUUID();
+  await chrome.storage.local.set({ installToken: token });
+  return token;
 }

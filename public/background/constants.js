@@ -13,7 +13,10 @@ export const SNIPPET_TIMEOUT_MS = 8 * 1000;
 export const ORGANIZE_STALE_MS = 2 * 60 * 1000;
 export const STASH_RESUME_STALE_MS = 2 * 60 * 1000;
 
+export const SHELVE_PROXY_URL = "https://tryshelve.com/api/generate";
+
 export const DEFAULT_MODELS = {
+  shelve: "gemini-3.1-flash-lite",
   openai: "gpt-5.6-luna",
   anthropic: "claude-haiku-4-5",
   gemini: "gemini-3.1-flash-lite",
@@ -21,7 +24,7 @@ export const DEFAULT_MODELS = {
 };
 
 export const DEFAULT_PREFS = {
-  provider: "gemini",
+  provider: "shelve",
   modelByProvider: DEFAULT_MODELS,
   minGroupSize: 2,
   groupEverything: false,
@@ -140,6 +143,8 @@ export const BRIEF_SCHEMA = {
 
 // USD per one million input/output tokens. Longest matching model prefix wins.
 export const PRICES = {
+  // Hosted free tier runs on Shelve's own key; user-visible spend is always $0.
+  shelve: [],
   openai: [
     ["gpt-5.6-sol", 5, 30],
     ["gpt-5.6-terra", 2.5, 15],
