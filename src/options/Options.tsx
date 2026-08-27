@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { CUSTOM_INSTRUCTION_PLACEHOLDERS, useRotatingPlaceholder } from "@/lib/rotatingPlaceholders";
-import { DEFAULT_SETTINGS, type Provider, type Settings } from "@/types";
+import { DEFAULT_SETTINGS, GROUP_NAME_STYLES, type Provider, type Settings } from "@/types";
 
 type Model = { id: string; name: string };
 
@@ -104,6 +104,9 @@ export function Options() {
         ...sync,
         ...local,
         modelByProvider,
+        groupNameStyle: GROUP_NAME_STYLES.includes(sync.groupNameStyle)
+          ? sync.groupNameStyle
+          : DEFAULT_SETTINGS.groupNameStyle,
       };
       providerRef.current = loaded.provider;
       setSettings(loaded);

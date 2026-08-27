@@ -26,8 +26,11 @@ interface WorkerExports {
     plan: { groups?: unknown[]; needsContent?: number[] },
     candidateIds: Set<number>,
     existingById: Map<number, unknown>,
-    minSize: number
+    minSize: number,
+    groupNameStyle?: "text" | "monochrome" | "emoji"
   ) => Array<{ name: string; color: string; tabIds: number[]; existingGroupId: number | null; importance: number }>;
+  formatGroupName: (value: unknown, groupNameStyle?: "text" | "monochrome" | "emoji") => string;
+  groupNameInstruction: (groupNameStyle?: "text" | "monochrome" | "emoji") => string;
   safeImportUrl: (value: unknown) => boolean;
   normalizedDuplicateUrl: (value: unknown) => string | null;
   captureSnapshot: (windowId: number) => Promise<UndoSnapshot>;
@@ -97,6 +100,8 @@ export async function loadBackground(prepare?: (mock: ChromeMock) => void): Prom
   // harness-side contract, so the loose inferred shapes are cast to it.
   const workerExports = {
     sanitizePlan: organizeModule.sanitizePlan,
+    formatGroupName: organizeModule.formatGroupName,
+    groupNameInstruction: organizeModule.groupNameInstruction,
     safeImportUrl: utilModule.safeImportUrl,
     normalizedDuplicateUrl: dedupeModule.normalizedDuplicateUrl,
     captureSnapshot: undoModule.captureSnapshot,

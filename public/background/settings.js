@@ -1,6 +1,6 @@
 // User settings, credential migration, and provider access checks.
 
-import { DEFAULT_MODELS, DEFAULT_PREFS, DEFAULT_LOCAL } from "./constants.js";
+import { DEFAULT_MODELS, DEFAULT_PREFS, DEFAULT_LOCAL, GROUP_NAME_STYLES } from "./constants.js";
 
 let legacyCredentialMigration = null;
 
@@ -35,11 +35,15 @@ export async function getSettings() {
   if (prefs.model && !prefs.modelByProvider?.anthropic) modelByProvider.anthropic = prefs.model;
   // Old default; carry users forward to the current fast model.
   if (modelByProvider.gemini === "gemini-2.5-flash-lite") modelByProvider.gemini = "gemini-3.1-flash-lite";
+  const groupNameStyle = GROUP_NAME_STYLES.includes(prefs.groupNameStyle)
+    ? prefs.groupNameStyle
+    : DEFAULT_PREFS.groupNameStyle;
   return {
     ...DEFAULT_PREFS,
     ...prefs,
     ...local,
     modelByProvider,
+    groupNameStyle,
     model: modelByProvider[prefs.provider || DEFAULT_PREFS.provider]
   };
 }

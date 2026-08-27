@@ -3,6 +3,7 @@ import { BorderBeam } from "border-beam";
 import { Combine, CopyX, LoaderCircle, MailPlus, Settings, Sparkles, Undo2 } from "lucide-react";
 import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { ClosedDuplicatesToast } from "@/popup/ClosedDuplicatesToast";
 import { CommandBar } from "@/popup/CommandBar";
 import { OrganizingRail } from "@/popup/OrganizingRail";
@@ -18,7 +19,9 @@ import type {
   OrganizeResponse,
   ProposedGroup,
   Stash,
+  GroupNameStyle,
 } from "@/types";
+import { DEFAULT_SETTINGS, GROUP_NAME_STYLES } from "@/types";
 
 // True when running inside the in-page iframe overlay (see public/overlay.js);
 // the panel then has rounded corners the window beam must follow.
@@ -53,6 +56,7 @@ export function Popup() {
   const [stashBusy, setStashBusy] = useState<number | string | null>(null);
   const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
   const [organizeClosedTabs, setOrganizeClosedTabs] = useState<ClosedDuplicateTab[]>([]);
+  const [groupNameStyle, setGroupNameStyle] = useState<GroupNameStyle>(DEFAULT_SETTINGS.groupNameStyle);
   // null = handshake pending (embedded only); top-level windows are trusted.
   const [embedAllowed, setEmbedAllowed] = useState<boolean | null>(isEmbedded ? null : true);
   const ownsOrganizeRequest = useRef(false);
@@ -157,10 +161,11 @@ export function Popup() {
   useEffect(() => {
     (async () => {
       const window = await chrome.windows.getCurrent();
-      const [undoState, windows, local] = await Promise.all([
+      const [undoState, windows, local, sync] = await Promise.all([
         chrome.runtime.sendMessage({ type: "hasUndo", windowId: window.id }),
         chrome.runtime.sendMessage({ type: "windowCount" }),
         chrome.storage.local.get({ dataNoticeAck: false, pinPromptDismissed: false }),
+        chrome.storage.sync.get({ groupNameStyle: DEFAULT_SETTINGS.groupNameStyle }),
       ]);
       try {
         const userSettings = await chrome.action.getUserSettings();
@@ -171,6 +176,11 @@ export function Popup() {
       setWindowId(window.id);
       if (windows?.count) setWindowCount(windows.count);
       setHasUndo(Boolean(undoState?.hasUndo));
+      setGroupNameStyle(
+        GROUP_NAME_STYLES.includes(sync.groupNameStyle)
+          ? sync.groupNameStyle
+          : DEFAULT_SETTINGS.groupNameStyle
+      );
       setAcknowledged(Boolean(local.dataNoticeAck));
     })();
   }, []);
@@ -258,6 +268,13 @@ export function Popup() {
       setRunning(null);
       setStatus({ text: "Organizing was interrupted. Try again.", error: true });
     }
+  };
+
+  const changeGroupNameStyle = (style: GroupNameStyle) => {
+    setGroupNameStyle(style);
+    chrome.storage.sync.set({ groupNameStyle: style }).catch(() => {
+      setStatus({ text: "Couldn't save the group-label preference. Try again.", error: true });
+    });
   };
 
   const discardReview = async () => {
@@ -523,6 +540,40 @@ export function Popup() {
               <span>{confirming ? "Continue organizing" : "Organize tabs"}</span>
             </button>
           </BorderBeam>
+
+          <fieldset className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+            <legend className="sr-only">Group label style</legend>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-foreground">Group labels</span>
+              <span className="text-[11px] text-muted-foreground">Both off uses text</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label
+                htmlFor="monochrome-group-labels"
+                className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-background/50 px-2.5 text-xs text-foreground transition-colors duration-150 hover:bg-muted"
+              >
+                <span>Monochrome</span>
+                <Switch
+                  id="monochrome-group-labels"
+                  checked={groupNameStyle === "monochrome"}
+                  disabled={disabled}
+                  onCheckedChange={(checked) => changeGroupNameStyle(checked ? "monochrome" : "text")}
+                />
+              </label>
+              <label
+                htmlFor="emoji-group-labels"
+                className="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-background/50 px-2.5 text-xs text-foreground transition-colors duration-150 hover:bg-muted"
+              >
+                <span>Emoji</span>
+                <Switch
+                  id="emoji-group-labels"
+                  checked={groupNameStyle === "emoji"}
+                  disabled={disabled}
+                  onCheckedChange={(checked) => changeGroupNameStyle(checked ? "emoji" : "text")}
+                />
+              </label>
+            </div>
+          </fieldset>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <QuickAction label="Ungroup" onClick={ungroup} disabled={disabled} icon={icon("ungroup", <UngroupIcon className="size-[18px]" />)} />

@@ -98,6 +98,9 @@ export type Provider = "openai" | "anthropic" | "gemini" | "ollama";
 
 export type ModelByProvider = Record<Provider, string>;
 
+export const GROUP_NAME_STYLES = ["text", "monochrome", "emoji"] as const;
+export type GroupNameStyle = (typeof GROUP_NAME_STYLES)[number];
+
 export type Settings = {
   provider: Provider;
   modelByProvider: ModelByProvider;
@@ -107,6 +110,7 @@ export type Settings = {
   ollamaUrl: string;
   minGroupSize: number;
   groupEverything: boolean;
+  groupNameStyle: GroupNameStyle;
   reviewFirst: boolean;
   dedupeOnOrganize: boolean;
   mergeOnOrganize: boolean;
@@ -128,6 +132,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ollamaUrl: "http://localhost:11434",
   minGroupSize: 2,
   groupEverything: false,
+  groupNameStyle: "text",
   reviewFirst: false,
   dedupeOnOrganize: false,
   mergeOnOrganize: false,

@@ -12,6 +12,39 @@ import { captureSnapshot, storeUndoSnapshot } from "./undo.js";
 import { collectSnippets } from "./snippets.js";
 import { recordAction } from "./stats.js";
 
+// Every emoji-capable entry uses Unicode's text-presentation selector. The
+// remaining entries are text-only symbols. Keeping this list closed lets the
+// organizer reject arbitrary color emoji when monochrome labels are selected.
+const MONOCHROME_SYMBOLS = [
+  { symbol: "⌂", meaning: "home or start pages" },
+  { symbol: "⌘", meaning: "development or tools" },
+  { symbol: "✎", meaning: "writing or notes" },
+  { symbol: "✉︎", meaning: "email or messages" },
+  { symbol: "☎︎", meaning: "calls or contacts" },
+  { symbol: "♥︎", meaning: "personal or social" },
+  { symbol: "★", meaning: "favorites or important items" },
+  { symbol: "☑︎", meaning: "tasks or planning" },
+  { symbol: "⚙︎", meaning: "settings or administration" },
+  { symbol: "✈︎", meaning: "travel" },
+  { symbol: "☀︎", meaning: "leisure or outdoors" },
+  { symbol: "☁︎", meaning: "cloud or storage" },
+  { symbol: "▶︎", meaning: "video or media" },
+  { symbol: "♫", meaning: "music or audio" },
+  { symbol: "↗︎", meaning: "career or growth" },
+  { symbol: "∞", meaning: "research or learning" },
+  { symbol: "∑", meaning: "data or mathematics" },
+  { symbol: "¤", meaning: "shopping or finance" },
+  { symbol: "§", meaning: "legal or policy" },
+  { symbol: "◆", meaning: "work or projects" },
+  { symbol: "●", meaning: "a general topic" }
+];
+
+const VARIATION_SELECTORS = /[\uFE0E\uFE0F]/gu;
+const MONOCHROME_BY_BASE = new Map(
+  MONOCHROME_SYMBOLS.map(({ symbol }) => [symbol.replace(VARIATION_SELECTORS, ""), symbol])
+);
+const EMOJI_GLYPH = /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u;
+
 export async function organize(hasContentPermission, windowId) {
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
   // Consent is enforced here, not in the popup: UI state is not a security
@@ -85,7 +118,7 @@ export async function organize(hasContentPermission, windowId) {
     }
 
     const minSize = settings.groupEverything ? 1 : clamp(settings.minGroupSize, 1, 6);
-    const groups = sanitizePlan(plan, candidateIds, existingById, minSize);
+    const groups = sanitizePlan(plan, candidateIds, existingById, minSize, settings.groupNameStyle);
     if (groups.length === 0) {
       return finishOrganizeJob(job, { error: "No coherent groups found — tabs left as they are.", closedTabs: closedDuplicates });
     }
@@ -124,7 +157,7 @@ export async function organize(hasContentPermission, windowId) {
   }
 }
 
-export function sanitizePlan(plan, candidateIds, existingById, minSize) {
+export function sanitizePlan(plan, candidateIds, existingById, minSize, groupNameStyle = "text") {
   const seen = new Set();
   const groups = [];
   const existingIndexes = new Map();
@@ -137,7 +170,7 @@ export function sanitizePlan(plan, candidateIds, existingById, minSize) {
     if (tabIds.length < requiredSize) continue;
     tabIds.forEach((id) => seen.add(id));
     const sanitized = {
-      name: existing?.title || String(raw.name || "Tabs").slice(0, 80),
+      name: existing?.title || formatGroupName(raw.name, groupNameStyle),
       color: existing?.color || (GROUP_COLORS.includes(raw.color) ? raw.color : "grey"),
       tabIds,
       existingGroupId: existing?.id ?? null,
@@ -155,6 +188,44 @@ export function sanitizePlan(plan, candidateIds, existingById, minSize) {
   return groups;
 }
 
+export function formatGroupName(value, groupNameStyle = "text") {
+  const title = String(value || "Tabs").trim().slice(0, 80) || "Tabs";
+  if (groupNameStyle === "monochrome") {
+    const first = firstGrapheme(title);
+    const canonical = MONOCHROME_BY_BASE.get(first.replace(VARIATION_SELECTORS, ""));
+    if (canonical) return canonical;
+    // A provider that ignores the allowlist must not leak a color emoji into
+    // monochrome mode. Keep meaningful text, but replace an emoji-only answer
+    // with the compact neutral project symbol.
+    return EMOJI_GLYPH.test(first) ? "◆" : title;
+  }
+  if (groupNameStyle === "emoji") {
+    const first = firstGrapheme(title);
+    return EMOJI_GLYPH.test(first) ? first.replace(/\uFE0E/gu, "\uFE0F") : title;
+  }
+  return title;
+}
+
+function firstGrapheme(value) {
+  if (typeof Intl?.Segmenter === "function") {
+    const segment = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+      .segment(value)[Symbol.iterator]().next().value;
+    if (segment?.segment) return segment.segment;
+  }
+  return Array.from(value)[0] || "";
+}
+
+export function groupNameInstruction(groupNameStyle) {
+  if (groupNameStyle === "monochrome") {
+    const choices = MONOCHROME_SYMBOLS.map(({ symbol, meaning }) => `${symbol} (${meaning})`).join(", ");
+    return `- For every NEW group, prefer exactly one relevant symbol from this monochrome-safe list: ${choices}. Return only the symbol as name when one clearly fits. If none fits, use the shortest specific text topic instead. Never use any other emoji or symbol.`;
+  }
+  if (groupNameStyle === "emoji") {
+    return "- For every NEW group, prefer exactly one relevant, widely supported color emoji as name, with no words. If no emoji clearly fits, use the shortest specific text topic instead.";
+  }
+  return '- Group names are short and specific: "O1 Visa", not "Immigration Stuff"; use the actual topic, not a generic label like "Research".';
+}
+
 async function classifyTabs(settings, tabInfo, snippets, existingGroups) {
   const lines = tabInfo.map((tab) => {
     let line = `[${tab.id}] ${tab.title}\n    ${tab.url}`;
@@ -163,6 +234,7 @@ async function classifyTabs(settings, tabInfo, snippets, existingGroups) {
   });
   const secondPass = Object.keys(snippets).length > 0;
   const customInstructions = String(settings.customInstructions || "").trim().slice(0, 2000);
+  const nameInstruction = groupNameInstruction(settings.groupNameStyle);
   const existingText = existingGroups.length
     ? `\nExisting groups are listed in the user message. You may add a loose tab to one by setting existingGroupId to that integer id. When you do, name and color are ignored. Never return the ids of tabs already in a group.`
     : "\nThere are no existing groups. Set existingGroupId to null for every group.";
@@ -171,7 +243,7 @@ async function classifyTabs(settings, tabInfo, snippets, existingGroups) {
 
 Rules:
 - Group tabs by what the user is actually doing, not just by website. Two YouTube tabs about different topics belong in different groups.
-- Group names are short and specific: "O1 Visa", not "Immigration Stuff"; the actual research topic name, not "Research".
+${nameInstruction}
 ${settings.groupEverything
   ? "- Assign EVERY loose tab to a group. Use broad catch-all groups like 'Social' or 'Misc' only when needed."
   : `- Only create a new group when at least ${clamp(settings.minGroupSize, 1, 6)} tabs genuinely share a task or topic. Loose one-off tabs should be omitted, but a single loose tab may join a relevant existing group.`}
@@ -180,7 +252,7 @@ ${settings.groupEverything
 - Set importance from 1 (deep work/productivity) through 5 (entertainment/social).
 - needsContent: ${secondPass ? "must be an empty array — page content was already provided." : "list tab ids where title+URL do not reveal the topic. Do not flag tabs whose title already tells you the topic."}
 ${customInstructions
-  ? `- Follow the user's custom grouping and naming preferences below. They take priority over the default grouping guidance, but never change the required JSON shape or use tab ids that were not provided.\n\n<custom_instructions>\n${customInstructions}\n</custom_instructions>`
+  ? `- Follow the user's custom grouping and naming preferences below. They take priority over the default grouping guidance except for the selected group-label style above, and never change the required JSON shape or use tab ids that were not provided.\n\n<custom_instructions>\n${customInstructions}\n</custom_instructions>`
   : ""}${existingText}`;
 
   const existing = existingGroups.length
