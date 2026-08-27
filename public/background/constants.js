@@ -1,6 +1,7 @@
 // Shared constants, defaults, and provider JSON schemas.
 
 export const GROUP_COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
+export const GROUP_NAME_STYLES = ["text", "monochrome", "emoji"];
 export const LEGACY_UNDO_KEY = "undoSnapshot";
 export const UNDO_KEY_PREFIX = "undoSnapshot:v2:";
 export const STASH_KEY = "stashes";
@@ -24,6 +25,7 @@ export const DEFAULT_PREFS = {
   modelByProvider: DEFAULT_MODELS,
   minGroupSize: 2,
   groupEverything: false,
+  groupNameStyle: "text",
   reviewFirst: false,
   dedupeOnOrganize: false,
   mergeOnOrganize: false,
@@ -49,7 +51,7 @@ export const PLAN_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          name: { type: "string", description: "Short group name, 1-2 words, e.g. 'O1 Visa' or the specific research topic" },
+          name: { type: "string", description: "Short group label following the selected text, monochrome-symbol, or emoji naming rule" },
           color: { type: "string", enum: GROUP_COLORS },
           tabIds: { type: "array", items: { type: "integer" } },
           existingGroupId: {

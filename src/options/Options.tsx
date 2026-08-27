@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { CUSTOM_INSTRUCTION_PLACEHOLDERS, useRotatingPlaceholder } from "@/lib/rotatingPlaceholders";
-import { DEFAULT_SETTINGS, type Provider, type Settings } from "@/types";
+import { DEFAULT_SETTINGS, GROUP_NAME_STYLES, type Provider, type Settings } from "@/types";
 
 type Model = { id: string; name: string };
 
@@ -104,6 +104,9 @@ export function Options() {
         ...sync,
         ...local,
         modelByProvider,
+        groupNameStyle: GROUP_NAME_STYLES.includes(sync.groupNameStyle)
+          ? sync.groupNameStyle
+          : DEFAULT_SETTINGS.groupNameStyle,
       };
       providerRef.current = loaded.provider;
       setSettings(loaded);
@@ -307,6 +310,20 @@ export function Options() {
             description="Off: loose one-off tabs are left untouched."
             checked={settings.groupEverything}
             onCheckedChange={(value) => set("groupEverything", value)}
+          />
+          <SwitchRow
+            id="monochrome-labels"
+            label="Monochrome group labels"
+            description="Name new groups with a plain symbol (⚙︎ ✈︎ ★) when one fits."
+            checked={settings.groupNameStyle === "monochrome"}
+            onCheckedChange={(value) => set("groupNameStyle", value ? "monochrome" : "text")}
+          />
+          <SwitchRow
+            id="emoji-labels"
+            label="Emoji group labels"
+            description="Name new groups with a single emoji when one fits."
+            checked={settings.groupNameStyle === "emoji"}
+            onCheckedChange={(value) => set("groupNameStyle", value ? "emoji" : "text")}
           />
           <div className="flex items-center justify-between gap-4">
             <div>

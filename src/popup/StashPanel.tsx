@@ -54,6 +54,68 @@ export function StashPanel({
   if (!groups.length && !stashes.length) return null;
   return (
     <>
+      {stashes.length > 0 && (
+        <section className="mt-4" aria-label="Shelved projects">
+          <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Shelved</h2>
+          <div className="mt-1.5 flex flex-col gap-1">
+            {stashes.map((stash) => {
+              const resuming = stash.resumeStatus === "resuming";
+              const rowDisabled = disabled || resuming;
+              return (
+                <div key={stash.id} className="rounded-md border border-border/70 px-2 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`size-2 shrink-0 rounded-full ${GROUP_DOT[stash.color] ?? GROUP_DOT.grey}`} />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{stash.name}</span>
+                    {confirmingDelete === stash.id ? (
+                      <>
+                        <span className="text-[11px] text-destructive">Delete this shelved project?</span>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDelete(null)}
+                          className="rounded px-1.5 py-0.5 text-[11px] text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={rowDisabled}
+                          onClick={async () => {
+                            await onDelete(stash.id);
+                            setConfirmingDelete(null);
+                          }}
+                          className="rounded bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive outline-none transition-colors hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[11px] tabular-nums text-muted-foreground">
+                          {stash.tabCount} · {timeAgo(stash.createdAt)}
+                        </span>
+                        <IconButton title="Resume" disabled={rowDisabled} onClick={() => onResume(stash.id)}>
+                          {busyId === stash.id || resuming ? <LoaderCircle className="size-3.5 animate-spin" /> : <ArchiveRestore className="size-3.5" />}
+                        </IconButton>
+                        <IconButton title="Delete shelved project" disabled={rowDisabled} onClick={() => setConfirmingDelete(stash.id)}>
+                          <X className="size-3.5" />
+                        </IconButton>
+                      </>
+                    )}
+                  </div>
+                  {resuming ? (
+                    <p className="mt-1 pl-4 text-[11px] italic text-muted-foreground">Resuming…</p>
+                  ) : stash.briefStatus === "pending" ? (
+                    <p className="mt-1 pl-4 text-[11px] italic text-muted-foreground">Writing where-you-left-off brief…</p>
+                  ) : stash.brief ? (
+                    <p title={stash.brief} className="mt-1 line-clamp-2 pl-4 text-[11px] leading-snug text-muted-foreground">{stash.brief}</p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {groups.length > 0 && (
         <section className="mt-4" aria-label="Tab groups in this window">
           <button
@@ -82,7 +144,7 @@ export function StashPanel({
                 </span>
                 <span className="text-[11px] tabular-nums text-muted-foreground">{group.tabCount}</span>
                 <IconButton
-                  title={`Stash “${group.title}”`}
+                  title={`Shelve “${group.title}”`}
                   disabled={disabled}
                   onClick={() => onStash(group.id)}
                 >
@@ -92,68 +154,6 @@ export function StashPanel({
             ))}
           </div>
           )}
-        </section>
-      )}
-
-      {stashes.length > 0 && (
-        <section className="mt-4" aria-label="Stashed groups">
-          <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Stashed</h2>
-          <div className="mt-1.5 flex flex-col gap-1">
-            {stashes.map((stash) => {
-              const resuming = stash.resumeStatus === "resuming";
-              const rowDisabled = disabled || resuming;
-              return (
-                <div key={stash.id} className="rounded-md border border-border/70 px-2 py-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className={`size-2 shrink-0 rounded-full ${GROUP_DOT[stash.color] ?? GROUP_DOT.grey}`} />
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{stash.name}</span>
-                    {confirmingDelete === stash.id ? (
-                      <>
-                        <span className="text-[11px] text-destructive">Delete this stash?</span>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmingDelete(null)}
-                          className="rounded px-1.5 py-0.5 text-[11px] text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          disabled={rowDisabled}
-                          onClick={async () => {
-                            await onDelete(stash.id);
-                            setConfirmingDelete(null);
-                          }}
-                          className="rounded bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive outline-none transition-colors hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
-                        >
-                          Delete
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-[11px] tabular-nums text-muted-foreground">
-                          {stash.tabCount} · {timeAgo(stash.createdAt)}
-                        </span>
-                        <IconButton title="Resume" disabled={rowDisabled} onClick={() => onResume(stash.id)}>
-                          {busyId === stash.id || resuming ? <LoaderCircle className="size-3.5 animate-spin" /> : <ArchiveRestore className="size-3.5" />}
-                        </IconButton>
-                        <IconButton title="Delete stash" disabled={rowDisabled} onClick={() => setConfirmingDelete(stash.id)}>
-                          <X className="size-3.5" />
-                        </IconButton>
-                      </>
-                    )}
-                  </div>
-                  {resuming ? (
-                    <p className="mt-1 pl-4 text-[11px] italic text-muted-foreground">Resuming this stash…</p>
-                  ) : stash.briefStatus === "pending" ? (
-                    <p className="mt-1 pl-4 text-[11px] italic text-muted-foreground">Writing where-you-left-off brief…</p>
-                  ) : stash.brief ? (
-                    <p className="mt-1 line-clamp-3 pl-4 text-[11px] leading-snug text-muted-foreground">{stash.brief}</p>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
         </section>
       )}
     </>

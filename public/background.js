@@ -93,6 +93,8 @@ chrome.runtime.onInstalled.addListener(() => {
     migrateLegacyCredential()
   ]).catch(() => undefined);
 });
+// Anonymous one-question exit survey (aggregate counts only; see /privacy).
+chrome.runtime.setUninstallURL?.("https://tryshelve.com/bye");
 purgeLegacyUndo().catch(() => undefined);
 
 // The action has no default_popup: clicking it toggles the in-page overlay

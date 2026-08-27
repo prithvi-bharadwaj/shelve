@@ -7,6 +7,7 @@ import { ClosedDuplicatesToast } from "@/popup/ClosedDuplicatesToast";
 import { CommandBar } from "@/popup/CommandBar";
 import { OrganizingRail } from "@/popup/OrganizingRail";
 import { PinPrompt } from "@/popup/PinPrompt";
+import { QuickAction } from "@/popup/QuickAction";
 import { ReviewGroups } from "@/popup/ReviewGroups";
 import { StashPanel } from "@/popup/StashPanel";
 import { StatsCard } from "@/popup/StatsCard";
@@ -524,10 +525,10 @@ export function Popup() {
             </button>
           </BorderBeam>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-4 gap-1.5">
             <QuickAction label="Ungroup" onClick={ungroup} disabled={disabled} icon={icon("ungroup", <UngroupIcon className="size-[18px]" />)} />
-            <QuickAction label="Close duplicates" onClick={cleanDuplicates} disabled={disabled} icon={icon("duplicates", <CopyX className="size-4" />)} />
-            <QuickAction label="Merge windows" onClick={merge} disabled={disabled || windowCount <= 1} icon={icon("merge", <Combine className="size-4" />)} />
+            <QuickAction label="Duplicates" title="Close duplicates" onClick={cleanDuplicates} disabled={disabled} icon={icon("duplicates", <CopyX className="size-4" />)} />
+            <QuickAction label="Merge" title="Merge windows" onClick={merge} disabled={disabled || windowCount <= 1} icon={icon("merge", <Combine className="size-4" />)} />
             <QuickAction label="Undo" onClick={undo} disabled={disabled || !hasUndo} icon={icon("undo", <Undo2 className="size-4" />)} />
           </div>
 
@@ -567,28 +568,5 @@ export function Popup() {
       )}
     </main>
     </BorderBeam>
-  );
-}
-
-function QuickAction({
-  label,
-  icon,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  icon: ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="flex h-16 flex-col items-center justify-center gap-1.5 rounded-lg border border-border bg-transparent text-xs text-muted-foreground outline-none transition-[color,background-color,border-color,transform] duration-150 [transition-timing-function:var(--ease-out-strong)] hover:bg-muted hover:text-foreground active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
-    >
-      {icon}
-      <span className="px-1 text-center leading-tight">{label}</span>
-    </button>
   );
 }
