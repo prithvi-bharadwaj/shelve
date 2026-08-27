@@ -51,8 +51,8 @@ export function StatsCard({ refreshToken }: { refreshToken: unknown }) {
     >
       <div className="flex items-baseline justify-between gap-2 tabular-nums">
         <Stat value={tabs} label="tabs sorted" />
-        <Stat value={stats.totals.stashes ?? 0} label="shelved" />
-        <Stat value={stats.streak} label={stats.streak === 1 ? "day streak" : "day streak"} />
+        {(stats.totals.stashes ?? 0) > 0 && <Stat value={stats.totals.stashes ?? 0} label="projects shelved" />}
+        {stats.streak > 1 && <Stat value={stats.streak} label="day streak" />}
       </div>
       {subline && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{subline}</p>}
     </section>

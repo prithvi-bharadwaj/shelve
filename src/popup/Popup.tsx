@@ -5,7 +5,6 @@ import { UngroupIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ClosedDuplicatesToast } from "@/popup/ClosedDuplicatesToast";
 import { CommandBar } from "@/popup/CommandBar";
-import { GroupStylePicker } from "@/popup/GroupStylePicker";
 import { OrganizingRail } from "@/popup/OrganizingRail";
 import { PinPrompt } from "@/popup/PinPrompt";
 import { QuickAction } from "@/popup/QuickAction";
@@ -20,9 +19,7 @@ import type {
   OrganizeResponse,
   ProposedGroup,
   Stash,
-  GroupNameStyle,
 } from "@/types";
-import { DEFAULT_SETTINGS, GROUP_NAME_STYLES } from "@/types";
 
 // True when running inside the in-page iframe overlay (see public/overlay.js);
 // the panel then has rounded corners the window beam must follow.
@@ -57,8 +54,6 @@ export function Popup() {
   const [stashBusy, setStashBusy] = useState<number | string | null>(null);
   const [confirmingStash, setConfirmingStash] = useState<number | null>(null);
   const [organizeClosedTabs, setOrganizeClosedTabs] = useState<ClosedDuplicateTab[]>([]);
-  const [groupNameStyle, setGroupNameStyle] = useState<GroupNameStyle>(DEFAULT_SETTINGS.groupNameStyle);
-  const styleWrite = useRef<Promise<unknown>>(Promise.resolve());
   // null = handshake pending (embedded only); top-level windows are trusted.
   const [embedAllowed, setEmbedAllowed] = useState<boolean | null>(isEmbedded ? null : true);
   const ownsOrganizeRequest = useRef(false);
@@ -163,11 +158,10 @@ export function Popup() {
   useEffect(() => {
     (async () => {
       const window = await chrome.windows.getCurrent();
-      const [undoState, windows, local, sync] = await Promise.all([
+      const [undoState, windows, local] = await Promise.all([
         chrome.runtime.sendMessage({ type: "hasUndo", windowId: window.id }),
         chrome.runtime.sendMessage({ type: "windowCount" }),
         chrome.storage.local.get({ dataNoticeAck: false, pinPromptDismissed: false }),
-        chrome.storage.sync.get({ groupNameStyle: DEFAULT_SETTINGS.groupNameStyle }),
       ]);
       try {
         const userSettings = await chrome.action.getUserSettings();
@@ -178,11 +172,6 @@ export function Popup() {
       setWindowId(window.id);
       if (windows?.count) setWindowCount(windows.count);
       setHasUndo(Boolean(undoState?.hasUndo));
-      setGroupNameStyle(
-        GROUP_NAME_STYLES.includes(sync.groupNameStyle)
-          ? sync.groupNameStyle
-          : DEFAULT_SETTINGS.groupNameStyle
-      );
       setAcknowledged(Boolean(local.dataNoticeAck));
     })();
   }, []);
@@ -223,7 +212,6 @@ export function Popup() {
   }, [handleOrganizeResult, windowId, organizeActive]);
 
   const organize = async () => {
-    await styleWrite.current;
     if (!acknowledged && !confirming) {
       setConfirming(true);
       setStatus({ text: "Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider." });
@@ -271,17 +259,6 @@ export function Popup() {
       setRunning(null);
       setStatus({ text: "Organizing was interrupted. Try again.", error: true });
     }
-  };
-
-  const changeGroupNameStyle = (style: GroupNameStyle) => {
-    const previous = groupNameStyle;
-    setGroupNameStyle(style);
-    // Tracked so organize() can await it — otherwise the worker's getSettings()
-    // may read the pre-toggle style when the user clicks Organize immediately.
-    styleWrite.current = chrome.storage.sync.set({ groupNameStyle: style }).catch(() => {
-      setGroupNameStyle(previous);
-      setStatus({ text: "Couldn't save the group-label preference. Try again.", error: true });
-    });
   };
 
   const discardReview = async () => {
@@ -547,8 +524,6 @@ export function Popup() {
               <span>{confirming ? "Continue organizing" : "Organize tabs"}</span>
             </button>
           </BorderBeam>
-
-          <GroupStylePicker value={groupNameStyle} disabled={disabled} onChange={changeGroupNameStyle} />
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <QuickAction label="Ungroup" onClick={ungroup} disabled={disabled} icon={icon("ungroup", <UngroupIcon className="size-[18px]" />)} />
