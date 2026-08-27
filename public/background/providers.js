@@ -151,8 +151,8 @@ export const PROVIDERS = {
     async listModels(settings) {
       if (!settings.geminiKey) return [];
       const resp = await fetchWithTimeout(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(settings.geminiKey)}`,
-        {},
+        "https://generativelanguage.googleapis.com/v1beta/models",
+        { headers: { "x-goog-api-key": settings.geminiKey } },
         10000
       );
       if (!resp.ok) return [];
@@ -172,10 +172,11 @@ export const PROVIDERS = {
     },
 
     async classify(settings, system, user, schema) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.geminiKey)}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent`;
       const resp = await fetchWithTimeout(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // Key travels in a header, not the URL — URLs leak into logs.
+        headers: { "Content-Type": "application/json", "x-goog-api-key": settings.geminiKey },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
           contents: [{ role: "user", parts: [{ text: user }] }],

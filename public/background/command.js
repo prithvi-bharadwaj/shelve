@@ -187,6 +187,9 @@ Rules:
       return { done: true, action: "update_group", ...updated };
     }
     if (result.action === "create_group") {
+      if (!explicitMutationCommand(query, "create_group")) {
+        return { error: "Explicitly ask to create or group tabs before a new group is made." };
+      }
       const selectedIds = [...new Set(Array.isArray(result.tabIds) ? result.tabIds : [])]
         .filter((id) => mutableTabIds.has(id));
       if (!selectedIds.length) {
@@ -249,6 +252,9 @@ function explicitMutationCommand(query, action) {
   if (action === "merge_groups") return /\b(merge|combine|consolidate)\b/i.test(query);
   if (action === "add_to_group") return /\b(move|add|put|stick)\b/i.test(query);
   if (action === "update_group") return /\b(rename|re-?colou?r|colou?r|name|call)\b/i.test(query);
+  // The user's own words must carry mutation intent — page-injected text can
+  // steer the model's action choice, but it cannot rewrite the typed query.
+  if (action === "create_group") return /\b(create|make|group|re-?group|collect|gather|extract|pull|organi[sz]e)\b/i.test(query);
   return false;
 }
 
