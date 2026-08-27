@@ -39,7 +39,7 @@ export const PROVIDERS = {
         chrome.storage.local.set({ freeActionsRemaining: String(remaining) }).catch(() => undefined);
       }
       if (resp.status === 402) {
-        throw new Error("Your free actions are used up — add your own API key in Settings. Shelve stays free with your key.");
+        throw new Error("Your included Shelve actions are used up — add your own API key in Settings. Shelve stays free with your key.");
       }
       if (resp.status === 429) {
         throw new Error("Today's free actions are used up — they reset tomorrow, or add your own API key in Settings.");

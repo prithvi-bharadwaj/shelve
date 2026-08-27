@@ -239,7 +239,7 @@ export function Options() {
 
           {settings.provider === "shelve" && (
             <p className="text-xs text-muted-foreground">
-              No key, no signup — a bundle of free AI actions on Shelve's hosted model
+              No key, no signup — 30 free AI actions a day on Shelve's hosted model
               {freeActionsRemaining !== null ? ` (${freeActionsRemaining} left)` : ""}. When they run out,
               pick a provider above and paste your own key: Shelve stays free.
             </p>

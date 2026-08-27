@@ -33,7 +33,7 @@ describe("shelve free tier", () => {
     const { PROVIDERS } = await import("../public/background/providers.js");
     await expect(
       PROVIDERS.shelve.classify({}, "system prompt", "user prompt", { type: "object", properties: {} })
-    ).rejects.toThrow(/free actions are used up/i);
+    ).rejects.toThrow(/included Shelve actions are used up/i);
     await flushMicrotasks();
     expect(harness.mock.localData.installToken).toMatch(/^[0-9a-f-]{36}$/);
     expect(harness.mock.localData.freeActionsRemaining).toBe("0");
