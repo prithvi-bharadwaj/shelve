@@ -11,6 +11,7 @@ import { DEFAULT_SETTINGS, GROUP_NAME_STYLES, type Provider, type Settings } fro
 type Model = { id: string; name: string };
 
 const FALLBACK_MODELS: Record<Provider, Model[]> = {
+  shelve: [{ id: "gemini-3.1-flash-lite", name: "Shelve Free (Gemini Flash Lite)" }],
   openai: [
     { id: "gpt-5.6-luna", name: "GPT-5.6 Luna" },
     { id: "gpt-5.6-terra", name: "GPT-5.6 Terra" },
@@ -33,6 +34,7 @@ const FALLBACK_MODELS: Record<Provider, Model[]> = {
 };
 
 const PROVIDER_NAMES: Record<Provider, string> = {
+  shelve: "Shelve Free — no key needed",
   openai: "OpenAI",
   anthropic: "Anthropic",
   gemini: "Gemini",
@@ -43,6 +45,7 @@ export function Options() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [models, setModels] = useState<Model[]>(FALLBACK_MODELS.gemini);
   const [spentUsd, setSpentUsd] = useState(0);
+  const [freeActionsRemaining, setFreeActionsRemaining] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [modelStatus, setModelStatus] = useState("");
   const [importText, setImportText] = useState("");
@@ -93,7 +96,7 @@ export function Options() {
       const { openaiKey, anthropicKey, geminiKey, ollamaUrl, ...prefs } = DEFAULT_SETTINGS;
       const [sync, local] = await Promise.all([
         chrome.storage.sync.get({ ...prefs, model: "" }),
-        chrome.storage.local.get({ openaiKey, anthropicKey, geminiKey, ollamaUrl, spentUsd: 0 }),
+        chrome.storage.local.get({ openaiKey, anthropicKey, geminiKey, ollamaUrl, spentUsd: 0, freeActionsRemaining: "" }),
       ]);
       const modelByProvider = { ...DEFAULT_SETTINGS.modelByProvider, ...(sync.modelByProvider || {}) };
       if (sync.model && !sync.modelByProvider?.anthropic) modelByProvider.anthropic = sync.model;
@@ -111,6 +114,7 @@ export function Options() {
       providerRef.current = loaded.provider;
       setSettings(loaded);
       setSpentUsd(Number(local.spentUsd) || 0);
+      setFreeActionsRemaining(String(local.freeActionsRemaining || "") || null);
       await refreshModels(loaded.provider);
     })();
     return () => {
@@ -232,6 +236,14 @@ export function Options() {
               </SelectContent>
             </Select>
           </div>
+
+          {settings.provider === "shelve" && (
+            <p className="text-xs text-muted-foreground">
+              No key, no signup — 30 free AI actions a day on Shelve's hosted model
+              {freeActionsRemaining !== null ? ` (${freeActionsRemaining} left)` : ""}. When they run out,
+              pick a provider above and paste your own key: Shelve stays free.
+            </p>
+          )}
 
           {settings.provider === "openai" && (
             <CredentialField

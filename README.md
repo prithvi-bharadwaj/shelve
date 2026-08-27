@@ -61,7 +61,7 @@ Load `dist/` via `chrome://extensions` → Developer mode → Load unpacked.
 ## Privacy
 
 - Your API keys live in `chrome.storage.local` in this browser and are never synced.
-- Tab titles and URLs are sent only to the provider you selected — there is no Shelve backend, no analytics, no tracking. Page snippets are sent only for ambiguous or shelved tabs, only if you grant the optional page-access permission, and each feature asks you to acknowledge this once.
+- Tab titles and URLs are sent only to the provider you selected — no analytics, no tracking. With your own key there is no Shelve server in the path at all; the optional built-in free tier routes through a minimal zero-logging relay that stores only anonymous usage counters (see [tryshelve.com/privacy](https://tryshelve.com/privacy)). Page snippets are sent only for ambiguous or shelved tabs, only if you grant the optional page-access permission, and each feature asks you to acknowledge this once.
 - Shelving is disabled in incognito windows: extension storage is shared with regular browsing, so nothing from private windows is ever saved.
 - Stats are local-only counters. Group exports are created locally.
 

@@ -5,12 +5,59 @@ import {
   DEFAULT_LOCAL,
   PRICES,
   PROVIDER_TIMEOUT_MS,
-  OLLAMA_TIMEOUT_MS
+  OLLAMA_TIMEOUT_MS,
+  SHELVE_PROXY_URL
 } from "./constants.js";
 import { fetchWithTimeout, withTimeout, parseProviderJson, providerOutputError } from "./util.js";
-import { getSettings } from "./settings.js";
+import { getSettings, getInstallToken } from "./settings.js";
 
 export const PROVIDERS = {
+  // Hosted free tier: same request shape as the Gemini adapter, but routed
+  // through Shelve's metered proxy with an anonymous install token instead of
+  // a user credential. The model is pinned server-side.
+  shelve: {
+    async listModels() {
+      return [{ id: DEFAULT_MODELS.shelve, name: "Shelve Free (Gemini Flash Lite)" }];
+    },
+
+    async classify(settings, system, user, schema) {
+      const token = await getInstallToken();
+      const resp = await fetchWithTimeout(SHELVE_PROXY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{ role: "user", parts: [{ text: user }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: toGeminiSchema(schema)
+          }
+        })
+      }, PROVIDER_TIMEOUT_MS);
+      const remaining = resp.headers?.get?.("x-shelve-actions-remaining");
+      if (remaining !== null && remaining !== undefined) {
+        chrome.storage.local.set({ freeActionsRemaining: String(remaining) }).catch(() => undefined);
+      }
+      if (resp.status === 402) {
+        throw new Error("Your included Shelve actions are used up — add your own API key in Settings. Shelve stays free with your key.");
+      }
+      if (resp.status === 429) {
+        throw new Error("Today's free actions are used up — they reset tomorrow, or add your own API key in Settings.");
+      }
+      const data = await readApiResponse(resp);
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const usage = {
+        input: data.usageMetadata?.promptTokenCount || 0,
+        output: data.usageMetadata?.candidatesTokenCount || 0
+      };
+      if (!text) throw providerOutputError("Empty response from model.", usage);
+      return {
+        json: parseProviderJson(text, usage),
+        usage
+      };
+    }
+  },
+
   openai: {
     async listModels(settings) {
       if (!settings.openaiKey) return [];

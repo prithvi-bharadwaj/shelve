@@ -54,7 +54,11 @@ describe("organize consent enforcement", () => {
   });
 
   it("proceeds past the consent guard once acknowledged", async () => {
-    const { invokeMessage } = await load((mock) => mock.seedLocal({ dataNoticeAck: true }));
+    const { invokeMessage } = await load((mock) => {
+      mock.seedLocal({ dataNoticeAck: true });
+      // Pin a keyed provider: the default "shelve" free tier needs no credential.
+      mock.seedSync({ provider: "gemini" });
+    });
     const response = (await invokeMessage({ type: "organize", windowId: 1 })) as { error?: string };
     expect(response.error).toMatch(/No Gemini API key set/);
   });

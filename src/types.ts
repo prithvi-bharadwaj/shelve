@@ -94,7 +94,7 @@ export type MergeResponse = {
   tabs?: number;
 };
 
-export type Provider = "openai" | "anthropic" | "gemini" | "ollama";
+export type Provider = "shelve" | "openai" | "anthropic" | "gemini" | "ollama";
 
 export type ModelByProvider = Record<Provider, string>;
 
@@ -119,8 +119,9 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  provider: "gemini",
+  provider: "shelve",
   modelByProvider: {
+    shelve: "gemini-3.1-flash-lite",
     openai: "gpt-5.6-luna",
     anthropic: "claude-haiku-4-5",
     gemini: "gemini-3.1-flash-lite",
