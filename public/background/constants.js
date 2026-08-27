@@ -15,6 +15,17 @@ export const STASH_RESUME_STALE_MS = 2 * 60 * 1000;
 
 export const SHELVE_PROXY_URL = "https://tryshelve.com/api/generate";
 
+// Payments scaffold — built but not enabled. Flipping this on requires a live
+// Stripe account and the Checkout URL below. Entitlement is never decided in
+// the extension: the Stripe webhook (shelve-site/api/stripe-webhook.mjs)
+// verifies payment server-side and writes paid:<token> to KV, which the proxy
+// trusts on every request.
+export const PAYMENTS_ENABLED = false;
+// TODO(stripe-payment-link): set to the live Stripe Payment Link once the
+// Stripe account exists. The install token is appended as
+// ?client_reference_id={installToken} so the webhook can attribute payments.
+export const STRIPE_CHECKOUT_URL = "";
+
 export const DEFAULT_MODELS = {
   shelve: "gemini-3.1-flash-lite",
   openai: "gpt-5.6-luna",

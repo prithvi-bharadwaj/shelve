@@ -1,6 +1,13 @@
 // User settings, credential migration, and provider access checks.
 
-import { DEFAULT_MODELS, DEFAULT_PREFS, DEFAULT_LOCAL, GROUP_NAME_STYLES } from "./constants.js";
+import {
+  DEFAULT_MODELS,
+  DEFAULT_PREFS,
+  DEFAULT_LOCAL,
+  GROUP_NAME_STYLES,
+  PAYMENTS_ENABLED,
+  STRIPE_CHECKOUT_URL
+} from "./constants.js";
 
 let legacyCredentialMigration = null;
 
@@ -62,6 +69,21 @@ export function hasProviderAccess(settings) {
 export function missingCredentialMessage(provider) {
   const names = { openai: "OpenAI", anthropic: "Anthropic", gemini: "Gemini" };
   return `No ${names[provider] || "provider"} API key set — open Settings and add one.`;
+}
+
+// Upgrade-screen config for the popup, which can't import background constants
+// (public/ files are static assets to the Vite build). The checkout URL carries
+// the install token as client_reference_id; the Stripe webhook turns a
+// confirmed payment into a server-side paid:<token> entitlement — the client
+// never asserts paid status.
+export async function getUpgradeInfo() {
+  const token = await getInstallToken();
+  return {
+    paymentsEnabled: PAYMENTS_ENABLED && Boolean(STRIPE_CHECKOUT_URL),
+    checkoutUrl: STRIPE_CHECKOUT_URL
+      ? `${STRIPE_CHECKOUT_URL}?client_reference_id=${encodeURIComponent(token)}`
+      : ""
+  };
 }
 
 // One anonymous UUID per install, minted lazily; it is the free tier's

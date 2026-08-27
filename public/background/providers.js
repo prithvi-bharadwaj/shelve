@@ -38,11 +38,14 @@ export const PROVIDERS = {
       if (remaining !== null && remaining !== undefined) {
         chrome.storage.local.set({ freeActionsRemaining: String(remaining) }).catch(() => undefined);
       }
-      if (resp.status === 402) {
-        throw new Error("Your included Shelve actions are used up — add your own API key in Settings. Shelve stays free with your key.");
-      }
-      if (resp.status === 429) {
-        throw new Error("Today's free actions are used up — they reset tomorrow, or add your own API key in Settings.");
+      if (resp.status === 402 || resp.status === 429) {
+        const error = new Error(
+          resp.status === 402
+            ? "Your included Shelve actions are used up — add your own API key in Settings. Shelve stays free with your key."
+            : "Today's free actions are used up — they reset tomorrow, or add your own API key in Settings."
+        );
+        error.quota = true; // out-of-quota, not a failure: surfaces the upgrade screen
+        throw error;
       }
       const data = await readApiResponse(resp);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -282,7 +285,9 @@ export async function listModels(providerOverride) {
 }
 
 async function checkBudget(settings) {
-  if (settings.provider === "ollama") return;
+  // Ollama is free and Shelve Free runs on the developer's key — a spent-up
+  // BYOK budget must never lock a user out of the tiers that cost them $0.
+  if (settings.provider === "ollama" || settings.provider === "shelve") return;
   const { spentUsd } = await chrome.storage.local.get({ spentUsd: 0 });
   const budget = Math.max(0, Number(settings.budgetUsd) || 0);
   if (Number(spentUsd) >= budget) {

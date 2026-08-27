@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { CUSTOM_INSTRUCTION_PLACEHOLDERS, useRotatingPlaceholder } from "@/lib/rotatingPlaceholders";
+import { DataSection } from "@/options/DataSection";
+import { ProviderSection, type Model } from "@/options/ProviderSection";
+import { Divider, SectionHeading } from "@/options/section";
 import { DEFAULT_SETTINGS, GROUP_NAME_STYLES, type Provider, type Settings } from "@/types";
-
-type Model = { id: string; name: string };
 
 const FALLBACK_MODELS: Record<Provider, Model[]> = {
   shelve: [{ id: "gemini-3.1-flash-lite", name: "Shelve Free (Gemini Flash Lite)" }],
@@ -33,14 +33,6 @@ const FALLBACK_MODELS: Record<Provider, Model[]> = {
   ollama: [],
 };
 
-const PROVIDER_NAMES: Record<Provider, string> = {
-  shelve: "Shelve Free — no key needed",
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  gemini: "Gemini",
-  ollama: "Ollama",
-};
-
 export function Options() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [models, setModels] = useState<Model[]>(FALLBACK_MODELS.gemini);
@@ -48,8 +40,6 @@ export function Options() {
   const [freeActionsRemaining, setFreeActionsRemaining] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [modelStatus, setModelStatus] = useState("");
-  const [importText, setImportText] = useState("");
-  const [dataStatus, setDataStatus] = useState<{ text: string; error?: boolean } | null>(null);
   const customInstructionsPlaceholder = useRotatingPlaceholder(CUSTOM_INSTRUCTION_PLACEHOLDERS);
   // Request identity: a slow model-list response for a previously selected
   // provider (or an unmounted page) must never overwrite current state.
@@ -173,137 +163,20 @@ export function Options() {
     setSpentUsd(0);
   };
 
-  const exportData = async () => {
-    setDataStatus(null);
-    const window = await chrome.windows.getCurrent();
-    const data = await chrome.runtime.sendMessage({ type: "exportGroups", windowId: window.id });
-    if (data?.error) {
-      setDataStatus({ text: data.error, error: true });
-      return;
-    }
-    const json = JSON.stringify(data, null, 2);
-    let copied = true;
-    try {
-      await navigator.clipboard.writeText(json);
-    } catch {
-      copied = false;
-    }
-    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "shelve.json";
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
-    setDataStatus({ text: copied ? "Copied and downloaded shelve.json" : "Downloaded shelve.json; clipboard unavailable" });
-  };
-
-  const importData = async () => {
-    setDataStatus(null);
-    let payload: unknown;
-    try {
-      payload = JSON.parse(importText);
-    } catch {
-      setDataStatus({ text: "Paste valid Shelve JSON.", error: true });
-      return;
-    }
-    const window = await chrome.windows.getCurrent();
-    const res = await chrome.runtime.sendMessage({ type: "importGroups", payload, windowId: window.id });
-    setDataStatus(
-      res?.error
-        ? { text: res.error, error: true }
-        : { text: `Imported ${res.groupCount} group${res.groupCount === 1 ? "" : "s"} · ${res.tabCount} tabs` }
-    );
-  };
-
-  const activeModel = settings.modelByProvider[settings.provider];
-  const modelInList = models.some((model) => model.id === activeModel);
-
   return (
     <div className="mx-auto max-w-md px-6 py-12">
       <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
 
       <div className="mt-8 flex flex-col gap-6">
-        <section className="flex flex-col gap-4" aria-labelledby="provider-heading">
-          <SectionHeading id="provider-heading">Provider</SectionHeading>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="provider">AI provider</Label>
-            <Select value={settings.provider} onValueChange={(value) => changeProvider(value as Provider)}>
-              <SelectTrigger id="provider"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(PROVIDER_NAMES).map(([id, name]) => (
-                  <SelectItem key={id} value={id}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {settings.provider === "shelve" && (
-            <p className="text-xs text-muted-foreground">
-              No key, no signup — 30 free AI actions a day on Shelve's hosted model
-              {freeActionsRemaining !== null ? ` (${freeActionsRemaining} left)` : ""}. When they run out,
-              pick a provider above and paste your own key: Shelve stays free.
-            </p>
-          )}
-
-          {settings.provider === "openai" && (
-            <CredentialField
-              id="openaiKey"
-              label="OpenAI API key"
-              placeholder="sk-…"
-              value={settings.openaiKey}
-              onChange={(value) => set("openaiKey", value)}
-              hint="Stored in this browser's local extension storage and sent only to OpenAI."
-            />
-          )}
-          {settings.provider === "anthropic" && (
-            <CredentialField
-              id="anthropicKey"
-              label="Anthropic API key"
-              placeholder="sk-ant-…"
-              value={settings.anthropicKey}
-              onChange={(value) => set("anthropicKey", value)}
-              hint="Stored in this browser's local extension storage and sent only to Anthropic."
-            />
-          )}
-          {settings.provider === "gemini" && (
-            <CredentialField
-              id="geminiKey"
-              label="Gemini API key"
-              placeholder="AIza…"
-              value={settings.geminiKey}
-              onChange={(value) => set("geminiKey", value)}
-              hint="Stored in this browser's local extension storage and sent only to Google."
-            />
-          )}
-          {settings.provider === "ollama" && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ollamaUrl">Ollama URL</Label>
-              <Input
-                id="ollamaUrl"
-                type="url"
-                value={settings.ollamaUrl}
-                onChange={(event) => set("ollamaUrl", event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Run Ollama with <code>OLLAMA_ORIGINS=&quot;chrome-extension://*&quot;</code> so the extension can connect.
-              </p>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="model">Model</Label>
-            <Select value={activeModel || undefined} onValueChange={setModel}>
-              <SelectTrigger id="model"><SelectValue placeholder="No models found" /></SelectTrigger>
-              <SelectContent>
-                {activeModel && !modelInList && <SelectItem value={activeModel}>{activeModel}</SelectItem>}
-                {models.map((model) => (
-                  <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">{modelStatus || "Fetched live after your provider settings are saved."}</p>
-          </div>
-        </section>
+        <ProviderSection
+          settings={settings}
+          models={models}
+          modelStatus={modelStatus}
+          freeActionsRemaining={freeActionsRemaining}
+          onChangeProvider={changeProvider}
+          onSetModel={setModel}
+          onSet={set}
+        />
 
         <Divider />
 
@@ -398,52 +271,37 @@ export function Options() {
           </label>
         </section>
 
+        {/* The free tier runs on Shelve's own key — a Budget/spend section
+            would wrongly imply the user is paying for tokens. */}
+        {settings.provider !== "shelve" && (
+          <>
+            <Divider />
+
+            <section className="flex flex-col gap-4" aria-labelledby="budget-heading">
+              <SectionHeading id="budget-heading">Budget</SectionHeading>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="budget">Spend cap ($)</Label>
+                <Input
+                  id="budget"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={settings.budgetUsd}
+                  onChange={(event) => set("budgetUsd", Math.max(0, Number(event.target.value) || 0))}
+                />
+                <p className="text-xs text-muted-foreground">Estimated from provider token usage. Ollama is free.</p>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs tabular-nums text-muted-foreground">Spent: ${spentUsd.toFixed(4)}</p>
+                <Button variant="outline" size="sm" onClick={resetSpend}>Reset spend</Button>
+              </div>
+            </section>
+          </>
+        )}
+
         <Divider />
 
-        <section className="flex flex-col gap-4" aria-labelledby="budget-heading">
-          <SectionHeading id="budget-heading">Budget</SectionHeading>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="budget">Spend cap ($)</Label>
-            <Input
-              id="budget"
-              type="number"
-              min={0}
-              step="0.01"
-              value={settings.budgetUsd}
-              onChange={(event) => set("budgetUsd", Math.max(0, Number(event.target.value) || 0))}
-            />
-            <p className="text-xs text-muted-foreground">Estimated from provider token usage. Ollama is free.</p>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-xs tabular-nums text-muted-foreground">Spent: ${spentUsd.toFixed(4)}</p>
-            <Button variant="outline" size="sm" onClick={resetSpend}>Reset spend</Button>
-          </div>
-        </section>
-
-        <Divider />
-
-        <section className="flex flex-col gap-4" aria-labelledby="data-heading">
-          <SectionHeading id="data-heading">Data</SectionHeading>
-          <div>
-            <Button variant="outline" onClick={exportData}>Export groups</Button>
-            <p className="mt-2 text-xs text-muted-foreground">Copies JSON and downloads shelve.json.</p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="importJson">Import groups</Label>
-            <textarea
-              id="importJson"
-              rows={6}
-              value={importText}
-              onChange={(event) => setImportText(event.target.value)}
-              placeholder="Paste Shelve JSON…"
-              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            />
-            <Button variant="outline" onClick={importData} disabled={!importText.trim()} className="self-start">Import groups</Button>
-          </div>
-          <p className={`min-h-4 text-xs ${dataStatus?.error ? "text-destructive" : "text-muted-foreground"}`} aria-live="polite">
-            {dataStatus?.text || ""}
-          </p>
-        </section>
+        <DataSection />
 
         <Divider />
 
@@ -457,36 +315,6 @@ export function Options() {
           </span>
         </div>
       </div>
-    </div>
-  );
-}
-
-function CredentialField({
-  id,
-  label,
-  placeholder,
-  value,
-  onChange,
-  hint,
-}: {
-  id: string;
-  label: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  hint: string;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        type="password"
-        placeholder={placeholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <p className="text-xs text-muted-foreground">{hint}</p>
     </div>
   );
 }
@@ -513,14 +341,6 @@ function SwitchRow({
       <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
-}
-
-function SectionHeading({ id, children }: { id: string; children: string }) {
-  return <h2 id={id} className="text-sm font-semibold tracking-tight">{children}</h2>;
-}
-
-function Divider() {
-  return <div className="h-px bg-border" />;
 }
 
 function clamp(value: number, min: number, max: number) {

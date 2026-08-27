@@ -11,6 +11,7 @@ export function CommandBar({
   onAcknowledge,
   onRunningChange,
   onMutation,
+  onQuotaExhausted,
 }: {
   windowId?: number;
   disabled: boolean;
@@ -18,6 +19,7 @@ export function CommandBar({
   onAcknowledge: () => Promise<void>;
   onRunningChange: (running: boolean) => void;
   onMutation?: () => Promise<void>;
+  onQuotaExhausted?: (message: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [running, setRunning] = useState(false);
@@ -73,6 +75,12 @@ export function CommandBar({
         windowId,
         hasContentPermission,
       });
+      if (res?.quota && res.error) {
+        // Out-of-quota is an upgrade moment, not a command failure.
+        onQuotaExhausted?.(res.error);
+        setResult(null);
+        return;
+      }
       setResult(res ?? { error: "Something went wrong." });
       if (["create_group", "add_to_group", "update_group", "ungroup", "remove_duplicates", "merge_groups"].includes(res?.action || "") && !res.error) {
         setQuery("");
