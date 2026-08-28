@@ -62,6 +62,11 @@ export function Popup() {
   // True while the command bar holds unsent text — the one state a tab switch
   // must not throw away.
   const [hasDraft, setHasDraft] = useState(false);
+  // Randomized once per mount so the glow drift never reads as a fixed loop.
+  const [glowTiming] = useState(() => ({
+    animationDuration: `${(7 + Math.random() * 4).toFixed(2)}s`,
+    animationDelay: `-${(Math.random() * 6).toFixed(2)}s`,
+  }));
 
   useEffect(() => {
     if (!isEmbedded) return;
@@ -356,7 +361,7 @@ export function Popup() {
             tabIndex={-1}
             aria-hidden="true"
           >
-            <img src="icons/logo.svg" alt="" className="absolute inset-0 size-9 opacity-60 blur-md saturate-150" />
+            <img src="icons/logo.svg" alt="" className="logo-glow absolute inset-0 size-9 blur-md saturate-150" style={glowTiming} />
             <img
               src="icons/logo.svg"
               alt=""
