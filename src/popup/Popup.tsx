@@ -428,7 +428,7 @@ export function Popup() {
             colorVariant="ocean"
             theme="dark"
             strength={0.4}
-            active={acknowledged === false || (running === "organize" && !organizing)}
+            active={!disabled || running === "organize"}
             className="mt-3 w-full has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
             data-testid="organize-beam"
           >
@@ -464,7 +464,9 @@ export function Popup() {
 
       {!organizing && !upgrade && (
         <>
-          <div className="mt-4 min-h-4 text-xs" aria-live="polite">
+          {/* sr-only when empty: the live region stays in the DOM for
+              announcements without reserving blank space below the panels. */}
+          <div className={status ? "mt-4 text-xs" : "sr-only"} aria-live="polite">
             <p className={status?.error ? "text-destructive" : "text-muted-foreground"}>
               {status?.text ?? ""}
             </p>

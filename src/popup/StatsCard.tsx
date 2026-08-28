@@ -50,7 +50,7 @@ export function StatsCard({ refreshToken }: { refreshToken: unknown }) {
     <p
       aria-label="Your stats"
       title={nextMilestone ? `${(nextMilestone - tabs).toLocaleString()} tabs to ${nextMilestone.toLocaleString()}` : undefined}
-      className="mt-2 text-[11px] leading-snug text-muted-foreground tabular-nums"
+      className="mt-3 text-[11px] leading-snug text-muted-foreground tabular-nums"
     >
       {line}
     </p>
