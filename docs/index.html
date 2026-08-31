@@ -7,88 +7,292 @@
 <meta name="description" content="One click sorts your open tabs into named groups by intent. Find any tab by describing it. Shelve a project, come back to a brief. Bring your own key — we never see your tabs.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #faf9f6;
-    --ink: #1c1b18;
-    --muted: #6f6b62;
-    --line: #e6e2d9;
-    --accent: #a16207;
-    --card: #ffffff;
+    --bg: #08090a;
+    --text: #f7f8f8;
+    --muted: #8a8f98;
+    --line: rgba(255, 255, 255, 0.08);
+    --surface: rgba(255, 255, 255, 0.035);
+    --accent: #5e6ad2;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   }
-  * { box-sizing: border-box; margin: 0; }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
   body {
+    margin: 0;
+    overflow-x: hidden;
     background: var(--bg);
-    color: var(--ink);
-    font-family: "Geist", -apple-system, "Segoe UI", sans-serif;
-    line-height: 1.55;
+    color: var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  .wrap { max-width: 640px; margin: 0 auto; padding: 0 24px; }
-  header { display: flex; justify-content: space-between; align-items: center; padding: 28px 0; }
-  .mark { font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
-  .mark::before { content: ""; display: inline-block; width: 14px; height: 3px; background: var(--accent); border-radius: 2px; margin-right: 8px; vertical-align: 4px; }
-  nav a { color: var(--muted); text-decoration: none; font-size: 14px; margin-left: 20px; }
-  nav a:hover { color: var(--ink); }
-  .hero { padding: 64px 0 40px; }
-  h1 { font-size: clamp(30px, 6vw, 42px); font-weight: 600; letter-spacing: -0.025em; line-height: 1.12; }
-  h1 em { font-style: normal; color: var(--muted); }
-  .sub { margin-top: 18px; font-size: 17px; color: var(--muted); max-width: 34em; }
-  .cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  a { color: inherit; }
+  .skip-link {
+    position: fixed;
+    z-index: 100;
+    top: 12px;
+    left: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--text);
+    color: var(--bg);
+    transform: translateY(-150%);
+  }
+  .skip-link:focus { transform: translateY(0); }
+  .wrap {
+    width: min(100% - 48px, 1024px);
+    margin-inline: auto;
+  }
+  .site-header {
+    position: sticky;
+    z-index: 20;
+    top: 0;
+    border-bottom: 1px solid var(--line);
+    background: rgba(8, 9, 10, 0.72);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+  }
+  .nav-wrap {
+    display: flex;
+    min-height: 64px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .mark::before {
+    width: 15px;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 16px rgba(94, 106, 210, 0.7);
+    content: "";
+  }
+  nav { display: flex; align-items: center; gap: 8px; }
+  nav a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    padding: 0 10px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+  nav a:hover { color: var(--text); }
+  :focus-visible {
+    outline: 2px solid #8b95ec;
+    outline-offset: 3px;
+  }
+  .hero {
+    position: relative;
+    padding: clamp(88px, 14vw, 144px) 0 76px;
+  }
+  .hero::before {
+    position: absolute;
+    z-index: -1;
+    top: -220px;
+    left: 50%;
+    width: min(900px, 110vw);
+    height: 620px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(94, 106, 210, 0.22) 0%, rgba(94, 106, 210, 0.07) 40%, transparent 72%);
+    filter: blur(22px);
+    content: "";
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .hero-copy { max-width: 640px; }
+  h1, h2, p { margin: 0; }
+  h1 {
+    font-size: clamp(40px, 6vw, 56px);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+  }
+  h1 em { color: var(--muted); font-style: normal; }
+  .sub {
+    max-width: 620px;
+    margin-top: 24px;
+    color: var(--muted);
+    font-size: clamp(16px, 2vw, 18px);
+    line-height: 1.65;
+  }
+  .cta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 32px;
+  }
   .btn {
-    display: inline-block; padding: 11px 20px; border-radius: 8px; font-size: 15px; font-weight: 500;
-    text-decoration: none; border: 1px solid var(--ink); color: var(--bg); background: var(--ink);
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    border-radius: 8px;
+    background: var(--text);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 8px 24px rgba(0, 0, 0, 0.25);
+    color: #111214;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    transition: background-color 160ms ease, transform 140ms var(--ease-out);
   }
-  .btn:hover { background: #33312c; border-color: #33312c; }
+  .btn:hover { background: #fff; }
+  .btn:active { transform: scale(0.97); }
   .cta small { color: var(--muted); font-size: 13px; }
   .strip {
-    margin: 56px 0 0; padding: 18px; background: var(--card); border: 1px solid var(--line);
-    border-radius: 12px; display: flex; flex-wrap: wrap; gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 72px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 24px 80px rgba(0, 0, 0, 0.18);
   }
   .chip {
-    font-family: "Geist Mono", ui-monospace, monospace; font-size: 12.5px; padding: 6px 12px;
-    border-radius: 999px; border: 1px solid var(--line); color: var(--ink); background: var(--bg);
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 11px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.28);
+    color: #d8dadd;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.2;
   }
-  .chip b { font-weight: 400; color: var(--muted); }
-  .chip::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
-  .chip:nth-child(1)::before { background: #2563eb; }
-  .chip:nth-child(2)::before { background: #dc2626; }
-  .chip:nth-child(3)::before { background: #16a34a; }
-  .chip:nth-child(4)::before { background: #9333ea; }
-  .chip:nth-child(5)::before { background: #d97706; }
-  .strip-note { margin-top: 10px; font-size: 13px; color: var(--muted); }
-  section { padding: 44px 0 0; }
-  .feat { padding: 22px 0; border-top: 1px solid var(--line); }
-  .feat h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
-  .feat p { margin-top: 6px; color: var(--muted); font-size: 15px; max-width: 36em; }
-  .privacy { margin-top: 56px; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
-  .privacy h2 { font-size: 16px; font-weight: 600; }
-  .privacy p { margin-top: 8px; color: var(--muted); font-size: 15px; }
-  .privacy a { color: var(--accent); }
-  footer { margin-top: 64px; padding: 28px 0 48px; border-top: 1px solid var(--line);
-    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
-    color: var(--muted); font-size: 13.5px; }
-  footer a { color: var(--muted); }
-  footer a:hover { color: var(--ink); }
+  .chip b { color: var(--muted); font-weight: 400; }
+  .chip::before {
+    width: 7px;
+    height: 7px;
+    margin-right: 7px;
+    border-radius: 50%;
+    content: "";
+  }
+  .chip:nth-child(1)::before { background: #4d78e8; }
+  .chip:nth-child(2)::before { background: #df5b5b; }
+  .chip:nth-child(3)::before { background: #4bb477; }
+  .chip:nth-child(4)::before { background: #9368de; }
+  .chip:nth-child(5)::before { background: #d5994b; }
+  .strip-note { margin-top: 12px; color: var(--muted); font-size: 13px; }
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    padding: 16px 0 0;
+  }
+  .feat, .privacy {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  }
+  .feat {
+    min-height: 252px;
+    padding: 28px;
+    border-radius: 14px;
+  }
+  .feat h2, .privacy h2 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.4;
+  }
+  .feat p, .privacy p {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .privacy {
+    margin-top: 16px;
+    padding: 32px;
+    border-radius: 14px;
+  }
+  .privacy p { max-width: 800px; }
+  .privacy a { color: #9ca6ff; text-underline-offset: 3px; }
+  .privacy a:hover { color: #bcc2ff; }
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 80px;
+    padding: 28px 0 48px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+  footer a { color: var(--muted); text-underline-offset: 3px; transition: color 160ms ease; }
+  footer a:hover { color: var(--text); }
+  .hero-copy, .strip {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fade-up 560ms var(--ease-out) forwards;
+  }
+  .strip { animation-delay: 90ms; }
+  @keyframes fade-up {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (max-width: 760px) {
+    .wrap { width: min(100% - 32px, 1024px); }
+    .hero { padding: 72px 0 56px; }
+    .strip { margin-top: 56px; }
+    .features { grid-template-columns: 1fr; }
+    .feat { min-height: 0; }
+  }
+  @media (max-width: 480px) {
+    .cta { align-items: flex-start; flex-direction: column; gap: 10px; }
+    .btn { width: 100%; }
+    .strip { padding: 14px; }
+    .privacy { padding: 24px; }
+    footer { align-items: flex-start; flex-direction: column; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; }
+    .hero-copy, .strip { opacity: 1; transform: none; animation: none; }
+    .btn { transition: background-color 160ms ease; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap nav-wrap">
     <span class="mark">Shelve</span>
-    <nav>
+    <nav aria-label="Primary navigation">
       <a href="https://github.com/prithvi-bharadwaj/shelve">GitHub</a>
       <a href="privacy.html">Privacy</a>
     </nav>
-  </header>
+  </div>
+</header>
 
-  <div class="hero">
-    <h1>Your browser remembers what you were doing. <em>Even when you don’t.</em></h1>
-    <p class="sub">One click sorts your open tabs into named groups by what you’re actually doing — not by site. Find any tab by describing it. Shelve a whole project and come back to a brief of where you left off.</p>
-    <div class="cta">
-      <a class="btn" href="https://github.com/prithvi-bharadwaj/shelve/releases/latest/download/shelve.zip">Download for Chrome</a>
-      <small>Free · ~200&nbsp;KB · Chrome Web Store soon</small>
+<main class="wrap" id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <h1 id="hero-title">Your browser remembers what you were doing. <em>Even when you don’t.</em></h1>
+      <p class="sub">One click sorts your open tabs into named groups by what you’re actually doing — not by site. Find any tab by describing it. Shelve a whole project and come back to a brief of where you left off.</p>
+      <div class="cta">
+        <a class="btn" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap">Add to Chrome</a>
+        <small>Free · No account needed</small>
+      </div>
     </div>
 
     <div class="strip" aria-hidden="true">
@@ -99,32 +303,32 @@
       <span class="chip">Reading <b>· 5</b></span>
     </div>
     <p class="strip-note">Forty loose tabs, ten seconds later.</p>
-  </div>
-
-  <section>
-    <div class="feat">
-      <h2>Groups by intent, not by domain</h2>
-      <p>Ten Twitter tabs won’t collapse into one “entertainment” pile. The research thread goes to research; the essay goes to reading. Same site, different jobs, different groups.</p>
-    </div>
-    <div class="feat">
-      <h2>Ask for the tab you can’t find</h2>
-      <p>“The hotel under $200 a night.” “The LinkedIn profile of the Stanford founder.” Describe what you remember and Shelve jumps to it — out of twenty lookalikes.</p>
-    </div>
-    <div class="feat">
-      <h2>Shelve it. Come back to a brief.</h2>
-      <p>Done for the day? A shelved project closes its tabs behind an AI note of where you left off — prices, options, what was still unchecked. Resume reopens everything as a fresh group.</p>
-    </div>
   </section>
 
-  <div class="privacy">
-    <h2>Bring your own key. We never see your tabs.</h2>
-    <p>Shelve talks directly to the AI provider you choose — OpenAI, Anthropic, Gemini, or a local Ollama. There is no Shelve backend, no account, no analytics. Your API key stays in your browser. The <a href="https://github.com/prithvi-bharadwaj/shelve">source is public</a> so you don’t have to take our word for it.</p>
-  </div>
+  <section class="features" aria-label="Features">
+    <article class="feat">
+      <h2>Groups by intent, not by domain</h2>
+      <p>Ten Twitter tabs won’t collapse into one “entertainment” pile. The research thread goes to research; the essay goes to reading. Same site, different jobs, different groups.</p>
+    </article>
+    <article class="feat">
+      <h2>Ask for the tab you can’t find</h2>
+      <p>“The hotel under $200 a night.” “The LinkedIn profile of the Stanford founder.” Describe what you remember and Shelve jumps to it — out of twenty lookalikes.</p>
+    </article>
+    <article class="feat">
+      <h2>Shelve it. Come back to a brief.</h2>
+      <p>Done for the day? A shelved project closes its tabs behind an AI note of where you left off — prices, options, what was still unchecked. Resume reopens everything as a fresh group.</p>
+    </article>
+  </section>
 
-  <footer>
-    <span>© 2026 Prithvi Bharadwaj</span>
-    <span><a href="privacy.html">Privacy policy</a> · <a href="mailto:prithvi@skive.in">Contact</a> · <a href="https://github.com/prithvi-bharadwaj/shelve/blob/main/LICENSE">PolyForm Shield 1.0.0</a></span>
-  </footer>
-</div>
+  <section class="privacy" aria-labelledby="privacy-title">
+    <h2 id="privacy-title">Bring your own key. We never see your tabs.</h2>
+    <p>Shelve talks directly to the AI provider you choose — OpenAI, Anthropic, Gemini, or a local Ollama. There is no Shelve backend, no account, no analytics. Your API key stays in your browser. The <a href="https://github.com/prithvi-bharadwaj/shelve">source is public</a> so you don’t have to take our word for it.</p>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>© 2026 Prithvi Bharadwaj</span>
+  <span><a href="privacy.html">Privacy policy</a> · <a href="mailto:prithvi@skive.in">Contact</a> · <a href="https://github.com/prithvi-bharadwaj/shelve/blob/main/LICENSE">PolyForm Shield 1.0.0</a></span>
+</footer>
 </body>
 </html>
