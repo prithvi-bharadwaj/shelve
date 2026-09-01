@@ -1,3 +1,20 @@
+// ── Reduced motion: stop the background video ────────
+(function () {
+  var video = document.querySelector(".bg-video");
+  if (!video) return;
+  var mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  function apply() {
+    if (mq.matches) {
+      video.pause();
+      video.removeAttribute("autoplay");
+    } else {
+      video.play().catch(function () {});
+    }
+  }
+  mq.addEventListener("change", apply);
+  apply();
+})();
+
 // ── Stat count-up ────────────────────────────────────
 (function () {
   var values = document.querySelectorAll(".stat-value");
@@ -52,13 +69,39 @@
   var menu = document.getElementById("mobile-menu");
   if (!burger || !overlay || !menu) return;
 
+  var page = document.querySelector(".page");
+
   function setOpen(open) {
     burger.setAttribute("aria-expanded", String(open));
     burger.setAttribute("aria-label", open ? "Close menu" : "Open menu");
     overlay.hidden = !open;
     menu.hidden = !open;
     document.body.classList.toggle("menu-open", open);
+    if (page) page.inert = open;
+    if (open) {
+      var first = menu.querySelector("a");
+      if (first) first.focus();
+    } else {
+      burger.focus();
+    }
   }
+
+  // Keep Tab inside the open menu (burger lives outside it in the DOM)
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Tab" || !isOpen()) return;
+    var focusables = [burger].concat(
+      Array.prototype.slice.call(menu.querySelectorAll("a"))
+    );
+    var first = focusables[0];
+    var last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
 
   function isOpen() {
     return burger.getAttribute("aria-expanded") === "true";
