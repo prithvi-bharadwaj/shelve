@@ -38,6 +38,13 @@ export const PROVIDERS = {
       if (remaining !== null && remaining !== undefined) {
         chrome.storage.local.set({ freeActionsRemaining: String(remaining) }).catch(() => undefined);
       }
+      if (resp.status === 403) {
+        // Vercel challenge pages (bot protection) return HTML 403s the service
+        // worker can't solve — not a user error, and usually transient.
+        throw new Error(
+          "Shelve's free service hit a temporary security check — try again in a few minutes, or add your own API key in Settings to skip the shared server."
+        );
+      }
       if (resp.status === 402 || resp.status === 429) {
         const error = new Error(
           resp.status === 402
