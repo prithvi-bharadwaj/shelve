@@ -1,0 +1,44 @@
+# Uploads a draft to the Chrome Web Store — never publishes. Trigger manually
+# or by pushing a v* tag. Needs secrets: CWS_CLIENT_ID, CWS_CLIENT_SECRET,
+# CWS_REFRESH_TOKEN, CWS_EXTENSION_ID. Mint the refresh token locally with:
+#   npx chrome-webstore-upload-keys
+name: CWS draft upload
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  upload-draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - name: Zip dist
+        run: cd dist && zip -r ../shelve-draft.zip .
+      - name: Upload as draft (no publish)
+        run: |
+          npx --yes chrome-webstore-upload-cli@3 upload \
+            --source shelve-draft.zip \
+            --extension-id "$EXTENSION_ID" \
+            --client-id "$CLIENT_ID" \
+            --client-secret "$CLIENT_SECRET" \
+            --refresh-token "$REFRESH_TOKEN"
+        env:
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shelve-draft
+          path: shelve-draft.zip
