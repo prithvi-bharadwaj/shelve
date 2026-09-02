@@ -268,6 +268,8 @@ export function mountGalaxy(ctn, options = {}) {
       gl.canvas.height,
       gl.canvas.width / gl.canvas.height
     );
+    // setSize resets the backing buffer; static mode has no loop to repaint it.
+    if (o.disableAnimation) renderer.render({ scene: mesh });
   }
   window.addEventListener("resize", resize, false);
   resize();
@@ -291,7 +293,7 @@ export function mountGalaxy(ctn, options = {}) {
   }
 
   function start() {
-    if (!running) return;
+    if (!running || o.disableAnimation) return;
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(update);
   }
