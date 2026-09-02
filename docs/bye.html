@@ -3,62 +3,73 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shelve — sorry to see you go</title>
+<title>Sorry to see you go — Shelve</title>
 <meta name="robots" content="noindex">
+<meta name="theme-color" content="#06070a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<style>
-  :root { --bg:#faf9f6; --ink:#1c1b18; --muted:#6f6b62; --line:#e6e2d9; --accent:#a16207; }
-  * { box-sizing: border-box; margin: 0; }
-  body { background: var(--bg); color: var(--ink); font-family: "Geist", -apple-system, "Segoe UI", sans-serif; line-height: 1.55; -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 520px; margin: 0 auto; padding: 0 24px 64px; }
-  header { padding: 28px 0 48px; }
-  .mark { font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; gap: 9px; }
-  .mark img { width: 22px; height: 22px; }
-  h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
-  .sub { margin-top: 10px; color: var(--muted); font-size: 15px; }
-  .reasons { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; }
-  .reasons button {
-    text-align: left; padding: 13px 16px; font: inherit; font-size: 15px; color: var(--ink);
-    background: #fff; border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
-  }
-  .reasons button:hover { border-color: var(--ink); }
-  .thanks { display: none; margin-top: 28px; font-size: 15px; }
-  .thanks a { color: var(--accent); }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="stylesheet" href="styles.css">
 </head>
-<body>
-<div class="wrap">
-  <header><a class="mark" href="index.html"><img src="assets/favicon.svg" alt="">Shelve</a></header>
-  <h1>Shelve was uninstalled. One question?</h1>
-  <p class="sub">One click, anonymous, no follow-up. It genuinely shapes what gets fixed next.</p>
+<body class="is-doc">
+<div class="bg" id="bg" aria-hidden="true"></div>
 
-  <div class="reasons" id="reasons">
-    <button data-reason="api_key">Needed an API key — too much setup</button>
-    <button data-reason="bad_groups">The groups it made weren’t right</button>
-    <button data-reason="chrome_native">Chrome’s built-in grouping is enough for me</button>
-    <button data-reason="broke">Something broke or didn’t work</button>
-    <button data-reason="cleanup">Just clearing out extensions</button>
-    <button data-reason="curious">Was only having a look</button>
-  </div>
+<div class="page">
+  <header class="header">
+    <a class="brand" href="/" aria-label="Shelve home">
+      <img class="brand-mark" src="assets/logo.svg" alt="" width="32" height="32">
+      <span>Shelve</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a class="nav-link" href="/">Home</a>
+      <a class="nav-link" href="https://github.com/prithvi-bharadwaj/shelve">GitHub</a>
+      <a class="nav-link" href="/privacy">Privacy</a>
+      <a class="nav-link" href="mailto:prithvi@skive.in">Contact</a>
+    </nav>
+    <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap">Reinstall</a>
+    <button class="burger" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </button>
+  </header>
 
-  <p class="thanks" id="thanks">Thank you — that helps more than you’d think. If you have 30 more seconds, <a href="mailto:prithvi@skive.in?subject=Why%20I%20uninstalled%20Shelve">tell me what would have kept you</a>.</p>
+  <main class="bye">
+    <h1 class="anim" style="--d: 0.05s">Shelve was uninstalled. One question?</h1>
+    <p class="sub anim" style="--d: 0.15s">One click, anonymous, no follow-up. It genuinely shapes what gets fixed next.</p>
 
-<script>
-  document.getElementById("reasons").addEventListener("click", (e) => {
-    const reason = e.target?.dataset?.reason;
-    if (!reason) return;
-    fetch("/api/feedback", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reason }),
-    }).catch(() => undefined);
-    document.getElementById("reasons").style.display = "none";
-    document.getElementById("thanks").style.display = "block";
-  });
-</script>
+    <div class="reasons anim" id="reasons" style="--d: 0.25s">
+      <button type="button" data-reason="api_key">Needed an API key — too much setup</button>
+      <button type="button" data-reason="bad_groups">The groups it made weren't right</button>
+      <button type="button" data-reason="chrome_native">Chrome's built-in grouping is enough for me</button>
+      <button type="button" data-reason="broke">Something broke or didn't work</button>
+      <button type="button" data-reason="cleanup">Just clearing out extensions</button>
+      <button type="button" data-reason="curious">Was only having a look</button>
+    </div>
+
+    <p class="thanks" id="thanks" hidden>Thank you — that helps more than you'd think. If you have 30 more seconds, <a href="mailto:prithvi@skive.in?subject=Why%20I%20uninstalled%20Shelve">tell me what would have kept you</a>.</p>
+  </main>
+
+  <footer class="footer">
+    <span>© 2026 Shelve</span>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="https://github.com/prithvi-bharadwaj/shelve">GitHub</a>
+      <a href="mailto:prithvi@skive.in">Contact</a>
+    </nav>
+  </footer>
 </div>
+
+<div class="menu-overlay" id="menu-overlay" hidden></div>
+<nav class="mobile-menu" id="mobile-menu" aria-label="Mobile" hidden>
+  <a class="mobile-link" href="/" style="--i: 0">Home</a>
+  <a class="mobile-link" href="https://github.com/prithvi-bharadwaj/shelve" style="--i: 1">GitHub</a>
+  <a class="mobile-link" href="/privacy" style="--i: 2">Privacy</a>
+  <a class="mobile-link" href="/terms" style="--i: 3">Terms</a>
+  <a class="mobile-link" href="mailto:prithvi@skive.in" style="--i: 4">Contact</a>
+  <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap" style="--i: 5">Reinstall</a>
+</nav>
+
+<script type="module" src="main.js"></script>
 </body>
 </html>

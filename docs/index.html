@@ -3,108 +3,109 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Your Browser Remembers Everything</title>
+<title>Shelve — Your browser remembers everything</title>
 <meta name="description" content="One click sorts your open tabs into named groups by intent. Find any tab by describing it. Shelve a project, come back to a brief. Bring your own key — we never see your tabs.">
+<meta property="og:title" content="Shelve — Your browser remembers everything">
+<meta property="og:description" content="One click sorts your open tabs into named groups by intent. Free Chrome extension, open source, keys stay local.">
+<meta property="og:url" content="https://tryshelve.com/">
+<meta name="theme-color" content="#06070a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
-<link href="https://db.onlinewebfonts.com/c/8cb707a9b8a73f8a7403336b861c3074?family=BubbledotICG-FinePos" rel="stylesheet">
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-  integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
-  crossorigin="anonymous"
-  referrerpolicy="no-referrer"
->
-<link rel="icon" type="image/png" href="assets/logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="bg">
-  <video class="bg-video" autoplay muted loop playsinline>
-    <source
-      src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260809_012548_ef22562c-c0ae-4816-ad9d-f8922af4e6a7.mp4"
-      type="video/mp4"
-    />
-  </video>
-</div>
+<div class="bg" id="bg" aria-hidden="true"></div>
 
 <div class="page">
   <header class="header">
-    <a class="logo" href="/" aria-label="Shelve home">
-      <img src="assets/logo.png" alt="" width="52" height="52">
+    <a class="brand" href="/" aria-label="Shelve home">
+      <img class="brand-mark" src="assets/logo.svg" alt="" width="32" height="32">
+      <span>Shelve</span>
     </a>
 
-    <nav class="nav-pill" aria-label="Primary navigation">
+    <nav class="nav" aria-label="Primary">
       <a class="nav-link active" href="/" aria-current="page">Home</a>
       <a class="nav-link" href="https://github.com/prithvi-bharadwaj/shelve">GitHub</a>
-      <a class="nav-link" href="privacy.html">Privacy</a>
+      <a class="nav-link" href="/privacy">Privacy</a>
       <a class="nav-link" href="mailto:prithvi@skive.in">Contact</a>
     </nav>
 
-    <a class="sign-in" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap">Add to Chrome</a>
+    <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap">Add to Chrome</a>
 
     <button class="burger" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
-      <span class="bar"></span>
-      <span class="bar"></span>
-      <span class="bar"></span>
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
     </button>
   </header>
 
   <main class="hero">
-    <div class="trust anim" style="--d: 0.05s">
-      <span class="avatar a1"><span class="avatar-inner"><i class="fa-brands fa-chrome" aria-hidden="true"></i></span></span>
-      <span class="avatar a2"><span class="avatar-inner"><i class="fa-brands fa-github" aria-hidden="true"></i></span></span>
-      <span class="avatar a3"><span class="avatar-inner"><i class="fa-brands fa-google" aria-hidden="true"></i></span></span>
-      <span class="trust-pill">Free on the Chrome Web Store</span>
-    </div>
+    <span class="eyebrow anim" style="--d: 0.05s">
+      <span class="eyebrow-dot" aria-hidden="true"></span>
+      Free · Open source · No account
+    </span>
 
-    <h1 class="headline anim">
-      <span class="headline-line" style="--d: 0.12s">Your Browser</span>
-      <span class="headline-line" style="--d: 0.3s">Remembers Everything</span>
+    <h1 class="headline">
+      <span class="headline-line" style="--d: 0.12s">Your browser</span>
+      <span class="headline-line" style="--d: 0.28s">remembers everything</span>
     </h1>
 
-    <p class="subhead anim" style="--d: 0.28s">
-      One click sorts your open tabs into named groups by intent. Find any
-      tab by describing it. Your key stays in your browser.
+    <p class="subhead anim" style="--d: 0.3s">
+      One click sorts your open tabs into named groups by intent. Find any tab
+      by describing it. Shelve a project and come back to a brief.
     </p>
 
-    <a class="cta anim-pulse" style="--d: 0.4s" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap">Get Started</a>
+    <div class="cta-row anim" style="--d: 0.42s">
+      <a class="cws-badge" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap" aria-label="Available in the Chrome Web Store">
+        <img src="assets/cws-badge.png" alt="Available in the Chrome Web Store" width="340" height="96">
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/prithvi-bharadwaj/shelve">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        View source
+      </a>
+    </div>
+
+    <section class="stats" aria-label="Stats">
+      <div class="stat anim" style="--d: 0.5s">
+        <span class="stat-value" data-target="10" data-prefix="&lt;" data-suffix="s">&lt;0s</span>
+        <span class="stat-label">To sort 40 tabs</span>
+      </div>
+      <div class="stat anim" style="--d: 0.56s">
+        <span class="stat-value" data-target="4">0</span>
+        <span class="stat-label">AI providers</span>
+      </div>
+      <div class="stat anim" style="--d: 0.62s">
+        <span class="stat-value" data-target="100" data-suffix="%">0%</span>
+        <span class="stat-label">Keys stay local</span>
+      </div>
+      <div class="stat anim" style="--d: 0.68s">
+        <span class="stat-value">0</span>
+        <span class="stat-label">Accounts required</span>
+      </div>
+    </section>
   </main>
 
-  <footer class="stats" aria-label="Stats">
-    <div class="stat anim" style="--d: 0.5s">
-      <span class="stat-icon" aria-hidden="true">&lt;</span>
-      <span class="stat-value" data-target="10" data-suffix="s" data-decimals="0">0s</span>
-      <span class="stat-label">To Sort 40 Tabs</span>
-    </div>
-    <div class="stat anim" style="--d: 0.58s">
-      <span class="stat-icon" aria-hidden="true">#</span>
-      <span class="stat-value" data-target="4" data-suffix="" data-decimals="0">0</span>
-      <span class="stat-label">AI Providers</span>
-    </div>
-    <div class="stat anim" style="--d: 0.66s">
-      <span class="stat-icon" aria-hidden="true">%</span>
-      <span class="stat-value" data-target="100" data-suffix="%" data-decimals="0">0%</span>
-      <span class="stat-label">Keys Stay Local</span>
-    </div>
-    <div class="stat anim" style="--d: 0.74s">
-      <span class="stat-icon" aria-hidden="true">*</span>
-      <span class="stat-value" data-target="0" data-suffix="" data-decimals="0">0</span>
-      <span class="stat-label">Accounts Required</span>
-    </div>
+  <footer class="footer">
+    <span>© 2026 Shelve</span>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="https://github.com/prithvi-bharadwaj/shelve">GitHub</a>
+      <a href="mailto:prithvi@skive.in">Contact</a>
+    </nav>
   </footer>
 </div>
 
 <div class="menu-overlay" id="menu-overlay" hidden></div>
-<nav class="mobile-menu" id="mobile-menu" aria-label="Mobile navigation" hidden>
+<nav class="mobile-menu" id="mobile-menu" aria-label="Mobile" hidden>
   <a class="mobile-link active" href="/" aria-current="page" style="--i: 0">Home</a>
   <a class="mobile-link" href="https://github.com/prithvi-bharadwaj/shelve" style="--i: 1">GitHub</a>
-  <a class="mobile-link" href="privacy.html" style="--i: 2">Privacy</a>
-  <a class="mobile-link" href="mailto:prithvi@skive.in" style="--i: 3">Contact</a>
-  <a class="mobile-signin" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap" style="--i: 4">Add to Chrome</a>
+  <a class="mobile-link" href="/privacy" style="--i: 2">Privacy</a>
+  <a class="mobile-link" href="/terms" style="--i: 3">Terms</a>
+  <a class="mobile-link" href="mailto:prithvi@skive.in" style="--i: 4">Contact</a>
+  <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap" style="--i: 5">Add to Chrome</a>
 </nav>
 
-<script src="main.js"></script>
+<script type="module" src="main.js"></script>
 </body>
 </html>
