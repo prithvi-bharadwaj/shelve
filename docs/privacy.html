@@ -3,59 +3,94 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shelve — Privacy Policy</title>
+<title>Privacy Policy — Shelve</title>
+<meta name="description" content="What the Shelve extension processes, where it goes, and what it never does.">
+<meta name="theme-color" content="#06070a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root { --bg:#faf9f6; --ink:#1c1b18; --muted:#6f6b62; --line:#e6e2d9; --accent:#a16207; }
-  * { box-sizing: border-box; margin: 0; }
-  body { background: var(--bg); color: var(--ink); font-family: "Geist", -apple-system, "Segoe UI", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 640px; margin: 0 auto; padding: 0 24px 64px; }
-  header { display: flex; justify-content: space-between; align-items: center; padding: 28px 0 40px; }
-  .mark { font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; }
-  .mark::before { content: ""; display: inline-block; width: 14px; height: 3px; background: var(--accent); border-radius: 2px; margin-right: 8px; vertical-align: 4px; }
-  h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
-  .date { color: var(--muted); font-size: 14px; margin-top: 6px; }
-  h2 { font-size: 17px; font-weight: 600; margin-top: 32px; }
-  p, li { color: var(--ink); font-size: 15px; margin-top: 10px; }
-  ul { padding-left: 20px; }
-  a { color: var(--accent); }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="stylesheet" href="styles.css">
 </head>
-<body>
-<div class="wrap">
-  <header><a class="mark" href="index.html">Shelve</a></header>
+<body class="is-doc">
+<div class="bg" id="bg" aria-hidden="true"></div>
 
-  <h1>Privacy Policy</h1>
-  <p class="date">Effective 26 August 2026 · applies to the Shelve browser extension</p>
+<div class="page">
+  <header class="header">
+    <a class="brand" href="/" aria-label="Shelve home">
+      <img class="brand-mark" src="assets/logo.svg" alt="" width="32" height="32">
+      <span>Shelve</span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a class="nav-link" href="/">Home</a>
+      <a class="nav-link" href="https://github.com/prithvi-bharadwaj/shelve">GitHub</a>
+      <a class="nav-link active" href="/privacy" aria-current="page">Privacy</a>
+      <a class="nav-link" href="mailto:prithvi@skive.in">Contact</a>
+    </nav>
+    <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap">Add to Chrome</a>
+    <button class="burger" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </button>
+  </header>
 
-  <p>Shelve is built so that we cannot see your data. There is no Shelve server, no account, and no analytics or tracking of any kind. This page describes exactly what data the extension touches and where it goes.</p>
+  <main class="doc">
+    <h1>Privacy Policy</h1>
+    <p class="date">Effective 26 August 2026 · applies to the Shelve browser extension</p>
 
-  <h2>What Shelve processes, and where it goes</h2>
-  <ul>
-    <li><strong>Tab titles and URLs.</strong> When you run an AI action (organize, command bar, shelving a group), the titles and URLs of your open tabs are sent directly from your browser to the AI provider <em>you</em> configured — OpenAI, Anthropic, Google Gemini, or your own local Ollama server. They are never sent to us, because there is no us to send them to.</li>
-    <li><strong>Page snippets (optional).</strong> If — and only if — you grant the optional page-access permission, Shelve may read a short text snippet from a page to classify an ambiguous tab or to write a shelving brief. Declining this permission leaves title-and-URL organization fully functional. Each AI feature asks you to acknowledge its data use once, before its first request.</li>
-    <li><strong>Your API keys.</strong> Stored in <code>chrome.storage.local</code> on your machine, sent only to the matching provider as authentication. Never synced, never transmitted elsewhere.</li>
-    <li><strong>Settings, shelved groups, and usage stats.</strong> Stored locally in your browser. The stats card (tabs sorted, streak) is computed and kept entirely on your device.</li>
-  </ul>
+    <article class="doc-body">
+      <p>Shelve is built so that we cannot see your data. There is no account, and no analytics or tracking of any kind. This page describes exactly what data the extension touches and where it goes.</p>
 
-  <h2>What Shelve never does</h2>
-  <ul>
-    <li>No data is collected, stored, or seen by the developer.</li>
-    <li>No analytics, telemetry, fingerprinting, or advertising identifiers.</li>
-    <li>No sale or transfer of user data to anyone.</li>
-    <li>Nothing from incognito windows is ever saved: shelving is disabled there by design, because extension storage is shared with regular browsing.</li>
-  </ul>
+      <h2>What Shelve processes, and where it goes</h2>
+      <ul>
+        <li><strong>Tab titles and URLs.</strong> When you run an AI action (organize, command bar, shelving a group), the titles and URLs of your open tabs are sent from your browser to the AI provider <em>you</em> configured — OpenAI, Anthropic, Google Gemini, your own local Ollama server, or the Shelve Free relay described below.</li>
+        <li><strong>Page snippets (optional).</strong> If — and only if — you grant the optional page-access permission, Shelve may read a short text snippet from a page to classify an ambiguous tab or to write a shelving brief. Declining this permission leaves title-and-URL organization fully functional. Each AI feature asks you to acknowledge its data use once, before its first request.</li>
+        <li><strong>Your API keys.</strong> Stored in <code>chrome.storage.local</code> on your machine, sent only to the matching provider as authentication. Never synced, never transmitted elsewhere.</li>
+        <li><strong>Settings, shelved groups, and usage stats.</strong> Stored locally in your browser. The stats card (tabs sorted, streak) is computed and kept entirely on your device.</li>
+      </ul>
 
-  <h2>Third parties</h2>
-  <p>The only third parties that receive data are the AI providers you explicitly select, under their own privacy policies: <a href="https://openai.com/policies/privacy-policy">OpenAI</a>, <a href="https://www.anthropic.com/privacy">Anthropic</a>, and <a href="https://policies.google.com/privacy">Google</a>. If you use Ollama, requests stay on your own machine or server.</p>
+      <h2>The Shelve Free relay</h2>
+      <p>If you use the built-in free tier instead of your own key, tab titles and URLs for that request pass through a Shelve-operated relay to the model provider and are not stored. The relay keeps only an anonymous per-install counter to enforce daily limits. Switching to your own key or Ollama removes the relay from the path entirely.</p>
 
-  <h2>Chrome Web Store disclosures</h2>
-  <p>Shelve's use of information received from Google APIs adheres to the Chrome Web Store User Data Policy, including its Limited Use requirements. Data described above is used solely to provide the extension's single purpose — organizing and managing your tabs — and for no other purpose.</p>
+      <h2>What Shelve never does</h2>
+      <ul>
+        <li>No tab content, titles, or URLs are stored or seen by the developer.</li>
+        <li>No analytics, telemetry, fingerprinting, or advertising identifiers.</li>
+        <li>No sale or transfer of user data to anyone.</li>
+        <li>Nothing from incognito windows is ever saved: shelving is disabled there by design, because extension storage is shared with regular browsing.</li>
+      </ul>
 
-  <h2>Changes and contact</h2>
-  <p>If this policy changes, the new version will be posted here with a new effective date, and the change will be visible in the <a href="https://github.com/prithvi-bharadwaj/shelve">public repository</a>. Questions: <a href="mailto:prithvi@skive.in">prithvi@skive.in</a>.</p>
+      <h2>Third parties</h2>
+      <p>The only third parties that receive data are the AI providers you explicitly select, under their own privacy policies: <a href="https://openai.com/policies/privacy-policy">OpenAI</a>, <a href="https://www.anthropic.com/privacy">Anthropic</a>, and <a href="https://policies.google.com/privacy">Google</a>. If you use Ollama, requests stay on your own machine or server.</p>
+
+      <h2>Chrome Web Store disclosures</h2>
+      <p>Shelve's use of information received from Google APIs adheres to the Chrome Web Store User Data Policy, including its Limited Use requirements. Data described above is used solely to provide the extension's single purpose — organizing and managing your tabs — and for no other purpose.</p>
+
+      <h2>Changes and contact</h2>
+      <p>If this policy changes, the new version will be posted here with a new effective date, and the change will be visible in the <a href="https://github.com/prithvi-bharadwaj/shelve">public repository</a>. Questions: <a href="mailto:prithvi@skive.in">prithvi@skive.in</a>.</p>
+    </article>
+  </main>
+
+  <footer class="footer">
+    <span>© 2026 Shelve</span>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="https://github.com/prithvi-bharadwaj/shelve">GitHub</a>
+      <a href="mailto:prithvi@skive.in">Contact</a>
+    </nav>
+  </footer>
 </div>
+
+<div class="menu-overlay" id="menu-overlay" hidden></div>
+<nav class="mobile-menu" id="mobile-menu" aria-label="Mobile" hidden>
+  <a class="mobile-link" href="/" style="--i: 0">Home</a>
+  <a class="mobile-link" href="https://github.com/prithvi-bharadwaj/shelve" style="--i: 1">GitHub</a>
+  <a class="mobile-link active" href="/privacy" aria-current="page" style="--i: 2">Privacy</a>
+  <a class="mobile-link" href="/terms" style="--i: 3">Terms</a>
+  <a class="mobile-link" href="mailto:prithvi@skive.in" style="--i: 4">Contact</a>
+  <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/pjjkipfldblcoolpbhfmjlmefieoncap" style="--i: 5">Add to Chrome</a>
+</nav>
+
+<script type="module" src="main.js"></script>
 </body>
 </html>
