@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150">
+  <defs>
+    <linearGradient id="bg" x1="0.1" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#41d9ec"/>
+      <stop offset="0.52" stop-color="#12a0cd"/>
+      <stop offset="1" stop-color="#0a5178"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.3" cy="0" r="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="1" y="1" width="148" height="148" rx="34" fill="url(#bg)"/>
+  <rect x="1" y="1" width="148" height="148" rx="34" fill="url(#sheen)"/>
+  <rect x="2.5" y="2.5" width="145" height="145" rx="32.6" fill="none" stroke="url(#rim)" stroke-width="2.4"/>
+  <g fill="#f2fffc" transform="translate(75 76) scale(0.74) translate(-78 -74.5)">
+    <path d="m106.7 62.1c-6.9 0.3-12.7-0.1-19.4 0.1-0.9 0-2 0.1-2.5-0.6l-7.2-11.9c-1.8-3.1-6.6-3.2-8.4-0.1l-14.3 24.6c-1.8 2.8-0.9 5.8 0.5 8.2l11.7 19.4c2 3.2-0.8 8-4.2 8h-7.8c-1.9 0-2.6-1.4-2.9-1.9l-18.2-30.1c-0.7-1.1-0.7-2.4 0-3.4l33.7-55.6c1.3-2.1 2.8-3.6 6.1-4.1 1.7-0.1 4.9 0.3 6.4 2.9 6 9.7 15.8 26.5 26.4 43.9 0.3 0.6 0.1 0.6 0.1 0.6z"/>
+    <path d="m90 135.2c0.1 0.2 0.5 0.1 0.7 0.1h50.5c4.2 0 7.7-4.5 4.9-9.9l-34-55c-0.3-0.4-0.6-0.6-1-0.6h-28.9c-1.6 0.2-2.9-0.6-3.4-1.6l-3.9-6.8c-0.5-1-1.9-1-2.4 0l-8.4 14.2c-0.8 1.1-1 3.5 0.3 5.3l11.9 19.9c1.1 1.7 1.1 4.5 0 6.3l-4.9 8.8c-0.7 1.4-2.4 2.3-3.9 2.3h-17.1c-1.4 0-2.7-0.7-3.7-2.1l-17.3-29.2c-0.5-1.1-1.5-1-2 0l-23.8 39.4c-1.2 2.2-1.3 5.3 1.3 7.7 1.2 1 2.7 1.2 4.1 1.2h68.4c0.5 0 1-0.1 1.2-0.6l16.4-27.1c0.9-1.4 1.1-3.6 0-5.2l-10.6-16.6c-0.2-0.6 0.3-1.3 1-1.3h8.1c1.5 0 2.7 0.5 3.4 1.8l8.9 14.4c1.6 2.5 1.2 5-0.2 7.3l-15.6 26.2c-0.3 0.5-0.2 0.9 0 1.1z"/>
+  </g>
+</svg>
