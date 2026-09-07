@@ -44,7 +44,8 @@ export function publicOrganizeJob(job) {
 }
 
 export async function persistOrganizeJob(job) {
-  if (!chrome.storage.session) return;
+  // Incognito jobs carry private tab titles; they must never leave memory.
+  if (job.incognito || !chrome.storage.session) return;
   const snapshot = publicOrganizeJob(job);
   job.persistQueue = (job.persistQueue || Promise.resolve())
     .then(() => chrome.storage.session.set({ [`${ORGANIZE_JOB_PREFIX}${job.windowId}`]: snapshot }))

@@ -13,7 +13,10 @@ export const SNIPPET_TIMEOUT_MS = 8 * 1000;
 export const ORGANIZE_STALE_MS = 2 * 60 * 1000;
 export const STASH_RESUME_STALE_MS = 2 * 60 * 1000;
 
-export const SHELVE_PROXY_URL = "https://tryshelve.com/api/generate";
+// Dedicated API project — no manifest host permission on purpose: the proxy
+// serves CORS headers, and adding a new host_permission in an update would
+// disable the extension for every user until they re-approve it.
+export const SHELVE_PROXY_URL = "https://shelve-api.vercel.app/api/generate";
 
 // Payments scaffold — built but not enabled. Flipping this on requires a live
 // Stripe account and the Checkout URL below. Entitlement is never decided in

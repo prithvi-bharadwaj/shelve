@@ -39,6 +39,23 @@ describe("shelve free tier", () => {
     expect(harness.mock.localData.freeActionsRemaining).toBe("0");
   });
 
+  it("maps a 403 challenge page to a friendly retry message", async () => {
+    harness = await loadBackground();
+    harness.fetchMock.mockResolvedValueOnce({
+      status: 403,
+      ok: false,
+      headers: { get: () => null },
+      json: async () => {
+        throw new Error("not json");
+      },
+      text: async () => "<!DOCTYPE html>Vercel Security Checkpoint",
+    });
+    const { PROVIDERS } = await import("../public/background/providers.js");
+    await expect(
+      PROVIDERS.shelve.classify({}, "system prompt", "user prompt", { type: "object", properties: {} })
+    ).rejects.toThrow(/temporary security check/i);
+  });
+
   it("reuses the same install token across calls", async () => {
     harness = await loadBackground((mock) => mock.seedLocal({ installToken: "11111111-2222-3333-4444-555555555555" }));
     const notFound = { status: 500, ok: false, headers: { get: () => null }, json: async () => ({}), text: async () => "{}" };

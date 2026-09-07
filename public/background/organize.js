@@ -57,10 +57,16 @@ export async function organize(hasContentPermission, windowId) {
     return { running: true, job: publicOrganizeJob(active) };
   }
 
+  // Job snapshots persist to chrome.storage.session, which is shared with
+  // regular browsing; incognito jobs (titles, group names) stay memory-only.
+  // Fail closed: an unreadable window is treated as incognito.
+  const { incognito } = await chrome.windows.get(targetWindowId).catch(() => ({ incognito: true }));
+
   const now = Date.now();
   const job = {
     id: `${targetWindowId}-${now}`,
     windowId: targetWindowId,
+    incognito,
     status: "running",
     stage: "collecting",
     startedAt: now,
@@ -90,7 +96,6 @@ export async function organize(hasContentPermission, windowId) {
       dedupeMutated = Boolean(result.closedCount);
       // Organize results persist to chrome.storage.session, which is shared
       // with regular browsing; incognito titles and URLs must never land there.
-      const { incognito } = await chrome.windows.get(targetWindowId);
       if (!incognito) closedDuplicates = result.closedTabs || [];
     }
 

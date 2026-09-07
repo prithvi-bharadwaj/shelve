@@ -64,6 +64,26 @@ describe("organize consent enforcement", () => {
   });
 });
 
+describe("organize job browsing-context isolation", () => {
+  it("never persists an incognito organize job to session storage", async () => {
+    const { invokeMessage, mock } = await load((prepared) => {
+      prepared.seedLocal({ dataNoticeAck: true });
+      prepared.seedSync({ provider: "gemini" });
+    });
+    await invokeMessage({ type: "organize", windowId: 11 });
+    expect(Object.keys(mock.sessionData).some((key) => key.startsWith("organizeJob:"))).toBe(false);
+  });
+
+  it("persists a regular-window organize job to session storage", async () => {
+    const { invokeMessage, mock } = await load((prepared) => {
+      prepared.seedLocal({ dataNoticeAck: true });
+      prepared.seedSync({ provider: "gemini" });
+    });
+    await invokeMessage({ type: "organize", windowId: 1 });
+    expect(mock.sessionData["organizeJob:1"]).toBeDefined();
+  });
+});
+
 describe("undo snapshot browsing-context isolation", () => {
   it("marks a captured incognito snapshot as version 2 incognito", async () => {
     const { exports, mock } = await load();
