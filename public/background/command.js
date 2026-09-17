@@ -284,6 +284,11 @@ async function decideWithJev({ settings, query, forcedAction, tabs, currentGroup
     }
   }
   if (routed.action === "answer") return null;
+  // Jev could not separate the tabs the command selects; let the LLM pick.
+  if (routed.tabsUncertain) return null;
+  // Same for a merge where Jev found fewer than two groups ("merge the
+  // similar news groups" flips between one and two across runs).
+  if (routed.action === "merge_groups" && routed.groupIds.length < 2) return null;
 
   // Jev can only copy a name the user typed. With none given, a new or merged
   // group still needs one; update_group keeps its current name instead.

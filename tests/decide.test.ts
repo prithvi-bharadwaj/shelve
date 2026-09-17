@@ -75,7 +75,8 @@ test("buildCommandQuestions never puts untrusted tab data into instructions", as
   expect(questions.target_group.criteria).toMatchObject({ 7: "News", 8: "Untitled", none: expect.any(String) });
   expect(questions.color.criteria).toHaveProperty("unspecified");
   expect(questions.name_span.criteria).toMatchObject({ c0: "Reading", none: expect.any(String) });
-  expect(questions.match_2.instructions).toContain("`tabs[1]`");
+  expect(questions.match_2.instructions).toContain("`id` is 2");
+  expect(questions.merge_7.instructions).toContain("`id` is 7");
   expect(buildCommandQuestions({ query: "close duplicates", tabs, groups: [], mutableTabIds })).not.toHaveProperty("name_span");
 });
 
@@ -120,6 +121,7 @@ test("readCommandAnswers maps typed answers into command targets", async () => {
     probabilities: { create_group: 0.7, add_to_group: 0.2, open_tab: 0.1 },
     tabId: null,
     tabIds: [1],
+    tabsUncertain: false,
     groupIds: [],
     allGroups: false,
     color: null,
@@ -128,6 +130,13 @@ test("readCommandAnswers maps typed answers into command targets", async () => {
     isCompound: 0.1,
     contentTabIds: [3, 1, 2],
   });
+
+  // Three or more tabs stuck mid-band means the selection can't be trusted.
+  const murky = { ...answers, match_1: { noul: 0.72 }, match_2: { noul: 0.6 } };
+  expect(readCommandAnswers(murky, context).tabsUncertain).toBe(false);
+  const wide = { id: 4, windowId: 10, title: "Extra", url: "https://extra.example/", groupId: -1, pinned: false };
+  expect(readCommandAnswers({ ...murky, match_4: { noul: 0.5 } }, { ...context, tabs: [...tabs, wide], mutableTabIds: new Set([1, 2, 4]) }))
+    .toMatchObject({ tabIds: [1], tabsUncertain: true });
 
   const forced = readCommandAnswers(answers, { ...context, forcedAction: "ungroup" });
   expect(forced).toMatchObject({ action: "ungroup", forced: true, groupIds: [7], allGroups: true, tabIds: [] });

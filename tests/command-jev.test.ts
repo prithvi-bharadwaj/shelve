@@ -130,6 +130,19 @@ test("destructive actions need higher confidence, a forced action skips the gate
   expect(await harness.runCommand("tidy news", "ungroup")).toEqual({ error: "Explicitly ask to ungroup tabs before any groups are changed." });
 });
 
+test("a murky tab selection hands the whole command to the LLM", async () => {
+  const harness = await makeHarness({
+    action: confident("create_group"),
+    match_1: { noul: 0.6 }, match_2: { noul: 0.55 }, match_3: { noul: 0.5 },
+  });
+  expect(await harness.runCommand("group everything except the news")).toMatchObject({ action: "open_tab", tabId: 3 });
+  expect(harness.grouped).toEqual([]);
+
+  const merging = await makeHarness({ action: confident("merge_groups"), merge_77: { noul: 0.9 } });
+  expect(await merging.runCommand("merge the similar news groups")).toMatchObject({ action: "open_tab" });
+  expect(merging.classify).toHaveBeenCalledTimes(1);
+});
+
 test("compound commands are refused", async () => {
   const harness = await makeHarness({ action: confident("create_group"), is_compound: { noul: 0.9 }, match_1: { noul: 0.9 } });
   expect(await harness.runCommand("group arxiv tabs and close duplicates")).toEqual({ error: "One command at a time." });

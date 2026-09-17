@@ -121,6 +121,20 @@ const ACTION_CRITERIA = {
   not_found: "Nothing in `tabs` or `groups` matches what the command refers to, or the command is not about tabs at all."
 };
 
+// Exported so scripts/eval-tab-selection.mjs tunes the wording that ships.
+// Entries are referenced by `id`: Jev resolves positional paths like
+// `tabs[12]` unreliably in a long list (49% precision by index vs ~100% by id).
+export function matchQuestion(tab) {
+  return {
+    type: "noul",
+    instructions: `\`command\` asks to group or move certain tabs, identified by site, topic, or current group. Is the entry of \`tabs\` whose \`id\` is ${Number(tab.id)} one of the tabs the command identifies?`,
+    criteria: {
+      true: "This tab's own title or url fits the command's description of the tabs to collect, and any grouped or ungrouped condition holds.",
+      false: "This tab does not fit the description, even if it shares a group or topic area with tabs that do."
+    }
+  };
+}
+
 export function buildCommandQuestions({ query, tabs, groups, mutableTabIds }) {
   const questions = {
     action: {
@@ -178,19 +192,15 @@ export function buildCommandQuestions({ query, tabs, groups, mutableTabIds }) {
       }
     };
   }
-  groups.forEach((group, index) => {
+  for (const group of groups) {
     questions[`merge_${group.id}`] = {
       type: "noul",
-      instructions: `Is the group at \`groups[${index}]\` one of the existing groups that \`command\` asks to merge, combine, or ungroup?`
+      instructions: `Is the entry of \`groups\` whose \`id\` is ${Number(group.id)} one of the existing groups that \`command\` asks to merge, combine, or ungroup?`
     };
-  });
-  tabs.forEach((tab, index) => {
-    if (!mutableTabIds.has(tab.id)) return;
-    questions[`match_${tab.id}`] = {
-      type: "noul",
-      instructions: `\`command\` describes a selection of tabs to put into a group. Does the tab at \`tabs[${index}]\` belong to that selection? Judge by its \`title\`, \`url\`, \`group\`, and \`content\`.`
-    };
-  });
+  }
+  for (const tab of tabs) {
+    if (mutableTabIds.has(tab.id)) questions[`match_${tab.id}`] = matchQuestion(tab);
+  }
 
   const candidates = extractNameCandidates(query);
   if (candidates.length) {
@@ -273,6 +283,13 @@ export function readCommandAnswers(answers, { query, tabs, groups, mutableTabIds
   const matched = tabs
     .filter((tab) => mutableTabIds.has(tab.id) && noul(`match_${tab.id}`) >= JEV_THRESHOLDS.match)
     .map((tab) => tab.id);
+  // A clean selection is bimodal. Several tabs stuck in the middle means Jev
+  // could not read the selection (seen with some "except …" commands).
+  const wantsTabs = action === "create_group" || action === "add_to_group";
+  const unsure = tabs.filter((tab) => {
+    const probability = noul(`match_${tab.id}`);
+    return mutableTabIds.has(tab.id) && probability >= JEV_THRESHOLDS.matchUnsureFloor && probability < JEV_THRESHOLDS.matchUnsureCeil;
+  }).length;
   const targetGroup = Number(answers.target_group?.choice);
   const singleGroup = answers.target_group && answers.target_group.choice !== "none" &&
     groups.some((group) => group.id === targetGroup) ? [targetGroup] : [];
@@ -304,7 +321,8 @@ export function readCommandAnswers(answers, { query, tabs, groups, mutableTabIds
     runnerUp: ranked[0]?.[0] || null,
     probabilities: actionAnswer.probabilities || {},
     tabId: action === "open_tab" || action === "answer" ? tabId : null,
-    tabIds: action === "create_group" || action === "add_to_group" ? matched : [],
+    tabIds: wantsTabs ? matched : [],
+    tabsUncertain: wantsTabs && unsure > JEV_THRESHOLDS.matchUnsureMax,
     groupIds,
     allGroups: action === "ungroup" && noul("all_groups") >= JEV_THRESHOLDS.allGroups,
     color: GROUP_COLORS.includes(answers.color?.choice) ? answers.color.choice : null,

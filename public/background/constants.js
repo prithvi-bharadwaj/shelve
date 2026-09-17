@@ -25,12 +25,18 @@ export const JEV_MAX_RETRIES = 2;
 export const JEV_MAX_REQUEST_CHARS = 100 * 1000;
 export const JEV_CHOICE_CHUNK = 250;
 export const DECISION_PROVIDERS = ["llm", "typesafe"];
-// Starting values from TypeSafe's confidence guidance, not yet tuned: re-run
-// scripts/eval-commands.mjs and adjust whenever the fixture or model changes.
+// action/destructiveAction/compound held up on scripts/eval-commands.mjs (50
+// commands, 2026-09). match* come from scripts/eval-tab-selection.mjs: over 3
+// runs of 40 cases wanted tabs scored >= 0.76 and unwanted <= 0.64, and every
+// bad selection had 4+ tabs in the unsure band (113 of 117 good ones had none).
+// Re-run both whenever the fixtures, wording, or JEV_MODEL change.
 export const JEV_THRESHOLDS = {
   action: 0.5,
   destructiveAction: 0.8,
-  match: 0.5,
+  match: 0.7,
+  matchUnsureFloor: 0.4,
+  matchUnsureCeil: 0.75,
+  matchUnsureMax: 2,
   merge: 0.5,
   allGroups: 0.5,
   needsContent: 0.5,
