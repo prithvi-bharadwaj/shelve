@@ -117,6 +117,7 @@ test("readCommandAnswers maps typed answers into command targets", async () => {
     forced: false,
     confidence: 0.66,
     runnerUp: "add_to_group",
+    probabilities: { create_group: 0.7, add_to_group: 0.2, open_tab: 0.1 },
     tabId: null,
     tabIds: [1],
     groupIds: [],

@@ -302,6 +302,7 @@ export function readCommandAnswers(answers, { query, tabs, groups, mutableTabIds
     forced,
     confidence: Number(actionAnswer.confidence) || 0,
     runnerUp: ranked[0]?.[0] || null,
+    probabilities: actionAnswer.probabilities || {},
     tabId: action === "open_tab" || action === "answer" ? tabId : null,
     tabIds: action === "create_group" || action === "add_to_group" ? matched : [],
     groupIds,

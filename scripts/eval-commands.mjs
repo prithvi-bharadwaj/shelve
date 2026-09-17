@@ -201,6 +201,7 @@ function printMisses(results) {
     console.log(`  expected: ${JSON.stringify(row.expect)}`);
     console.log(`  got: ${got ? JSON.stringify(got) : `error:${row.error}`}`);
     console.log(`  confidence: ${got?.confidence ?? "n/a"}; runnerUp: ${got?.runnerUp ?? "n/a"}; mismatched: ${row.mismatches.join(", ")}`);
+    if (got) console.log(`  probabilities: ${JSON.stringify(got.probabilities)}`);
   }
 }
 
