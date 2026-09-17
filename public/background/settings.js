@@ -5,6 +5,7 @@ import {
   DEFAULT_PREFS,
   DEFAULT_LOCAL,
   GROUP_NAME_STYLES,
+  DECISION_PROVIDERS,
   PAYMENTS_ENABLED,
   STRIPE_CHECKOUT_URL
 } from "./constants.js";
@@ -45,12 +46,16 @@ export async function getSettings() {
   const groupNameStyle = GROUP_NAME_STYLES.includes(prefs.groupNameStyle)
     ? prefs.groupNameStyle
     : DEFAULT_PREFS.groupNameStyle;
+  const decisionProvider = DECISION_PROVIDERS.includes(prefs.decisionProvider)
+    ? prefs.decisionProvider
+    : DEFAULT_PREFS.decisionProvider;
   return {
     ...DEFAULT_PREFS,
     ...prefs,
     ...local,
     modelByProvider,
     groupNameStyle,
+    decisionProvider,
     model: modelByProvider[prefs.provider || DEFAULT_PREFS.provider]
   };
 }

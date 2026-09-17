@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SectionHeading } from "@/options/section";
-import type { Provider, Settings } from "@/types";
+import type { DecisionProvider, Provider, Settings } from "@/types";
 
 export type Model = { id: string; name: string };
 
@@ -21,6 +21,7 @@ export function ProviderSection({
   settings,
   models,
   modelStatus,
+  permissionStatus,
   freeActionsRemaining,
   onChangeProvider,
   onSetModel,
@@ -29,6 +30,7 @@ export function ProviderSection({
   settings: Settings;
   models: Model[];
   modelStatus: string;
+  permissionStatus: string;
   freeActionsRemaining: string | null;
   onChangeProvider: (provider: Provider) => void;
   onSetModel: (model: string) => void;
@@ -112,6 +114,30 @@ export function ProviderSection({
         </Select>
         <p className="text-xs text-muted-foreground">{modelStatus || "Fetched live after your provider settings are saved."}</p>
       </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="decisionProvider">Command routing</Label>
+        <Select value={settings.decisionProvider} onValueChange={(value) => onSet("decisionProvider", value as DecisionProvider)}>
+          <SelectTrigger id="decisionProvider"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="llm">AI provider (default)</SelectItem>
+            <SelectItem value="typesafe">TypeSafe Jev — fast typed decisions</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {settings.decisionProvider === "typesafe" && (
+        <>
+          <CredentialField
+            id="typesafeKey"
+            label="TypeSafe API key"
+            placeholder="ts-…"
+            value={settings.typesafeKey}
+            onChange={(value) => onSet("typesafeKey", value)}
+            hint="Stored in this browser's local extension storage and sent only to TypeSafe. Commands send your tab titles and URLs to api.typesafe.ai; your AI provider still writes answers and group names."
+          />
+          {permissionStatus && <p className="text-xs text-muted-foreground" aria-live="polite">{permissionStatus}</p>}
+        </>
+      )}
     </section>
   );
 }

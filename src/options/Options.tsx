@@ -40,6 +40,7 @@ export function Options() {
   const [freeActionsRemaining, setFreeActionsRemaining] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [modelStatus, setModelStatus] = useState("");
+  const [permissionStatus, setPermissionStatus] = useState("");
   const customInstructionsPlaceholder = useRotatingPlaceholder(CUSTOM_INSTRUCTION_PLACEHOLDERS);
   // Request identity: a slow model-list response for a previously selected
   // provider (or an unmounted page) must never overwrite current state.
@@ -83,10 +84,10 @@ export function Options() {
       // The worker owns the legacy "apiKey" → anthropicKey migration; wait for
       // it so this page never reads (or re-persists) the legacy field.
       await chrome.runtime.sendMessage({ type: "migrateLegacyCredential" }).catch(() => undefined);
-      const { openaiKey, anthropicKey, geminiKey, ollamaUrl, ...prefs } = DEFAULT_SETTINGS;
+      const { openaiKey, anthropicKey, geminiKey, typesafeKey, ollamaUrl, ...prefs } = DEFAULT_SETTINGS;
       const [sync, local] = await Promise.all([
         chrome.storage.sync.get({ ...prefs, model: "" }),
-        chrome.storage.local.get({ openaiKey, anthropicKey, geminiKey, ollamaUrl, spentUsd: 0, freeActionsRemaining: "" }),
+        chrome.storage.local.get({ openaiKey, anthropicKey, geminiKey, typesafeKey, ollamaUrl, spentUsd: 0, freeActionsRemaining: "" }),
       ]);
       const modelByProvider = { ...DEFAULT_SETTINGS.modelByProvider, ...(sync.modelByProvider || {}) };
       if (sync.model && !sync.modelByProvider?.anthropic) modelByProvider.anthropic = sync.model;
@@ -97,6 +98,7 @@ export function Options() {
         ...sync,
         ...local,
         modelByProvider,
+        decisionProvider: sync.decisionProvider === "typesafe" ? "typesafe" : "llm",
         groupNameStyle: GROUP_NAME_STYLES.includes(sync.groupNameStyle)
           ? sync.groupNameStyle
           : DEFAULT_SETTINGS.groupNameStyle,
@@ -132,11 +134,24 @@ export function Options() {
   };
 
   const save = async () => {
+    setPermissionStatus("");
+    if (settings.decisionProvider === "typesafe") {
+      let granted = false;
+      try {
+        granted = await chrome.permissions.request({ origins: ["https://api.typesafe.ai/*"] });
+      } catch {
+        granted = false;
+      }
+      if (!granted) {
+        setPermissionStatus("Permission for api.typesafe.ai was declined — commands will keep using your AI provider.");
+      }
+    }
     const normalized: Settings = {
       ...settings,
       openaiKey: settings.openaiKey.trim(),
       anthropicKey: settings.anthropicKey.trim(),
       geminiKey: settings.geminiKey.trim(),
+      typesafeKey: settings.typesafeKey.trim(),
       ollamaUrl: settings.ollamaUrl.trim().replace(/\/+$/, "") || DEFAULT_SETTINGS.ollamaUrl,
       modelByProvider: Object.fromEntries(
         Object.entries(settings.modelByProvider).map(([provider, model]) => [provider, model.trim()])
@@ -146,10 +161,10 @@ export function Options() {
       budgetUsd: Math.max(0, Number(settings.budgetUsd) || 0),
     };
     setSettings(normalized);
-    const { openaiKey, anthropicKey, geminiKey, ollamaUrl, ...prefs } = normalized;
+    const { openaiKey, anthropicKey, geminiKey, typesafeKey, ollamaUrl, ...prefs } = normalized;
     await Promise.all([
       chrome.storage.sync.set(prefs),
-      chrome.storage.local.set({ openaiKey, anthropicKey, geminiKey, ollamaUrl }),
+      chrome.storage.local.set({ openaiKey, anthropicKey, geminiKey, typesafeKey, ollamaUrl }),
     ]);
     // Clearing the Anthropic field must stick even if a legacy key lingers.
     await chrome.storage.local.remove("apiKey").catch(() => undefined);
@@ -172,6 +187,7 @@ export function Options() {
           settings={settings}
           models={models}
           modelStatus={modelStatus}
+          permissionStatus={permissionStatus}
           freeActionsRemaining={freeActionsRemaining}
           onChangeProvider={changeProvider}
           onSetModel={setModel}
