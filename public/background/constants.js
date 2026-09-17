@@ -13,6 +13,31 @@ export const SNIPPET_TIMEOUT_MS = 8 * 1000;
 export const ORGANIZE_STALE_MS = 2 * 60 * 1000;
 export const STASH_RESUME_STALE_MS = 2 * 60 * 1000;
 
+// TypeSafe "Jev" decision model: typed answers only, never generated text.
+// Pinned so a model update can't silently shift the thresholds below.
+export const TYPESAFE_URL = "https://api.typesafe.ai/v1/systemone";
+export const TYPESAFE_ORIGIN = "https://api.typesafe.ai/*";
+export const JEV_MODEL = "jev-1.13.0";
+export const JEV_TIMEOUT_MS = 8 * 1000;
+export const JEV_MAX_RETRIES = 2;
+// State and questions share ~32k tokens; estimated at 4 chars per token with
+// headroom. Bigger requests skip Jev and use the LLM path.
+export const JEV_MAX_REQUEST_CHARS = 100 * 1000;
+export const JEV_CHOICE_CHUNK = 250;
+export const DECISION_PROVIDERS = ["llm", "typesafe"];
+// Starting values from TypeSafe's confidence guidance, not yet tuned: re-run
+// scripts/eval-commands.mjs and adjust whenever the fixture or model changes.
+export const JEV_THRESHOLDS = {
+  action: 0.5,
+  destructiveAction: 0.8,
+  match: 0.5,
+  merge: 0.5,
+  allGroups: 0.5,
+  needsContent: 0.5,
+  compound: 0.7
+};
+export const JEV_DESTRUCTIVE_ACTIONS = ["ungroup", "merge_groups", "remove_duplicates"];
+
 // Dedicated API project — no manifest host permission on purpose: the proxy
 // serves CORS headers, and adding a new host_permission in an update would
 // disable the extension for every user until they re-approve it.
@@ -47,13 +72,15 @@ export const DEFAULT_PREFS = {
   dedupeOnOrganize: false,
   mergeOnOrganize: false,
   customInstructions: "",
-  budgetUsd: 1
+  budgetUsd: 1,
+  decisionProvider: "llm"
 };
 
 export const DEFAULT_LOCAL = {
   openaiKey: "",
   anthropicKey: "",
   geminiKey: "",
+  typesafeKey: "",
   ollamaUrl: "http://localhost:11434",
   spentUsd: 0
 };
@@ -143,6 +170,15 @@ export const COMMAND_SCHEMA = {
   additionalProperties: false
 };
 
+export const GROUP_NAME_SCHEMA = {
+  type: "object",
+  properties: {
+    name: { type: "string", description: "A short, specific 1-3 word tab group name." }
+  },
+  required: ["name"],
+  additionalProperties: false
+};
+
 export const BRIEF_SCHEMA = {
   type: "object",
   properties: {
@@ -179,5 +215,7 @@ export const PRICES = {
     ["gemini-3.5-flash", 1.5, 9],
     ["gemini-2.5-pro", 1.25, 10]
   ],
-  ollama: []
+  ollama: [],
+  // Jev bills input only.
+  typesafe: [["jev", 0.042, 0]]
 };

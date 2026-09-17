@@ -302,7 +302,7 @@ async function checkBudget(settings) {
   }
 }
 
-async function addSpend(settings, usage) {
+export async function addSpend(settings, usage) {
   if (settings.provider === "ollama") return;
   const price = priceFor(settings.provider, settings.model);
   const cost = ((Number(usage?.input) || 0) * price.input + (Number(usage?.output) || 0) * price.output) / 1_000_000;
