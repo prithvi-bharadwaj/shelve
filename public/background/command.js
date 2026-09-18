@@ -286,9 +286,11 @@ async function decideWithJev({ settings, query, forcedAction, tabs, currentGroup
   if (routed.action === "answer") return null;
   // Jev could not separate the tabs the command selects; let the LLM pick.
   if (routed.tabsUncertain) return null;
-  // Same for a merge where Jev found fewer than two groups ("merge the
-  // similar news groups" flips between one and two across runs).
-  if (routed.action === "merge_groups" && routed.groupIds.length < 2) return null;
+  // Merges always go to the LLM: Jev's per-group picks are unreliable for
+  // vaguely described groups ("combine the two job search groups" flagged all
+  // four at confidence 1), the action is destructive, and an unnamed merge
+  // would need an LLM call for the name anyway.
+  if (routed.action === "merge_groups") return null;
 
   // Jev can only copy a name the user typed. With none given, a new or merged
   // group still needs one; update_group keeps its current name instead.
@@ -296,10 +298,6 @@ async function decideWithJev({ settings, query, forcedAction, tabs, currentGroup
   if (!groupName && routed.action === "create_group" && routed.tabIds.length > 0) {
     const chosen = new Set(routed.tabIds);
     groupName = await suggestGroupName(settings, query, tabs.filter((tab) => chosen.has(tab.id)).map((tab) => tab.title || tab.url));
-  }
-  if (!groupName && routed.action === "merge_groups" && routed.groupIds.length >= 2 && explicitMutationCommand(query, "merge_groups")) {
-    const chosen = new Set(routed.groupIds);
-    groupName = await suggestGroupName(settings, query, currentGroups.filter((group) => chosen.has(group.id)).map((group) => group.title || "Untitled"));
   }
 
   return {

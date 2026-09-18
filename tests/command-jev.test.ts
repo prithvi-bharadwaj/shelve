@@ -138,7 +138,7 @@ test("a murky tab selection hands the whole command to the LLM", async () => {
   expect(await harness.runCommand("group everything except the news")).toMatchObject({ action: "open_tab", tabId: 3 });
   expect(harness.grouped).toEqual([]);
 
-  const merging = await makeHarness({ action: confident("merge_groups"), merge_77: { noul: 0.9 } });
+  const merging = await makeHarness({ action: confident("merge_groups"), merge_77: { noul: 0.9 }, merge_78: { noul: 0.9 } });
   expect(await merging.runCommand("merge the similar news groups")).toMatchObject({ action: "open_tab" });
   expect(merging.classify).toHaveBeenCalledTimes(1);
 });

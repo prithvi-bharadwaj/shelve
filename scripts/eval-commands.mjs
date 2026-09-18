@@ -22,17 +22,20 @@ globalThis.chrome = {
 
 const { routeCommand, JevError } = await import("../public/background/decide.js");
 const { JEV_THRESHOLDS, JEV_DESTRUCTIVE_ACTIONS } = await import("../public/background/constants.js");
-const fixture = JSON.parse(await readFile(new URL("../tests/fixtures/command-eval.json", import.meta.url), "utf8"));
+const args = process.argv.slice(2);
+const fixtureName = args.includes("--fixture") ? args[args.indexOf("--fixture") + 1] : "command-eval.json";
+const fixture = JSON.parse(await readFile(new URL(`../tests/fixtures/${fixtureName}`, import.meta.url), "utf8"));
 const mutableTabIds = new Set(fixture.tabs
   .filter((tab) => tab.windowId === fixture.windowId && !tab.pinned)
   .map((tab) => tab.id));
-const fields = ["tabId", "tabIds", "groupIds", "allGroups", "color", "nameSpan"];
+const fields = ["tabId", "tabIdAny", "tabIds", "groupIds", "allGroups", "color", "nameSpan"];
+const MUTATING = ["create_group", "add_to_group", "update_group", "ungroup", "remove_duplicates", "merge_groups"];
 const setFields = new Set(["tabIds", "groupIds"]);
-const args = process.argv.slice(2);
 const onlyIndex = args.indexOf("--only");
 const commands = onlyIndex === -1 ? fixture.commands : fixture.commands.filter((command) => command.id === args[onlyIndex + 1]);
 
 function compareField(field, expected, got) {
+  if (field === "tabIdAny") return expected.includes(got);
   if (!setFields.has(field)) return expected === got;
   const wanted = new Set(expected);
   const actual = new Set(got || []);
@@ -50,11 +53,13 @@ function score(command, result, error = null) {
   }
   if (actionCorrect && !expect.compound) {
     for (const field of fields) {
-      if (Object.hasOwn(expect, field) && !compareField(field, expect[field], result[field])) {
+      const got = field === "tabIdAny" ? result.tabId : result[field];
+      if (Object.hasOwn(expect, field) && !compareField(field, expect[field], got)) {
         mismatches.push(field);
       }
     }
   }
+  const outcome = result ? classifyOutcome(command, result, mismatches) : "error";
   return {
     id: command.id,
     query: command.query,
@@ -63,8 +68,68 @@ function score(command, result, error = null) {
     result,
     error,
     actionCorrect: Boolean(actionCorrect),
-    mismatches
+    mismatches,
+    outcome,
+    step: result ? pipelineStep(command.query, result) : "error"
   };
+}
+
+// Mirrors command.js decideWithJev + the dispatch guards (regexes copied from
+// explicitMutationCommand) to get the user-visible outcome, not just the label.
+function explicitMutationCommand(query, action) {
+  if (action === "remove_duplicates") {
+    return /\b(duplicates?|dedupe|de-duplicate|deduplicate)\b/i.test(query) &&
+      /\b(close|remove|clean|delete|dedupe|de-duplicate|deduplicate)\b/i.test(query);
+  }
+  if (action === "ungroup") return /\b(un-?group)\b/i.test(query);
+  if (action === "merge_groups") return /\b(merge|combine|consolidate)\b/i.test(query);
+  if (action === "add_to_group") return /\b(move|add|put|stick)\b/i.test(query);
+  if (action === "update_group") return /\b(rename|re-?colou?r|colou?r|name|call)\b/i.test(query);
+  return false;
+}
+
+function pipelineStep(query, result) {
+  if (result.isCompound >= JEV_THRESHOLDS.compound) return "refused";
+  const floor = JEV_DESTRUCTIVE_ACTIONS.includes(result.action) ? JEV_THRESHOLDS.destructiveAction : JEV_THRESHOLDS.action;
+  if (result.confidence < floor) return "clarify";
+  if (result.action === "answer" || result.tabsUncertain) return "llm";
+  if (result.action === "merge_groups") return "llm";
+  if (MUTATING.includes(result.action) && result.action !== "create_group" && !explicitMutationCommand(query, result.action)) return "guard";
+  if ((result.action === "add_to_group" || result.action === "update_group") && result.groupIds.length !== 1) return "guard";
+  if ((result.action === "create_group" || result.action === "add_to_group") && !result.tabIds.length) return "not_found";
+  if (result.action === "ungroup" && !result.allGroups && !result.groupIds.length) return "guard";
+  if (result.action === "open_tab" && result.tabId == null) return "not_found";
+  return "acted";
+}
+
+// correct: did what was asked. safe: fell back, asked, or refused (degraded UX,
+// no harm). wrong-target: right action, wrong tabs/groups (harmful if mutating).
+// wrong-mutation: performed a mutation that was not asked for. wrong-tab: jumped
+// to the wrong tab (annoying, harmless).
+function classifyOutcome(command, result, mismatches) {
+  const step = pipelineStep(command.query, result);
+  const { expect } = command;
+  if (expect.compound) return step === "refused" ? "correct" : step === "acted" ? "wrong-mutation" : "safe";
+  if (step !== "acted" && step !== "not_found") return "safe";
+  const acted = step === "acted" ? result.action : "not_found";
+  const wanted = [expect.action, ...(expect.altActions || [])];
+  if (!wanted.includes(acted)) {
+    if (acted === "not_found") return "safe";
+    return MUTATING.includes(acted) ? "wrong-mutation" : "wrong-tab";
+  }
+  if (acted === "not_found" && expect.action !== "not_found") return "safe";
+  if (!mismatches.length) return "correct";
+  return MUTATING.includes(acted) ? "wrong-target" : "wrong-tab";
+}
+
+function printOutcomes(results) {
+  const counts = {};
+  for (const row of results) counts[row.outcome] = (counts[row.outcome] || 0) + 1;
+  console.log("User-visible outcomes (simulated gates + guards):");
+  console.table(Object.entries(counts).map(([outcome, n]) => ({ outcome, n, "%": percent(n, results.length) })));
+  for (const row of results.filter((item) => item.outcome.startsWith("wrong"))) {
+    console.log(`  ${row.outcome.toUpperCase()} ${row.id}: "${row.query}" → ${row.result.action} tabIds=${JSON.stringify(row.result.tabIds)} groupIds=${JSON.stringify(row.result.groupIds)} conf=${row.result.confidence}`);
+  }
 }
 
 async function evaluate(command, first = false) {
@@ -211,6 +276,7 @@ if (args.includes("--json")) {
 } else {
   if (!commands.length) console.log("No commands matched --only.");
   printActions(results);
+  printOutcomes(results);
   printFields(results);
   printHistogram(results);
   printThresholds(results);

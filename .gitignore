@@ -5,3 +5,5 @@ dist/
 skill-runs.jsonl
 .claude/
 .gstack/
+
+.env
