@@ -105,15 +105,23 @@ Rules:
     };
 
     let result = null;
+    const startedAt = Date.now();
+    let route = "llm";
     if (settings.decisionProvider === "typesafe") {
       const decided = await decideWithJev({
         settings, query, forcedAction, tabs, currentGroups, mutableTabIds, hasContentPermission
       });
-      if (decided?.respond) return decided.respond;
+      route = decided ? "jev" : "jev→llm";
+      if (decided?.respond) {
+        console.debug("[shelve] command", { route, ms: Date.now() - startedAt, action: decided.respond.action || "error" });
+        return decided.respond;
+      }
       result = decided?.result || null;
     }
     if (!result) {
+      const jevMs = Date.now() - startedAt;
       result = await ask({}, false);
+      console.debug("[shelve] command", { route, jevMs, llmMs: Date.now() - startedAt - jevMs });
       const wanted = (result.needsContent || []).filter((id) => tabById.has(id)).slice(0, 6);
       if (wanted.length > 0 && hasContentPermission) {
         const urlById = Object.fromEntries(tabs.map((tab) => [tab.id, tab.url]));
@@ -126,6 +134,7 @@ Rules:
       }
     }
 
+    if (route === "jev") console.debug("[shelve] command", { route, ms: Date.now() - startedAt, action: result.action });
     const target = Number.isInteger(result.tabId) ? tabById.get(result.tabId) : null;
     const reply = String(result.reply || "").trim().slice(0, 500);
     const selectedGroupIds = [...new Set(Array.isArray(result.groupIds) ? result.groupIds : [])]

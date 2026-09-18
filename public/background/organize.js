@@ -11,6 +11,7 @@ import { mergeWindows } from "./merge.js";
 import { captureSnapshot, storeUndoSnapshot } from "./undo.js";
 import { collectSnippets } from "./snippets.js";
 import { recordAction } from "./stats.js";
+import { routeToExistingGroups } from "./decide.js";
 
 // Every emoji-capable entry uses Unicode's text-presentation selector. The
 // remaining entries are text-only symbols. Keeping this list closed lets the
@@ -111,6 +112,29 @@ export async function organize(hasContentPermission, windowId) {
     const candidateIds = new Set(tabInfo.map((tab) => tab.id));
     const existingById = new Map(existingGroups.map((group) => [group.id, group]));
 
+    // Fast lane: while the LLM names new groups, Jev files loose tabs into the
+    // groups that already exist and applies them as soon as it answers. Any
+    // Jev failure is silent; the LLM plan then stands alone, as before.
+    const startedAt = Date.now();
+    let filed = new Map();
+    let jevApplying = null;
+    let jevClosed = false;
+    const jevStage = settings.decisionProvider === "typesafe" && existingGroups.length > 0
+      ? routeToExistingGroups({ tabs: tabInfo, groups: existingGroups, settings })
+        .then((placements) => {
+          // The LLM already finished: too late to file separately, and a
+          // stalled job may have been replaced by a newer run.
+          if (jevClosed || !placements.size || organizeJobs.get(targetWindowId)?.id !== job.id) return null;
+          filed = placements;
+          if (settings.reviewFirst) return null;
+          jevApplying = applyPlan(placementGroups(placements, existingById), 1, {
+            windowId: targetWindowId, snapshot: !dedupeMutated, record: false
+          });
+          return jevApplying;
+        })
+        .catch(() => null)
+      : null;
+
     let plan = await classifyTabs(settings, tabInfo, {}, existingGroups);
     const ambiguous = (plan.needsContent || []).filter((id) => candidateIds.has(id)).slice(0, 6);
     if (ambiguous.length > 0 && hasContentPermission) {
@@ -121,10 +145,21 @@ export async function organize(hasContentPermission, windowId) {
         plan = await classifyTabs(settings, tabInfo, snippets, existingGroups);
       }
     }
+    jevClosed = true;
+    const early = jevApplying ? await jevStage : null;
+    const earlyApplied = Boolean(early?.done);
+    console.debug("[shelve] organize", { ms: Date.now() - startedAt, filedByJev: filed.size, jevApplied: earlyApplied });
 
     const minSize = settings.groupEverything ? 1 : clamp(settings.minGroupSize, 1, 6);
-    const groups = sanitizePlan(plan, candidateIds, existingById, minSize, settings.groupNameStyle);
+    // Jev's placements win: tabs it filed leave the LLM plan. In review mode
+    // nothing has moved yet, so they lead the plan as existing-group rows.
+    const groups = sanitizePlan(
+      earlyApplied ? plan : { ...plan, groups: [...placementGroups(filed, existingById), ...(plan.groups || [])] },
+      earlyApplied ? new Set([...candidateIds].filter((id) => !filed.has(id))) : candidateIds,
+      existingById, minSize, settings.groupNameStyle
+    );
     if (groups.length === 0) {
+      if (earlyApplied) return finishOrganizeJob(job, { ...recordCombined(early, null), closedTabs: closedDuplicates });
       return finishOrganizeJob(job, { error: "No coherent groups found — tabs left as they are.", closedTabs: closedDuplicates });
     }
 
@@ -150,8 +185,10 @@ export async function organize(hasContentPermission, windowId) {
     }
 
     updateOrganizeJob(job, { stage: "applying" });
-    const result = await applyPlan(groups, minSize, { windowId: targetWindowId, snapshot: !dedupeMutated });
-    return finishOrganizeJob(job, { ...result, closedTabs: closedDuplicates });
+    const result = await applyPlan(groups, minSize, {
+      windowId: targetWindowId, snapshot: !dedupeMutated && !earlyApplied, record: !earlyApplied
+    });
+    return finishOrganizeJob(job, { ...recordCombined(early, result), closedTabs: closedDuplicates });
   } catch (error) {
     const message = error?.name === "TimeoutError"
       ? "The AI provider took too long to respond. Try again or choose a faster model."
@@ -165,6 +202,39 @@ export async function organize(hasContentPermission, windowId) {
   } finally {
     stopKeepalive();
   }
+}
+
+// Jev placements (tabId → existing groupId) as plan rows sanitizePlan accepts.
+export function placementGroups(placements, existingById) {
+  const byGroup = new Map();
+  for (const [tabId, groupId] of placements) {
+    if (!existingById.has(groupId)) continue;
+    if (!byGroup.has(groupId)) byGroup.set(groupId, []);
+    byGroup.get(groupId).push(tabId);
+  }
+  return [...byGroup].map(([groupId, tabIds]) => ({ existingGroupId: groupId, tabIds, importance: 3 }));
+}
+
+// Two applyPlan results (Jev fast lane, then the LLM plan) as one summary.
+export function combineResults(early, result) {
+  if (!early?.done) return result;
+  if (!result?.done) return early;
+  return {
+    done: true,
+    groupCount: early.groupCount + result.groupCount,
+    tabCount: early.tabCount + result.tabCount,
+    newGroupCount: (early.newGroupCount || 0) + (result.newGroupCount || 0),
+    groupNames: [...new Set([...early.groupNames, ...result.groupNames])]
+  };
+}
+
+// The fast lane skips stats so a two-stage organize still counts once.
+function recordCombined(early, result) {
+  const combined = combineResults(early, result);
+  if (early?.done && combined?.done) {
+    recordAction({ organizes: 1, tabsGrouped: combined.tabCount, groupsCreated: combined.newGroupCount || 0 }).catch(() => undefined);
+  }
+  return combined;
 }
 
 export function sanitizePlan(plan, candidateIds, existingById, minSize, groupNameStyle = "text") {
@@ -292,7 +362,7 @@ ${customInstructions
   return callProvider(settings, system, user, PLAN_SCHEMA);
 }
 
-export async function applyPlan(groups, minSize = 1, { windowId, snapshot = true } = {}) {
+export async function applyPlan(groups, minSize = 1, { windowId, snapshot = true, record = true } = {}) {
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
   const [liveTabs, liveGroups] = await Promise.all([
     chrome.tabs.query({ windowId: targetWindowId }),
@@ -359,11 +429,12 @@ export async function applyPlan(groups, minSize = 1, { windowId, snapshot = true
   const newGroups = applied.map((item) => item.newGroup).filter(Boolean);
   await orderTabStrip(targetWindowId, newGroups);
   const tabCount = applied.reduce((total, item) => total + item.tabCount, 0);
-  recordAction({ organizes: 1, tabsGrouped: tabCount, groupsCreated: newGroups.length }).catch(() => undefined);
+  if (record) recordAction({ organizes: 1, tabsGrouped: tabCount, groupsCreated: newGroups.length }).catch(() => undefined);
   return {
     done: true,
     groupCount: applied.length,
     tabCount,
+    newGroupCount: newGroups.length,
     groupNames: applied.map((item) => item.name)
   };
 }

@@ -43,7 +43,9 @@ export const JEV_THRESHOLDS = {
   merge: 0.5,
   allGroups: 0.5,
   needsContent: 0.5,
-  compound: 0.7
+  compound: 0.7,
+  // Organize: a loose tab joins an existing group only on a confident pick.
+  file: 0.7
 };
 export const JEV_DESTRUCTIVE_ACTIONS = ["ungroup", "merge_groups", "remove_duplicates"];
 
