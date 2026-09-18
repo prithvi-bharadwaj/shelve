@@ -21,7 +21,7 @@ globalThis.chrome = {
 };
 
 const { routeCommand, JevError } = await import("../public/background/decide.js");
-const { JEV_THRESHOLDS, JEV_DESTRUCTIVE_ACTIONS } = await import("../public/background/constants.js");
+const { JEV_THRESHOLDS, JEV_DESTRUCTIVE_ACTIONS, GROUP_COLORS } = await import("../public/background/constants.js");
 const args = process.argv.slice(2);
 const fixtureName = args.includes("--fixture") ? args[args.indexOf("--fixture") + 1] : "command-eval.json";
 const fixture = JSON.parse(await readFile(new URL(`../tests/fixtures/${fixtureName}`, import.meta.url), "utf8"));
@@ -78,13 +78,17 @@ function score(command, result, error = null) {
 // explicitMutationCommand) to get the user-visible outcome, not just the label.
 function explicitMutationCommand(query, action) {
   if (action === "remove_duplicates") {
-    return /\b(duplicates?|dedupe|de-duplicate|deduplicate)\b/i.test(query) &&
-      /\b(close|remove|clean|delete|dedupe|de-duplicate|deduplicate)\b/i.test(query);
+    return /\b(duplicates?|duplicated|dupes?|dups?|dedupe|de-duplicate|deduplicate)\b/i.test(query) &&
+      /\b(close|remove|clean|clear|delete|kill|get rid of|dedupe|de-duplicate|deduplicate)\b/i.test(query);
   }
-  if (action === "ungroup") return /\b(un-?group)\b/i.test(query);
+  // "get rid of the X group" keeps the tabs, so it is only ever read as ungroup.
+  if (action === "ungroup") return /\b(un-?group|dissolve|disband)\b/i.test(query) || /\b(get rid of|remove|delete|break up)\b.*\bgroup\b/i.test(query);
   if (action === "merge_groups") return /\b(merge|combine|consolidate)\b/i.test(query);
-  if (action === "add_to_group") return /\b(move|add|put|stick)\b/i.test(query);
-  if (action === "update_group") return /\b(rename|re-?colou?r|colou?r|name|call)\b/i.test(query);
+  if (action === "add_to_group") return /\b(move|add|put|stick|drop|throw|->|→)/i.test(query);
+  if (action === "update_group") {
+    return /\b(rename|re-?colou?r|colou?r|name|call|title)\b/i.test(query) ||
+      new RegExp(`\\b(${GROUP_COLORS.join("|")})\\b`, "i").test(query);
+  }
   return false;
 }
 

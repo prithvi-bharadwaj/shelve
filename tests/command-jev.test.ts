@@ -119,6 +119,9 @@ test("low action confidence returns the top two actions to clarify and mutates n
   const harness = await makeHarness({ action: confident("create_group", "add_to_group", 0.3), match_1: { noul: 0.9 } });
   expect(await harness.runCommand("arxiv stuff into news")).toEqual({ done: true, action: "clarify", options: ["create_group", "add_to_group"] });
   expect(harness.grouped).toEqual([]);
+
+  const nothing = await makeHarness({ action: confident("not_found", "open_tab", 0.3) });
+  expect(await nothing.runCommand("open netflix")).toEqual({ done: true, action: "clarify", options: ["open_tab"] });
 });
 
 test("destructive actions need higher confidence, a forced action skips the gate, and the regex guard still holds", async () => {
@@ -128,6 +131,7 @@ test("destructive actions need higher confidence, a forced action skips the gate
   expect(await harness.runCommand("ungroup news", "ungroup")).toMatchObject({ done: true, action: "ungroup", groupCount: 1 });
   expect(harness.ungrouped).toEqual([[3]]);
   expect(await harness.runCommand("tidy news", "ungroup")).toEqual({ error: "Explicitly ask to ungroup tabs before any groups are changed." });
+  expect(await harness.runCommand("get rid of the news group but keep the tabs", "ungroup")).toMatchObject({ action: "ungroup" });
 });
 
 test("a murky tab selection hands the whole command to the LLM", async () => {

@@ -280,7 +280,11 @@ async function decideWithJev({ settings, query, forcedAction, tabs, currentGroup
   if (!routed.forced) {
     const floor = JEV_DESTRUCTIVE_ACTIONS.includes(routed.action) ? JEV_THRESHOLDS.destructiveAction : JEV_THRESHOLDS.action;
     if (routed.confidence < floor) {
-      return { respond: { done: true, action: "clarify", options: [routed.action, routed.runnerUp].filter(Boolean) } };
+      // "Nothing matches" is not a choice a user can make; when it was the
+      // top pick and nothing else is worth offering, just say so.
+      const options = [routed.action, routed.runnerUp].filter((action) => action && action !== "not_found");
+      if (!options.length) return { respond: { done: true, action: "not_found", reply: "Couldn't find a matching tab." } };
+      return { respond: { done: true, action: "clarify", options } };
     }
   }
   if (routed.action === "answer") return null;
@@ -324,13 +328,17 @@ async function suggestGroupName(settings, query, titles) {
 
 function explicitMutationCommand(query, action) {
   if (action === "remove_duplicates") {
-    return /\b(duplicates?|dedupe|de-duplicate|deduplicate)\b/i.test(query) &&
-      /\b(close|remove|clean|delete|dedupe|de-duplicate|deduplicate)\b/i.test(query);
+    return /\b(duplicates?|duplicated|dupes?|dups?|dedupe|de-duplicate|deduplicate)\b/i.test(query) &&
+      /\b(close|remove|clean|clear|delete|kill|get rid of|dedupe|de-duplicate|deduplicate)\b/i.test(query);
   }
-  if (action === "ungroup") return /\b(un-?group)\b/i.test(query);
+  // "get rid of the X group" keeps the tabs, so it is only ever read as ungroup.
+  if (action === "ungroup") return /\b(un-?group|dissolve|disband)\b/i.test(query) || /\b(get rid of|remove|delete|break up)\b.*\bgroup\b/i.test(query);
   if (action === "merge_groups") return /\b(merge|combine|consolidate)\b/i.test(query);
-  if (action === "add_to_group") return /\b(move|add|put|stick)\b/i.test(query);
-  if (action === "update_group") return /\b(rename|re-?colou?r|colou?r|name|call)\b/i.test(query);
+  if (action === "add_to_group") return /\b(move|add|put|stick|drop|throw|->|→)/i.test(query);
+  if (action === "update_group") {
+    return /\b(rename|re-?colou?r|colou?r|name|call|title)\b/i.test(query) ||
+      new RegExp(`\\b(${GROUP_COLORS.join("|")})\\b`, "i").test(query);
+  }
   return false;
 }
 
