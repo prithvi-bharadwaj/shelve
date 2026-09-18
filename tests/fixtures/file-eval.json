@@ -1,0 +1,36 @@
+{
+  "groups": [
+    { "id": 1, "title": "AI Research", "color": "blue", "tabs": ["Attention Is All You Need", "LoRA: Low-Rank Adaptation of Large Language Models", "Papers with Code"] },
+    { "id": 2, "title": "Japan Trip", "color": "green", "tabs": ["Tokyo hotels - Booking.com", "JR Pass: official site", "Kyoto itinerary 3 days"] },
+    { "id": 3, "title": "Shelve", "color": "purple", "tabs": ["Chrome Extensions: chrome.tabGroups API", "shelve-api - Vercel", "Chrome Web Store Developer Dashboard"] },
+    { "id": 4, "title": "Taxes", "color": "yellow", "tabs": ["IRS Form 1040 Instructions", "TurboTax login"] },
+    { "id": 5, "title": "Misc", "color": "grey", "tabs": ["Weather", "Hacker News"] }
+  ],
+  "tabs": [
+    { "id": 201, "title": "Scaling Laws for Neural Language Models", "url": "https://arxiv.org/abs/2001.08361", "expect": 1 },
+    { "id": 202, "title": "QLoRA: Efficient Finetuning of Quantized LLMs", "url": "https://arxiv.org/abs/2305.14314", "expect": 1 },
+    { "id": 203, "title": "Hugging Face – The AI community building the future", "url": "https://huggingface.co/", "expect": 1 },
+    { "id": 204, "title": "Osaka to Hiroshima shinkansen times", "url": "https://www.japan-guide.com/e/e2018.html", "expect": 2 },
+    { "id": 205, "title": "Airbnb: Shinjuku apartment", "url": "https://www.airbnb.com/rooms/12345", "expect": 2 },
+    { "id": 206, "title": "Japan eSIM comparison 2026", "url": "https://esimdb.com/japan", "expect": 2 },
+    { "id": 207, "title": "chrome.storage.session - Chrome for Developers", "url": "https://developer.chrome.com/docs/extensions/reference/api/storage", "expect": 3 },
+    { "id": 208, "title": "Manifest V3 service worker lifecycle", "url": "https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle", "expect": 3 },
+    { "id": 209, "title": "tryshelve.com", "url": "https://tryshelve.com/", "expect": 3 },
+    { "id": 210, "title": "Schedule C (Form 1040) - IRS", "url": "https://www.irs.gov/forms-pubs/about-schedule-c-form-1040", "expect": 4 },
+    { "id": 211, "title": "Estimated tax payments 2026 deadlines", "url": "https://www.nerdwallet.com/article/taxes/estimated-quarterly-taxes", "expect": 4 },
+    { "id": 212, "title": "Franchise Tax Board - California", "url": "https://www.ftb.ca.gov/", "expect": 4 },
+
+    { "id": 220, "title": "Amazon.com: USB-C hub", "url": "https://www.amazon.com/dp/B0EXAMPLE", "expect": null },
+    { "id": 221, "title": "YouTube", "url": "https://www.youtube.com/", "expect": null },
+    { "id": 222, "title": "Gmail - Inbox", "url": "https://mail.google.com/mail/u/0/", "expect": null },
+    { "id": 223, "title": "Best pizza in San Francisco - Eater", "url": "https://sf.eater.com/maps/best-pizza-san-francisco", "expect": null },
+    { "id": 224, "title": "Stripe Dashboard", "url": "https://dashboard.stripe.com/", "expect": null },
+    { "id": 225, "title": "Next.js 16 release notes", "url": "https://nextjs.org/blog/next-16", "expect": null },
+    { "id": 226, "title": "React docs: useEffect", "url": "https://react.dev/reference/react/useEffect", "expect": null },
+    { "id": 227, "title": "Netflix", "url": "https://www.netflix.com/browse", "expect": null },
+    { "id": 228, "title": "Italy trip ideas - Lonely Planet", "url": "https://www.lonelyplanet.com/italy", "expect": null },
+    { "id": 229, "title": "Mortgage calculator - Bankrate", "url": "https://www.bankrate.com/mortgages/mortgage-calculator/", "expect": null },
+    { "id": 230, "title": "Anthropic API pricing", "url": "https://www.anthropic.com/pricing", "expect": null },
+    { "id": 231, "title": "Twitter / X", "url": "https://x.com/home", "expect": null }
+  ]
+}
