@@ -35,14 +35,14 @@
 
   <main class="doc">
     <h1>Privacy Policy</h1>
-    <p class="date">Effective 31 August 2026 · applies to the Shelve browser extension</p>
+    <p class="date">Effective 18 September 2026 · applies to the Shelve browser extension</p>
 
     <article class="doc-body">
       <p>Shelve is built to keep your data under your control. There is no account, and no analytics or tracking of any kind. This page describes exactly what data the extension touches and where it goes.</p>
 
       <h2>What Shelve processes, and where it goes</h2>
       <ul>
-        <li><strong>Tab titles and URLs.</strong> When you run an AI action (organize, command bar, shelving a group), the titles and URLs of your open tabs are sent from your browser to the AI provider handling the request. With your own API key — OpenAI, Anthropic, Google Gemini, or your own local Ollama server — they go directly to that provider and never touch Shelve. On the built-in free tier, the request is relayed through Shelve's metering service to the AI provider.</li>
+        <li><strong>Tab titles and URLs.</strong> When you run an AI action (organize, command bar, shelving a group), the titles and URLs of your open tabs are sent from your browser to the AI provider handling the request. With your own API key — OpenAI, Anthropic, Google Gemini, or your own local Ollama server — they go directly to that provider and never touch Shelve. On the built-in free tier, the request is relayed through Shelve's metering service to the AI provider. If you turn on the optional <em>TypeSafe Jev</em> command routing in Settings, command-bar requests also send tab titles, URLs, group names, and (when you have allowed page access) short page snippets to TypeSafe AI, which only returns a decision about what the command asks for — it never generates text.</li>
         <li><strong>Page snippets (optional).</strong> If — and only if — you grant the optional page-access permission, Shelve may read a short text snippet from a page to classify an ambiguous tab or to write a shelving brief. Declining this permission leaves title-and-URL organization fully functional. Each AI feature asks you to acknowledge its data use once, before its first request.</li>
         <li><strong>Your API keys.</strong> Stored in <code>chrome.storage.local</code> on your machine, sent only to the matching provider as authentication. Never synced, never transmitted elsewhere.</li>
         <li><strong>Settings, shelved groups, and usage stats.</strong> Stored in your browser. The stats card (tabs sorted, streak) is computed and kept entirely on your device.</li>
@@ -57,7 +57,7 @@
       </ul>
 
       <h2>Third parties</h2>
-      <p>The AI providers that handle your requests receive data under their own privacy policies: <a href="https://openai.com/policies/privacy-policy">OpenAI</a>, <a href="https://www.anthropic.com/privacy">Anthropic</a>, and <a href="https://policies.google.com/privacy">Google</a>. On the built-in free tier, requests pass through Shelve's relay on their way to Google Gemini. If you use Ollama, requests stay on your own machine or server.</p>
+      <p>The AI providers that handle your requests receive data under their own privacy policies: <a href="https://openai.com/policies/privacy-policy">OpenAI</a>, <a href="https://www.anthropic.com/privacy">Anthropic</a>, <a href="https://policies.google.com/privacy">Google</a>, and — only when you enable Jev command routing — <a href="https://typesafe.ai/privacy">TypeSafe AI</a>. On the built-in free tier, requests pass through Shelve's relay on their way to Google Gemini. If you use Ollama, requests stay on your own machine or server.</p>
 
       <h2>Chrome Web Store disclosures</h2>
       <p>Shelve's use of information received from Google APIs adheres to the Chrome Web Store User Data Policy, including its Limited Use requirements. Data described above is used solely to provide the extension's single purpose — organizing and managing your tabs — and for no other purpose.</p>

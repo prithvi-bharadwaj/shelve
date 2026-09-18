@@ -174,7 +174,7 @@ export function Popup() {
   const organize = async () => {
     if (!acknowledged && !confirming) {
       setConfirming(true);
-      setStatus({ text: "Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider." });
+      setStatus({ text: "Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider (and to TypeSafe if Jev routing is on)." });
       return;
     }
     if (confirming) {

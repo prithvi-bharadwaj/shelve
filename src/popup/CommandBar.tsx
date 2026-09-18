@@ -160,7 +160,7 @@ export function CommandBar({
 
       {confirming && (
         <p className="mt-2 text-xs leading-snug text-muted-foreground" aria-live="polite">
-          Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider. Press Enter again to continue.
+          Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider (and to TypeSafe if Jev routing is on). Press Enter again to continue.
         </p>
       )}
 
