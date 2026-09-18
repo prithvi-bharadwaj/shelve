@@ -104,7 +104,7 @@ Rules:
     };
 
     let result = null;
-    if (settings.decisionProvider === "typesafe" && settings.typesafeKey) {
+    if (settings.decisionProvider === "typesafe") {
       const decided = await decideWithJev({
         settings, query, forcedAction, tabs, currentGroups, mutableTabIds, hasContentPermission
       });

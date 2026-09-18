@@ -135,7 +135,9 @@ export function Options() {
 
   const save = async () => {
     setPermissionStatus("");
-    if (settings.decisionProvider === "typesafe") {
+    // Only a user's own key talks to api.typesafe.ai directly; the hosted path
+    // goes through shelve-api, which serves CORS and needs no permission.
+    if (settings.decisionProvider === "typesafe" && settings.typesafeKey.trim()) {
       let granted = false;
       try {
         granted = await chrome.permissions.request({ origins: ["https://api.typesafe.ai/*"] });

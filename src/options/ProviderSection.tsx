@@ -129,11 +129,11 @@ export function ProviderSection({
         <>
           <CredentialField
             id="typesafeKey"
-            label="TypeSafe API key"
+            label="TypeSafe API key (optional)"
             placeholder="ts-…"
             value={settings.typesafeKey}
             onChange={(value) => onSet("typesafeKey", value)}
-            hint="Stored in this browser's local extension storage and sent only to TypeSafe. Commands send your tab titles and URLs to api.typesafe.ai; your AI provider still writes answers and group names."
+            hint="Leave blank to use Shelve's hosted TypeSafe access (free, metered). With your own key, commands go straight to api.typesafe.ai. Either way tab titles and URLs reach TypeSafe; your AI provider still writes answers and group names."
           />
           {permissionStatus && <p className="text-xs text-muted-foreground" aria-live="polite">{permissionStatus}</p>}
         </>

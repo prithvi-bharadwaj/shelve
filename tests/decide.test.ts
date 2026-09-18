@@ -184,5 +184,23 @@ test("askJev retries 429s at most twice and never leaks the key in errors", asyn
 
   vi.stubGlobal("fetch", vi.fn(async () => jevResponse({}, 403)));
   await expect(askJev({ typesafeKey: "ts-secret" }, "s", {})).rejects.toMatchObject({ code: "auth" });
-  await expect(askJev({ typesafeKey: "" }, "s", {})).rejects.toMatchObject({ code: "missing_key" });
+});
+
+test("without a key askJev uses Shelve's hosted proxy on the install token and records no spend", async () => {
+  const { askJev } = await load();
+  (globalThis as unknown as { chrome: { storage: { local: { get: unknown } } } }).chrome.storage.local.get =
+    async (defaults: Record<string, unknown>) => ({ ...defaults, installToken: "123e4567-e89b-12d3-a456-426614174000" });
+  const fetchMock = vi.fn(async () => jevResponse({ q: { type: "noul", noul: 0.2 } }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(askJev({ typesafeKey: "" }, "s", { q: { type: "noul", instructions: "?" } })).resolves.toHaveProperty("q");
+  const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+  expect(url).toBe("https://shelve-api.vercel.app/api/decide");
+  expect((init.headers as Record<string, string>).Authorization).toBe("Bearer 123e4567-e89b-12d3-a456-426614174000");
+  expect(JSON.parse(init.body as string)).not.toHaveProperty("model");
+  expect((globalThis as unknown as { chrome: { storage: { local: { set: ReturnType<typeof vi.fn> } } } }).chrome.storage.local.set).not.toHaveBeenCalled();
+
+  // The proxy's 503 means "fall back to Gemini": no retries, a typed error.
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("{\"error\":\"capacity\"}", { status: 503 })));
+  await expect(askJev({ typesafeKey: "" }, "s", {})).rejects.toMatchObject({ name: "JevError", code: "http", status: 503 });
 });

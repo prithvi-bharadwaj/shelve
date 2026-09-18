@@ -5,6 +5,7 @@ import {
   GROUP_COLORS,
   COMMAND_SCHEMA,
   TYPESAFE_URL,
+  SHELVE_DECIDE_URL,
   JEV_MODEL,
   JEV_TIMEOUT_MS,
   JEV_MAX_RETRIES,
@@ -13,7 +14,7 @@ import {
   JEV_THRESHOLDS
 } from "./constants.js";
 import { fetchWithTimeout, sleep, withTimeout } from "./util.js";
-import { getSettings } from "./settings.js";
+import { getSettings, getInstallToken } from "./settings.js";
 import { addSpend } from "./providers.js";
 
 export const COMMAND_ACTIONS = COMMAND_SCHEMA.properties.action.enum;
@@ -29,10 +30,16 @@ export class JevError extends Error {
   }
 }
 
+// With a user key, requests go straight to TypeSafe. Without one they go
+// through Shelve's metered proxy on the install token; the proxy answers 503
+// for anything it cannot serve (caps, dead key, TypeSafe outage), which lands
+// here as a JevError and the command falls back to the LLM path.
 export async function askJev(settings, state, questions) {
   const apiKey = String(settings?.typesafeKey || "").trim();
-  if (!apiKey) throw new JevError("missing_key");
-  const body = JSON.stringify({ state, model: JEV_MODEL, questions });
+  const hosted = !apiKey;
+  const url = hosted ? SHELVE_DECIDE_URL : TYPESAFE_URL;
+  const bearer = hosted ? await getInstallToken() : apiKey;
+  const body = JSON.stringify(hosted ? { state, questions } : { state, model: JEV_MODEL, questions });
   if (body.length > JEV_MAX_REQUEST_CHARS) throw new JevError("too_large");
 
   for (let attempt = 0; ; attempt++) {
@@ -41,9 +48,9 @@ export async function askJev(settings, state, questions) {
     try {
       // fetchWithTimeout only bounds time-to-headers; this bounds the body too.
       [resp, data] = await withTimeout((async () => {
-        const response = await fetchWithTimeout(TYPESAFE_URL, {
+        const response = await fetchWithTimeout(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${bearer}` },
           body
         }, JEV_TIMEOUT_MS);
         return [response, await response.json().catch(() => null)];
@@ -62,10 +69,12 @@ export async function askJev(settings, state, questions) {
     if (!resp.ok) throw new JevError(resp.status === 401 || resp.status === 403 ? "auth" : "http", resp.status);
     if (!data?.answers || typeof data.answers !== "object") throw new JevError("bad_response", resp.status);
 
-    await addSpend(
-      { provider: "typesafe", model: JEV_MODEL },
-      { input: data.usage?.input_tokens, output: data.usage?.output_tokens }
-    ).catch(() => undefined);
+    if (!hosted) {
+      await addSpend(
+        { provider: "typesafe", model: JEV_MODEL },
+        { input: data.usage?.input_tokens, output: data.usage?.output_tokens }
+      ).catch(() => undefined);
+    }
     return data.answers;
   }
 }

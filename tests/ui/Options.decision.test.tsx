@@ -23,7 +23,7 @@ describe("Options command routing", () => {
     const user = userEvent.setup();
     render(<Options />);
     await selectTypeSafe(user);
-    await user.type(screen.getByLabelText("TypeSafe API key"), "  ts-test-key  ");
+    await user.type(screen.getByLabelText("TypeSafe API key (optional)"), "  ts-test-key  ");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(mock.localData.typesafeKey).toBe("ts-test-key"));
@@ -41,10 +41,20 @@ describe("Options command routing", () => {
     else mock.chrome.permissions.request.mockRejectedValue(new Error("Permission rejected"));
     render(<Options />);
     await selectTypeSafe(user);
+    await user.type(screen.getByLabelText("TypeSafe API key (optional)"), "ts-own-key");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Permission for api.typesafe.ai was declined — commands will keep using your AI provider.")).toHaveAttribute("aria-live", "polite");
     await waitFor(() => expect(mock.syncData.decisionProvider).toBe("typesafe"));
+  });
+
+  it("does not request a host permission when the hosted proxy is used (no key)", async () => {
+    const user = userEvent.setup();
+    render(<Options />);
+    await selectTypeSafe(user);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mock.syncData.decisionProvider).toBe("typesafe"));
+    expect(mock.chrome.permissions.request).not.toHaveBeenCalled();
   });
 
   it("loads the TypeSafe key from local storage", async () => {
@@ -52,7 +62,7 @@ describe("Options command routing", () => {
     mock.seedLocal({ typesafeKey: "ts-saved" });
     render(<Options />);
 
-    expect(await screen.findByLabelText("TypeSafe API key")).toHaveValue("ts-saved");
+    expect(await screen.findByLabelText("TypeSafe API key (optional)")).toHaveValue("ts-saved");
     expect(screen.getByRole("combobox", { name: "Command routing" })).toHaveTextContent("TypeSafe Jev — fast typed decisions");
   });
 
@@ -62,6 +72,6 @@ describe("Options command routing", () => {
     await screen.findByText("Using the built-in model list.");
 
     expect(screen.getByRole("combobox", { name: "Command routing" })).toHaveTextContent("AI provider (default)");
-    expect(screen.queryByLabelText("TypeSafe API key")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("TypeSafe API key (optional)")).not.toBeInTheDocument();
   });
 });

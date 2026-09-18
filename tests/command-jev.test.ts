@@ -13,7 +13,7 @@ const confident = (choice: string, runnerUp = "not_found", confidence = 0.95) =>
   confidence,
 });
 
-async function makeHarness(answers: Answers | "fail", settings: Record<string, unknown> = {}) {
+async function makeHarness(answers: Answers | "fail", settings: Record<string, unknown> = {}, local: Record<string, unknown> = {}) {
   const grouped: Array<{ tabIds: number[]; groupId: number | null }> = [];
   const ungrouped: number[][] = [];
   const updated: Array<{ id: number; changes: Record<string, unknown> }> = [];
@@ -53,7 +53,7 @@ async function makeHarness(answers: Answers | "fail", settings: Record<string, u
         set: async () => {},
       },
       local: {
-        get: async (defaults: Record<string, unknown>) => ({ ...defaults, geminiKey: "test-key", typesafeKey: "ts-key", dataNoticeAck: true }),
+        get: async (defaults: Record<string, unknown>) => ({ ...defaults, geminiKey: "test-key", typesafeKey: "ts-key", dataNoticeAck: true, ...local }),
         set: async () => {},
         remove: async () => {},
       },
@@ -161,6 +161,17 @@ test("answers and Jev failures fall back to the LLM path", async () => {
   const failing = await makeHarness("fail");
   expect(await failing.runCommand("open the news")).toMatchObject({ action: "open_tab", tabId: 3 });
   expect(failing.fetchMock).toHaveBeenCalledTimes(1);
+});
+
+test("without a TypeSafe key the hosted proxy is used, and its 503 falls back to the LLM", async () => {
+  const hosted = await makeHarness({ action: confident("open_tab"), target_tab: { choice: "3", probabilities: { 3: 0.9, none: 0.1 } } }, {}, { typesafeKey: "", installToken: "123e4567-e89b-12d3-a456-426614174000" });
+  expect(await hosted.runCommand("open the news")).toMatchObject({ action: "open_tab", tabId: 3 });
+  expect(String((hosted.fetchMock.mock.calls[0] as unknown as [string])[0])).toContain("shelve-api.vercel.app/api/decide");
+  expect(hosted.classify).not.toHaveBeenCalled();
+
+  const capped = await makeHarness("fail", {}, { typesafeKey: "" });
+  expect(await capped.runCommand("open the news")).toMatchObject({ action: "open_tab", tabId: 3 });
+  expect(capped.classify).toHaveBeenCalledTimes(1);
 });
 
 test("decisionProvider llm never calls TypeSafe", async () => {

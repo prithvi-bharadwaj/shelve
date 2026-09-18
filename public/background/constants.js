@@ -16,6 +16,9 @@ export const STASH_RESUME_STALE_MS = 2 * 60 * 1000;
 // TypeSafe "Jev" decision model: typed answers only, never generated text.
 // Pinned so a model update can't silently shift the thresholds below.
 export const TYPESAFE_URL = "https://api.typesafe.ai/v1/systemone";
+// Hosted Jev access for users without their own key; metered by install token,
+// same CORS-served project as SHELVE_PROXY_URL (never a host_permission).
+export const SHELVE_DECIDE_URL = "https://shelve-api.vercel.app/api/decide";
 export const TYPESAFE_ORIGIN = "https://api.typesafe.ai/*";
 export const JEV_MODEL = "jev-1.13.0";
 export const JEV_TIMEOUT_MS = 8 * 1000;
