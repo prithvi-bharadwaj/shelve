@@ -98,6 +98,8 @@ function pipelineStep(query, result) {
   if (result.confidence < floor) return "clarify";
   if (result.action === "answer" || result.tabsUncertain) return "llm";
   if (result.action === "merge_groups") return "llm";
+  if (result.action !== "answer" && result.needsContent >= JEV_THRESHOLDS.needsContent) return "llm"; // eval has no page access
+  if (result.action === "update_group" && !result.nameSpan && !result.color) return "llm";
   if (MUTATING.includes(result.action) && result.action !== "create_group" && !explicitMutationCommand(query, result.action)) return "guard";
   if ((result.action === "add_to_group" || result.action === "update_group") && result.groupIds.length !== 1) return "guard";
   if ((result.action === "create_group" || result.action === "add_to_group") && !result.tabIds.length) return "not_found";

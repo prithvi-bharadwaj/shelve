@@ -38,6 +38,7 @@ test("extractNameCandidates copies quoted spans and the text after naming words"
   );
   expect(extractNameCandidates("rename AI Development to ML.")).toEqual(["ML"]);
   expect(extractNameCandidates("merge news and blogs into Reading group")).toEqual(["Reading group", "Reading"]);
+  expect(extractNameCandidates("call the misc group random")).toEqual(["random"]);
   expect(extractNameCandidates("close duplicate tabs")).toEqual([]);
 });
 
@@ -184,6 +185,16 @@ test("askJev retries 429s at most twice and never leaks the key in errors", asyn
 
   vi.stubGlobal("fetch", vi.fn(async () => jevResponse({}, 403)));
   await expect(askJev({ typesafeKey: "ts-secret" }, "s", {})).rejects.toMatchObject({ code: "auth" });
+});
+
+test("a personal key honours the spend cap and surfaces it as a fallback-able JevError", async () => {
+  const { askJev } = await load();
+  (globalThis as unknown as { chrome: { storage: { local: { get: unknown } } } }).chrome.storage.local.get =
+    async (defaults: Record<string, unknown>) => ({ ...defaults, spentUsd: 5 });
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(askJev({ typesafeKey: "ts-secret", budgetUsd: 1 }, "s", {})).rejects.toMatchObject({ name: "JevError", code: "budget" });
+  expect(fetchMock).not.toHaveBeenCalled();
 });
 
 test("without a key askJev uses Shelve's hosted proxy on the install token and records no spend", async () => {

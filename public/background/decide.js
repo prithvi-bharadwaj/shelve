@@ -15,7 +15,7 @@ import {
 } from "./constants.js";
 import { fetchWithTimeout, sleep, withTimeout } from "./util.js";
 import { getSettings, getInstallToken } from "./settings.js";
-import { addSpend } from "./providers.js";
+import { addSpend, checkBudget } from "./providers.js";
 
 export const COMMAND_ACTIONS = COMMAND_SCHEMA.properties.action.enum;
 
@@ -38,6 +38,11 @@ export async function askJev(settings, state, questions) {
   const apiKey = String(settings?.typesafeKey || "").trim();
   const hosted = !apiKey;
   const url = hosted ? SHELVE_DECIDE_URL : TYPESAFE_URL;
+  // A personal key is billable: honour the user's spend cap like any provider.
+  // (Scripts pass bare { typesafeKey } with no cap; only real settings carry budgetUsd.)
+  if (!hosted && settings.budgetUsd !== undefined) {
+    await checkBudget({ provider: "typesafe", budgetUsd: settings.budgetUsd }).catch(() => { throw new JevError("budget"); });
+  }
   const bearer = hosted ? await getInstallToken() : apiKey;
   const body = JSON.stringify(hosted ? { state, questions } : { state, model: JEV_MODEL, questions });
   if (body.length > JEV_MAX_REQUEST_CHARS) throw new JevError("too_large");
@@ -244,7 +249,9 @@ export function extractNameCandidates(query) {
   }
   const tails = [
     /\b(?:called|named|into)\s+(.+)$/gi,
-    /\brename\b.+?\bto\s+(.+)$/gi
+    /\brename\b.+?\bto\s+(.+)$/gi,
+    // "call the misc group random", "name my news group Headlines"
+    /\b(?:call|name)\s+(?:the\s+|my\s+)?\S+(?:\s+\S+)?\s+group\s+(.+)$/gi
   ];
   for (const pattern of tails) {
     for (const match of text.matchAll(pattern)) {

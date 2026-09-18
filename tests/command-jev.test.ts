@@ -147,6 +147,24 @@ test("a murky tab selection hands the whole command to the LLM", async () => {
   expect(merging.classify).toHaveBeenCalledTimes(1);
 });
 
+test("Jev hands off when it needs page content it cannot get, or a rename has no name", async () => {
+  const content = await makeHarness({ action: confident("open_tab"), target_tab: { choice: "1", probabilities: { 1: 0.9 } }, needs_content: { noul: 0.9 } });
+  expect(await content.runCommand("open the one about scaling laws")).toMatchObject({ action: "open_tab", tabId: 3 });
+  expect(content.classify).toHaveBeenCalledTimes(1);
+
+  const rename = await makeHarness({ action: confident("update_group"), target_group: { choice: "77" }, color: { choice: "unspecified" } });
+  expect(await rename.runCommand("call the news group headlines please")).toMatchObject({ action: "open_tab" });
+  expect(rename.classify).toHaveBeenCalledTimes(1);
+});
+
+test("a forced action survives the LLM fallback: a different LLM pick is refused", async () => {
+  const harness = await makeHarness({ action: confident("answer") });
+  const result = await harness.runCommand("which paper is about scaling?", "answer");
+  expect(result).toEqual({ done: true, action: "not_found", reply: "Couldn't carry that out as the action you picked." });
+  const [, system] = harness.classify.mock.calls[0] as unknown as [unknown, string];
+  expect(system).toContain("already confirmed the action is answer");
+});
+
 test("compound commands are refused", async () => {
   const harness = await makeHarness({ action: confident("create_group"), is_compound: { noul: 0.9 }, match_1: { noul: 0.9 } });
   expect(await harness.runCommand("group arxiv tabs and close duplicates")).toEqual({ error: "One command at a time." });
