@@ -1,0 +1,907 @@
+{
+  "strips": {
+    "main": {
+      "ref": "command-eval.json"
+    },
+    "dev": {
+      "windowId": 10,
+      "tabs": [
+        {
+          "id": 201,
+          "windowId": 10,
+          "index": 0,
+          "title": "Inbox - Gmail",
+          "url": "https://mail.google.com/mail/u/0/#inbox",
+          "groupId": -1,
+          "pinned": true,
+          "incognito": false
+        },
+        {
+          "id": 202,
+          "windowId": 10,
+          "index": 1,
+          "title": "FE-421: Fix dashboard keyboard navigation - Jira",
+          "url": "https://acme.atlassian.net/browse/FE-421",
+          "groupId": 11,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 203,
+          "windowId": 10,
+          "index": 2,
+          "title": "Dashboard accessibility mockups - Figma",
+          "url": "https://www.figma.com/design/dashboard/accessibility",
+          "groupId": 11,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 204,
+          "windowId": 10,
+          "index": 3,
+          "title": "How do I type React component props in TypeScript? - Stack Overflow",
+          "url": "https://stackoverflow.com/questions/71000001/react-component-props-typescript",
+          "groupId": 11,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 205,
+          "windowId": 10,
+          "index": 4,
+          "title": "Sprint 42 acceptance criteria - Notion",
+          "url": "https://www.notion.so/acme/sprint-42-acceptance-criteria",
+          "groupId": 11,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 206,
+          "windowId": 10,
+          "index": 5,
+          "title": "FE-422: Improve dashboard loading performance - Jira",
+          "url": "https://acme.atlassian.net/browse/FE-422",
+          "groupId": 11,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 207,
+          "windowId": 10,
+          "index": 6,
+          "title": "Flights from London to Tokyo, Japan - Google Flights",
+          "url": "https://www.google.com/travel/flights?hl=en#London-Tokyo",
+          "groupId": 12,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 208,
+          "windowId": 10,
+          "index": 7,
+          "title": "Kyoto, Japan hotels - Booking.com",
+          "url": "https://www.booking.com/searchresults.html?ss=Kyoto%2C+Japan",
+          "groupId": 12,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 209,
+          "windowId": 10,
+          "index": 8,
+          "title": "Things to do in Tokyo, Japan - Tripadvisor",
+          "url": "https://www.tripadvisor.com/Attractions-g298184-Activities-Tokyo_Tokyo_Prefecture_Kanto.html",
+          "groupId": 12,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 210,
+          "windowId": 10,
+          "index": 9,
+          "title": "Japan trip itinerary: Tokyo and Kyoto - Google Docs",
+          "url": "https://docs.google.com/document/d/japan-itinerary/edit",
+          "groupId": 12,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 211,
+          "windowId": 10,
+          "index": 10,
+          "title": "Japan trip packing checklist - Notion",
+          "url": "https://www.notion.so/acme/japan-packing-checklist",
+          "groupId": 12,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 212,
+          "windowId": 10,
+          "index": 11,
+          "title": "Instrumental jazz playlist - Spotify",
+          "url": "https://open.spotify.com/playlist/instrumental-jazz",
+          "groupId": 13,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 213,
+          "windowId": 10,
+          "index": 12,
+          "title": "Favorite instrumental jazz albums? - r/Jazz - Reddit",
+          "url": "https://www.reddit.com/r/Jazz/comments/jazzalbums/favorite_instrumental_jazz_albums/",
+          "groupId": 13,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 214,
+          "windowId": 10,
+          "index": 13,
+          "title": "Jazz piano improvisation lesson - YouTube",
+          "url": "https://www.youtube.com/watch?v=jazzlesson1",
+          "groupId": 13,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 215,
+          "windowId": 10,
+          "index": 14,
+          "title": "Why does my React useEffect run twice? - Stack Overflow",
+          "url": "https://stackoverflow.com/questions/71000002/react-useeffect-runs-twice",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 216,
+          "windowId": 10,
+          "index": 15,
+          "title": "react - npm",
+          "url": "https://www.npmjs.com/package/react",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 217,
+          "windowId": 10,
+          "index": 16,
+          "title": "date-fns - npm",
+          "url": "https://www.npmjs.com/package/date-fns",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 218,
+          "windowId": 10,
+          "index": 17,
+          "title": "Personal portfolio wireframes - Figma",
+          "url": "https://www.figma.com/design/portfolio/wireframes",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 219,
+          "windowId": 10,
+          "index": 18,
+          "title": "Dashboard loading performance measurements - Google Docs",
+          "url": "https://docs.google.com/document/d/dashboard-performance/edit",
+          "groupId": 11,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 220,
+          "windowId": 10,
+          "index": 19,
+          "title": "Osaka, Japan hotels - Booking.com",
+          "url": "https://www.booking.com/searchresults.html?ss=Osaka%2C+Japan",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 221,
+          "windowId": 10,
+          "index": 20,
+          "title": "Japan trip: Kyoto temple recommendations - r/JapanTravel - Reddit",
+          "url": "https://www.reddit.com/r/JapanTravel/comments/kyototemples/kyoto_temple_recommendations/",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 222,
+          "windowId": 10,
+          "index": 21,
+          "title": "React hooks tutorial for beginners - YouTube",
+          "url": "https://www.youtube.com/watch?v=reacthooks1",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 223,
+          "windowId": 10,
+          "index": 22,
+          "title": "Japan trip flight confirmation: London to Tokyo - Gmail",
+          "url": "https://mail.google.com/mail/u/0/#inbox/japanflightconfirmation",
+          "groupId": 12,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 224,
+          "windowId": 10,
+          "index": 23,
+          "title": "FE-430: Fix portfolio contact form - Jira",
+          "url": "https://acme.atlassian.net/browse/FE-430",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 225,
+          "windowId": 20,
+          "index": 0,
+          "title": "How do I watch a Vue ref? - Stack Overflow",
+          "url": "https://stackoverflow.com/questions/71000003/watch-vue-ref",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        },
+        {
+          "id": 226,
+          "windowId": 20,
+          "index": 1,
+          "title": "Paris, France hotels - Booking.com",
+          "url": "https://www.booking.com/searchresults.html?ss=Paris%2C+France",
+          "groupId": -1,
+          "pinned": false,
+          "incognito": false
+        }
+      ],
+      "groups": [
+        {
+          "id": 11,
+          "title": "Sprint 42",
+          "color": "blue"
+        },
+        {
+          "id": 12,
+          "title": "Japan Trip",
+          "color": "orange"
+        },
+        {
+          "id": 13,
+          "title": "Music",
+          "color": "purple"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "main-github",
+      "strip": "main",
+      "split": "tune",
+      "query": "Group all my GitHub tabs into a new group called Repositories.",
+      "tabIds": [
+        105,
+        106,
+        119
+      ],
+      "tags": [
+        "by-site",
+        "cross-group"
+      ]
+    },
+    {
+      "id": "main-bbc",
+      "strip": "main",
+      "split": "tune",
+      "query": "Collect all BBC tabs into a new group called BBC Reading.",
+      "tabIds": [
+        107,
+        120
+      ],
+      "tags": [
+        "by-site",
+        "cross-group"
+      ]
+    },
+    {
+      "id": "main-amazon",
+      "strip": "main",
+      "split": "tune",
+      "query": "Move all Amazon tabs into Shopping.",
+      "tabIds": [
+        111,
+        112,
+        113
+      ],
+      "tags": [
+        "by-site"
+      ]
+    },
+    {
+      "id": "main-arxiv",
+      "strip": "main",
+      "split": "tune",
+      "query": "Group all my arxiv.org tabs into a new group called Papers.",
+      "tabIds": [
+        102,
+        103,
+        104
+      ],
+      "tags": [
+        "by-site",
+        "ineligible-match"
+      ]
+    },
+    {
+      "id": "main-ungrouped-github",
+      "strip": "main",
+      "split": "tune",
+      "query": "Move my ungrouped GitHub tabs into AI Research.",
+      "tabIds": [
+        119
+      ],
+      "tags": [
+        "by-site",
+        "ungrouped-only",
+        "single"
+      ]
+    },
+    {
+      "id": "main-ungrouped-bbc",
+      "strip": "main",
+      "split": "tune",
+      "query": "Move my ungrouped BBC tabs into News.",
+      "tabIds": [
+        120
+      ],
+      "tags": [
+        "by-site",
+        "ungrouped-only",
+        "single"
+      ]
+    },
+    {
+      "id": "main-london-listings",
+      "strip": "main",
+      "split": "tune",
+      "query": "Put all four London accommodation listings together in a new group called London Stay.",
+      "tabIds": [
+        121,
+        122,
+        123,
+        124
+      ],
+      "tags": [
+        "by-topic"
+      ]
+    },
+    {
+      "id": "main-news-group",
+      "strip": "main",
+      "split": "tune",
+      "query": "Move everything from the group named News into a new group called Daily Reading.",
+      "tabIds": [
+        107,
+        108,
+        109,
+        110
+      ],
+      "tags": [
+        "by-group"
+      ]
+    },
+    {
+      "id": "main-shopping-group",
+      "strip": "main",
+      "split": "tune",
+      "query": "Collect all tabs from the Shopping group into a new group called Gear.",
+      "tabIds": [
+        111,
+        112,
+        113,
+        114
+      ],
+      "tags": [
+        "by-group"
+      ]
+    },
+    {
+      "id": "main-news-without-bbc",
+      "strip": "main",
+      "split": "tune",
+      "query": "Group the tabs from the group named News, except BBC, into a new group called Other Headlines.",
+      "tabIds": [
+        108,
+        109,
+        110
+      ],
+      "tags": [
+        "by-group",
+        "negation"
+      ]
+    },
+    {
+      "id": "main-both-news-groups",
+      "strip": "main",
+      "split": "tune",
+      "query": "Move every tab from the News and Tech News groups into a new group called Reading Queue.",
+      "tabIds": [
+        107,
+        108,
+        109,
+        110,
+        115,
+        116,
+        117,
+        118
+      ],
+      "tags": [
+        "by-group",
+        "large"
+      ]
+    },
+    {
+      "id": "main-all-ungrouped",
+      "strip": "main",
+      "split": "tune",
+      "query": "Put all my ungrouped tabs together in a new group called Inbox.",
+      "tabIds": [
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127
+      ],
+      "tags": [
+        "ungrouped-only",
+        "large",
+        "ineligible-match"
+      ]
+    },
+    {
+      "id": "main-neural-network-video",
+      "strip": "main",
+      "split": "holdout",
+      "query": "Move the 3Blue1Brown neural network video into AI Research.",
+      "tabIds": [
+        125
+      ],
+      "tags": [
+        "by-topic",
+        "single"
+      ]
+    },
+    {
+      "id": "main-airbnb",
+      "strip": "main",
+      "split": "holdout",
+      "query": "Group all Airbnb tabs into a new group called Short Stays.",
+      "tabIds": [
+        121,
+        122,
+        123
+      ],
+      "tags": [
+        "by-site",
+        "by-topic"
+      ]
+    },
+    {
+      "id": "main-climate",
+      "strip": "main",
+      "split": "holdout",
+      "query": "Collect my climate crisis tabs into a new group called Climate.",
+      "tabIds": [
+        109
+      ],
+      "tags": [
+        "by-topic",
+        "single"
+      ]
+    },
+    {
+      "id": "main-lora",
+      "strip": "main",
+      "split": "holdout",
+      "query": "Put the LoRA low-rank adaptation paper into a new group called Fine Tuning.",
+      "tabIds": [
+        103
+      ],
+      "tags": [
+        "by-topic",
+        "single"
+      ]
+    },
+    {
+      "id": "main-github-without-pytorch",
+      "strip": "main",
+      "split": "holdout",
+      "query": "Group all GitHub tabs except the pytorch/pytorch repository into a new group called Transformers Code.",
+      "tabIds": [
+        105,
+        119
+      ],
+      "tags": [
+        "by-site",
+        "cross-group",
+        "negation"
+      ]
+    },
+    {
+      "id": "main-news-groups-without-bbc",
+      "strip": "main",
+      "split": "holdout",
+      "query": "Move all tabs from the News and Tech News groups, except BBC tabs, into a new group called Other News.",
+      "tabIds": [
+        108,
+        109,
+        110,
+        115,
+        116,
+        117,
+        118
+      ],
+      "tags": [
+        "by-group",
+        "negation"
+      ]
+    },
+    {
+      "id": "main-shopping-and-tech",
+      "strip": "main",
+      "split": "holdout",
+      "query": "Collect every tab from the Shopping and Tech News groups into a new group called Weekend Browsing.",
+      "tabIds": [
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118
+      ],
+      "tags": [
+        "by-group",
+        "large"
+      ]
+    },
+    {
+      "id": "main-ungrouped-linkedin",
+      "strip": "main",
+      "split": "holdout",
+      "query": "Group my ungrouped LinkedIn tabs into a new group called People.",
+      "tabIds": [
+        126,
+        127
+      ],
+      "tags": [
+        "by-site",
+        "ungrouped-only"
+      ]
+    },
+    {
+      "id": "dev-stack-overflow",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Group all my Stack Overflow tabs into a new group called Questions.",
+      "tabIds": [
+        204,
+        215
+      ],
+      "tags": [
+        "by-site",
+        "cross-group",
+        "ineligible-match"
+      ]
+    },
+    {
+      "id": "dev-figma",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Move all Figma tabs into Sprint 42.",
+      "tabIds": [
+        203,
+        218
+      ],
+      "tags": [
+        "by-site",
+        "cross-group"
+      ]
+    },
+    {
+      "id": "dev-jira",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Collect all Jira tickets into a new group called Tickets.",
+      "tabIds": [
+        202,
+        206,
+        224
+      ],
+      "tags": [
+        "by-site",
+        "cross-group"
+      ]
+    },
+    {
+      "id": "dev-booking",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Group all Booking.com tabs into a new group called Hotels.",
+      "tabIds": [
+        208,
+        220
+      ],
+      "tags": [
+        "by-site",
+        "cross-group",
+        "ineligible-match"
+      ]
+    },
+    {
+      "id": "dev-japan-topic",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Put all tabs about travel to Japan together in a new group called Japan Planning.",
+      "tabIds": [
+        207,
+        208,
+        209,
+        210,
+        211,
+        220,
+        221,
+        223
+      ],
+      "tags": [
+        "by-topic",
+        "large"
+      ]
+    },
+    {
+      "id": "dev-sprint-group",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Move everything in the Sprint 42 group into a new group called Sprint Archive.",
+      "tabIds": [
+        202,
+        203,
+        204,
+        205,
+        206,
+        219
+      ],
+      "tags": [
+        "by-group"
+      ]
+    },
+    {
+      "id": "dev-music-group",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Collect every tab from the Music group into a new group called Listening.",
+      "tabIds": [
+        212,
+        213,
+        214
+      ],
+      "tags": [
+        "by-group"
+      ]
+    },
+    {
+      "id": "dev-ungrouped-stack-overflow",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Move my ungrouped Stack Overflow tabs in this window into Sprint 42.",
+      "tabIds": [
+        215
+      ],
+      "tags": [
+        "by-site",
+        "ungrouped-only",
+        "single"
+      ]
+    },
+    {
+      "id": "dev-ungrouped-npm",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Group my ungrouped npm tabs into a new group called Dependencies.",
+      "tabIds": [
+        216,
+        217
+      ],
+      "tags": [
+        "by-site",
+        "ungrouped-only"
+      ]
+    },
+    {
+      "id": "dev-jazz-without-youtube",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Group all my jazz music tabs except YouTube into a new group called Jazz Reading and Listening.",
+      "tabIds": [
+        212,
+        213
+      ],
+      "tags": [
+        "by-topic",
+        "negation"
+      ]
+    },
+    {
+      "id": "dev-npm",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Put all npm package tabs together in a new group called Packages.",
+      "tabIds": [
+        216,
+        217
+      ],
+      "tags": [
+        "by-site"
+      ]
+    },
+    {
+      "id": "dev-performance-document",
+      "strip": "dev",
+      "split": "tune",
+      "query": "Move the Google Docs document titled Dashboard loading performance measurements into a new group called Measurements.",
+      "tabIds": [
+        219
+      ],
+      "tags": [
+        "by-site",
+        "by-topic",
+        "single"
+      ]
+    },
+    {
+      "id": "dev-reddit",
+      "strip": "dev",
+      "split": "holdout",
+      "query": "Group all Reddit tabs into a new group called Discussions.",
+      "tabIds": [
+        213,
+        221
+      ],
+      "tags": [
+        "by-site",
+        "cross-group"
+      ]
+    },
+    {
+      "id": "dev-youtube",
+      "strip": "dev",
+      "split": "holdout",
+      "query": "Collect all YouTube tabs into a new group called Videos.",
+      "tabIds": [
+        214,
+        222
+      ],
+      "tags": [
+        "by-site",
+        "cross-group"
+      ]
+    },
+    {
+      "id": "dev-ungrouped-booking",
+      "strip": "dev",
+      "split": "holdout",
+      "query": "Move my ungrouped Booking.com tabs in this window into Japan Trip.",
+      "tabIds": [
+        220
+      ],
+      "tags": [
+        "by-site",
+        "ungrouped-only",
+        "single"
+      ]
+    },
+    {
+      "id": "dev-japan-without-booking",
+      "strip": "dev",
+      "split": "holdout",
+      "query": "Group all tabs about travel to Japan, except Booking.com tabs, into a new group called Japan Details.",
+      "tabIds": [
+        207,
+        209,
+        210,
+        211,
+        221,
+        223
+      ],
+      "tags": [
+        "by-topic",
+        "negation"
+      ]
+    },
+    {
+      "id": "dev-sprint-and-music",
+      "strip": "dev",
+      "split": "holdout",
+      "query": "Move all tabs from the Sprint 42 and Music groups into a new group called Work and Sound.",
+      "tabIds": [
+        202,
+        203,
+        204,
+        205,
+        206,
+        212,
+        213,
+        214,
+        219
+      ],
+      "tags": [
+        "by-group",
+        "large"
+      ]
+    },
+    {
+      "id": "dev-ungrouped-figma",
+      "strip": "dev",
+      "split": "holdout",
+      "query": "Put my ungrouped Figma tabs into a new group called Personal Designs.",
+      "tabIds": [
+        218
+      ],
+      "tags": [
+        "by-site",
+        "ungrouped-only",
+        "single"
+      ]
+    },
+    {
+      "id": "dev-react-topic",
+      "strip": "dev",
+      "split": "holdout",
+      "query": "Collect all tabs about React into a new group called React Learning.",
+      "tabIds": [
+        204,
+        215,
+        216,
+        222
+      ],
+      "tags": [
+        "by-topic"
+      ]
+    },
+    {
+      "id": "dev-japan-group-without-booking",
+      "strip": "dev",
+      "split": "holdout",
+      "query": "Move everything from the Japan Trip group except Booking.com tabs into a new group called Trip Notes.",
+      "tabIds": [
+        207,
+        209,
+        210,
+        211,
+        223
+      ],
+      "tags": [
+        "by-group",
+        "negation"
+      ]
+    }
+  ]
+}

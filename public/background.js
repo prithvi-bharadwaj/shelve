@@ -19,7 +19,7 @@ import { recordAction, getStats } from "./background/stats.js";
 const STATS_DELTAS = {
   cleanDuplicates: (r) => (r?.done && r.closedCount > 0 ? { duplicatesClosed: r.closedCount } : null),
   stashGroup: (r) => (r && !r.error ? { stashes: 1 } : null),
-  command: (r) => (r && !r.error ? { commands: 1 } : null)
+  command: (r) => (r && !r.error && r.action !== "clarify" ? { commands: 1 } : null)
 };
 
 // Single-use, short-lived tokens proving the toolbar icon was clicked on a
@@ -68,7 +68,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     listStashes: () => listStashes(msg.windowId),
     resumeStash: () => resumeStash(msg.stashId, msg.windowId),
     deleteStash: () => deleteStash(msg.stashId),
-    command: () => runCommand(msg.query, msg.windowId, msg.hasContentPermission),
+    command: () => runCommand(msg.query, msg.windowId, msg.hasContentPermission, msg.forcedAction),
     focusTab: () => focusTab(msg.tabId),
     getStats: () => getStats()
   };

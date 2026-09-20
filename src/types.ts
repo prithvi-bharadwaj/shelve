@@ -63,20 +63,23 @@ export type Stash = {
   resumeStatus: "idle" | "resuming";
 };
 
+export type CommandAction =
+  | "open_tab"
+  | "answer"
+  | "create_group"
+  | "add_to_group"
+  | "update_group"
+  | "ungroup"
+  | "remove_duplicates"
+  | "merge_groups"
+  | "not_found";
+
 export type CommandResponse = {
   quota?: boolean;
   error?: string;
   done?: boolean;
-  action?:
-    | "open_tab"
-    | "answer"
-    | "create_group"
-    | "add_to_group"
-    | "update_group"
-    | "ungroup"
-    | "remove_duplicates"
-    | "merge_groups"
-    | "not_found";
+  action?: CommandAction | "clarify";
+  options?: CommandAction[];
   reply?: string;
   tabId?: number | null;
   tabTitle?: string;
@@ -98,6 +101,8 @@ export type MergeResponse = {
 
 export type Provider = "shelve" | "openai" | "anthropic" | "gemini" | "ollama";
 
+export type DecisionProvider = "llm" | "typesafe";
+
 export type ModelByProvider = Record<Provider, string>;
 
 export const GROUP_NAME_STYLES = ["text", "monochrome", "emoji"] as const;
@@ -109,6 +114,8 @@ export type Settings = {
   openaiKey: string;
   anthropicKey: string;
   geminiKey: string;
+  typesafeKey: string;
+  decisionProvider: DecisionProvider;
   ollamaUrl: string;
   minGroupSize: number;
   groupEverything: boolean;
@@ -132,6 +139,8 @@ export const DEFAULT_SETTINGS: Settings = {
   openaiKey: "",
   anthropicKey: "",
   geminiKey: "",
+  typesafeKey: "",
+  decisionProvider: "llm",
   ollamaUrl: "http://localhost:11434",
   minGroupSize: 2,
   groupEverything: false,

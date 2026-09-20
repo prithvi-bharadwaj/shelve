@@ -291,7 +291,7 @@ export async function listModels(providerOverride) {
   return { models };
 }
 
-async function checkBudget(settings) {
+export async function checkBudget(settings) {
   // Ollama is free and Shelve Free runs on the developer's key — a spent-up
   // BYOK budget must never lock a user out of the tiers that cost them $0.
   if (settings.provider === "ollama" || settings.provider === "shelve") return;
@@ -302,7 +302,7 @@ async function checkBudget(settings) {
   }
 }
 
-async function addSpend(settings, usage) {
+export async function addSpend(settings, usage) {
   if (settings.provider === "ollama") return;
   const price = priceFor(settings.provider, settings.model);
   const cost = ((Number(usage?.input) || 0) * price.input + (Number(usage?.output) || 0) * price.output) / 1_000_000;

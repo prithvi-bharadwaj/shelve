@@ -147,3 +147,47 @@ describe("CommandBar busy propagation", () => {
     await waitFor(() => expect(onMutation).toHaveBeenCalledTimes(1));
   });
 });
+
+describe("CommandBar clarification", () => {
+  it("renders at most two chips without clearing the query or notifying a mutation", async () => {
+    const user = userEvent.setup();
+    const onMutation = vi.fn(async () => undefined);
+    renderBar({ onMutation });
+    await typeAndSubmit(user, "organize research");
+    commandDeferred.resolve({ done: true, action: "clarify", options: ["create_group", "add_to_group", "answer"] });
+
+    expect(await screen.findByText("Did you mean:")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create a group" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add to a group" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Answer a question" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Command" })).toHaveValue("organize research");
+    expect(onMutation).not.toHaveBeenCalled();
+    expect(mock.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      type: "command", query: "organize research", windowId: 1, hasContentPermission: true,
+    });
+  });
+
+  it("re-sends the last query with the selected action and shows the mutation result", async () => {
+    const user = userEvent.setup();
+    const onMutation = vi.fn(async () => undefined);
+    renderBar({ onMutation });
+    await typeAndSubmit(user, "  organize research  ");
+    commandDeferred.resolve({ done: true, action: "clarify", options: ["create_group", "add_to_group"] });
+    await screen.findByText("Did you mean:");
+    await user.clear(screen.getByRole("textbox", { name: "Command" }));
+    await user.type(screen.getByRole("textbox", { name: "Command" }), "a different query");
+    commandDeferred = createDeferred<unknown>();
+    await user.click(screen.getByRole("button", { name: "Create a group" }));
+
+    expect(mock.chrome.runtime.sendMessage).toHaveBeenLastCalledWith({
+      type: "command", query: "organize research", windowId: 1, hasContentPermission: true, forcedAction: "create_group",
+    });
+    expect(screen.getByRole("button", { name: "Create a group" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add to a group" })).toBeDisabled();
+    commandDeferred.resolve({ done: true, action: "create_group", groupName: "Research", tabCount: 3 });
+
+    expect(await screen.findByText("Created “Research” with 3 tabs")).toBeInTheDocument();
+    await waitFor(() => expect(onMutation).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("textbox", { name: "Command" })).toHaveValue("");
+  });
+});

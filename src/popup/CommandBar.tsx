@@ -2,7 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { BorderBeam } from "border-beam";
 import { ArrowRight, LoaderCircle, SendHorizontal } from "lucide-react";
 import { COMMAND_PLACEHOLDERS, useRotatingPlaceholder } from "@/lib/rotatingPlaceholders";
-import type { CommandResponse } from "@/types";
+import type { CommandAction, CommandResponse } from "@/types";
+
+const ACTION_LABELS: Record<CommandAction, string> = {
+  open_tab: "Open a tab",
+  answer: "Answer a question",
+  create_group: "Create a group",
+  add_to_group: "Add to a group",
+  update_group: "Rename or recolor",
+  ungroup: "Ungroup",
+  remove_duplicates: "Close duplicates",
+  merge_groups: "Merge groups",
+  not_found: "Nothing matches",
+};
 
 export function CommandBar({
   windowId,
@@ -29,6 +41,7 @@ export function CommandBar({
   // Synchronous guard: React state alone lets a rapid double-submit race the
   // re-render and send the command twice.
   const runningRef = useRef(false);
+  const lastQuery = useRef("");
   const notifyRunning = useRef(onRunningChange);
   notifyRunning.current = onRunningChange;
 
@@ -39,9 +52,8 @@ export function CommandBar({
     []
   );
 
-  const submit = async () => {
-    const trimmed = query.trim();
-    if (!trimmed || runningRef.current || disabled) return;
+  const run = async (text: string, forcedAction?: CommandAction) => {
+    if (!text || runningRef.current || disabled) return;
     if (!acknowledged && !confirming) {
       setConfirming(true);
       setResult(null);
@@ -51,10 +63,11 @@ export function CommandBar({
       setConfirming(false);
       await onAcknowledge();
     }
+    lastQuery.current = text;
     runningRef.current = true;
     setRunning(true);
     onRunningChange(true);
-    setResult(null);
+    setResult((current) => current?.action === "clarify" ? current : null);
     try {
       let hasContentPermission = await chrome.permissions.contains({
         origins: ["<all_urls>"],
@@ -71,7 +84,8 @@ export function CommandBar({
       }
       const res: CommandResponse = await chrome.runtime.sendMessage({
         type: "command",
-        query: trimmed,
+        query: text,
+        ...(forcedAction !== undefined ? { forcedAction } : {}),
         windowId,
         hasContentPermission,
       });
@@ -93,6 +107,11 @@ export function CommandBar({
       setRunning(false);
       onRunningChange(false);
     }
+  };
+
+  const submit = () => {
+    const trimmed = query.trim();
+    return run(trimmed);
   };
 
   const goToTab = async (tabId: number) => {
@@ -141,7 +160,7 @@ export function CommandBar({
 
       {confirming && (
         <p className="mt-2 text-xs leading-snug text-muted-foreground" aria-live="polite">
-          Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider. Press Enter again to continue.
+          Sends tab titles & URLs (and, if allowed, page snippets) to your configured AI provider (and to TypeSafe if Jev routing is on). Press Enter again to continue.
         </p>
       )}
 
@@ -153,6 +172,8 @@ export function CommandBar({
           <p className="min-w-0 flex-1 leading-snug">
             {result.error
               ? result.error
+              : result.action === "clarify"
+                ? "Did you mean:"
               : result.action === "open_tab"
                 ? `Jumped to “${result.tabTitle}”`
                 : result.action === "create_group"
@@ -173,6 +194,16 @@ export function CommandBar({
                   ? `Merged ${result.groupCount} groups into “${result.groupName}” · ${result.tabCount} tabs`
                 : result.reply}
           </p>
+          {result.action === "clarify" && result.options?.slice(0, 2).map((option) => (
+            <button
+              key={option}
+              onClick={() => run(lastQuery.current, option)}
+              disabled={disabled || running}
+              className="flex shrink-0 items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[11px] text-foreground transition-colors hover:bg-muted"
+            >
+              {ACTION_LABELS[option]}
+            </button>
+          ))}
           {result.action === "answer" && typeof result.tabId === "number" && (
             <button
               onClick={() => goToTab(result.tabId as number)}
