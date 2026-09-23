@@ -322,7 +322,7 @@ describe("stash backup via export/import", () => {
     mock.localData.stashes = [];
     const payload = {
       ...exported,
-      stashes: [...exported.stashes, { name: "Bad", tabs: [{ url: "javascript:alert(1)" }, { url: "file:///etc/passwd" }] }],
+      stashes: [...exported.stashes, { name: "Bad", tabs: [{ url: "javascript:alert(1)" }, { url: "file:///etc/passwd" }, { url: "https://" }] }],
     };
     const first = (await invokeMessage({ type: "importGroups", payload, windowId: 1 })) as { stashCount: number };
     expect(first.stashCount).toBe(1);

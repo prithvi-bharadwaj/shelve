@@ -409,7 +409,7 @@ export async function importStashes(entries) {
   const incoming = [];
   for (const entry of Array.isArray(entries) ? entries : []) {
     const tabs = (Array.isArray(entry?.tabs) ? entry.tabs : [])
-      .filter((tab) => typeof tab?.url === "string" && /^https?:/.test(tab.url))
+      .filter((tab) => safeImportUrl(tab?.url) && /^https?:/.test(tab.url))
       .map((tab) => ({ url: tab.url, title: String(tab.title || "").slice(0, 300) }));
     if (!tabs.length) continue;
     const brief = String(entry.brief || "").slice(0, 220);
