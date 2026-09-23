@@ -16,9 +16,10 @@ const { PROVIDERS } = await import("../public/background/providers.js");
 const { COMMAND_SCHEMA } = await import("../public/background/constants.js");
 const fixture = JSON.parse(await readFile(new URL("../tests/fixtures/command-eval.json", import.meta.url), "utf8"));
 const mutable = new Set(fixture.tabs.filter((t) => t.windowId === fixture.windowId && !t.pinned).map((t) => t.id));
-const ids = (process.argv[2] || "open-arxiv,create-github-into,missing-netflix,rename-news,ungroup-shopping").split(",");
-const commands = ids.map((id) => fixture.commands.find((c) => c.id === id)).filter(Boolean);
-if (!commands.length) { console.log("ids:", fixture.commands.map((c) => c.id).join(" ")); process.exit(1); }
+const ids = (process.argv[2] || "open-lora,create-github-into,missing-netflix,rename-tech-news,ungroup-shopping").split(",");
+const unknown = ids.filter((id) => !fixture.commands.some((c) => c.id === id));
+if (unknown.length) { console.error(`unknown ids: ${unknown.join(", ")}\navailable: ${fixture.commands.map((c) => c.id).join(" ")}`); process.exit(1); }
+const commands = ids.map((id) => fixture.commands.find((c) => c.id === id));
 
 const lines = fixture.tabs.map((t) => `[${t.id}] ${t.title}${t.groupId !== -1 ? ` (in group ${t.groupId})` : ""}${mutable.has(t.id) ? "" : " [read only]"}\n    ${t.url}`);
 const groupLines = fixture.groups.map((g) => `[${g.id}] ${g.title} (${g.color})`);
@@ -34,6 +35,10 @@ for (const command of commands) {
   rows.push({ command: command.id, jevMs: jev, llmMs: llm });
 }
 console.table(rows);
-const num = (k) => rows.map((r) => r[k]).filter((v) => typeof v === "number");
-const med = (a) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)];
-if (num("jevMs").length && num("llmMs").length) console.log(`median jev ${med(num("jevMs"))} ms · median llm ${med(num("llmMs"))} ms · ${(med(num("llmMs")) / med(num("jevMs"))).toFixed(1)}× faster`);
+// Compare only commands where both providers succeeded so the medians cover the same set.
+const paired = rows.filter((r) => typeof r.jevMs === "number" && typeof r.llmMs === "number");
+const med = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+if (paired.length) {
+  const j = med(paired.map((r) => r.jevMs)), l = med(paired.map((r) => r.llmMs));
+  console.log(`paired n=${paired.length} · median jev ${j} ms · median llm ${l} ms · ${(l / j).toFixed(1)}× faster`);
+} else console.log("no command succeeded on both providers; no comparison");
