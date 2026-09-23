@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Shelve",
   "version": "0.7.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzgwSxw7j27Y3pwkvQEpwM0Qxtd5MT1THhThTMAeh195Xk9GKyFj73wKlIerQq/xz3eacx28CK3C42pKyGfiAogKvv+FmmefdliP9tBde0aqo+UYGAU4C/TafVhjouS+WMBmP0pP+fZNp5le5FtlmKonhTlno1UktSiZaUR+zUluRuGCUBwgwQ9kTxn1MH5xtm6MDQkaQ5J+rMZwa9a8kLGTjrl1J+LQFSxIJYfc/mVlpy4p1qz3p0kKg4GTh3fhULIGbxD+F40Ool80a/2KGJ2N88UdwSO0ctly54vJu2XMfgSNlhtiJGB14YxfdLLVUd0QOtJ6M+prTAqYNkP49jwIDAQAB",
   "description": "One click: understands your open tabs and sorts them into named Chrome tab groups.",
   "permissions": ["tabs", "tabGroups", "storage", "scripting", "activeTab"],
   "host_permissions": [
