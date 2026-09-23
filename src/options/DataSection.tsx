@@ -45,7 +45,11 @@ export function DataSection() {
     setDataStatus(
       res?.error
         ? { text: res.error, error: true }
-        : { text: `Imported ${res.groupCount} group${res.groupCount === 1 ? "" : "s"} · ${res.tabCount} tabs` }
+        : {
+            text: `Imported ${res.groupCount} group${res.groupCount === 1 ? "" : "s"} · ${res.tabCount} tabs${
+              res.stashCount ? ` · ${res.stashCount} shelved group${res.stashCount === 1 ? "" : "s"}` : ""
+            }`
+          }
     );
   };
 
@@ -54,7 +58,7 @@ export function DataSection() {
       <SectionHeading id="data-heading">Data</SectionHeading>
       <div>
         <Button variant="outline" onClick={exportData}>Export groups</Button>
-        <p className="mt-2 text-xs text-muted-foreground">Copies JSON and downloads shelve.json.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Copies JSON and downloads shelve.json, including shelved groups.</p>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="importJson">Import groups</Label>

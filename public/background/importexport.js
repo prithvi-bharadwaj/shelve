@@ -2,6 +2,7 @@
 
 import { GROUP_COLORS } from "./constants.js";
 import { firstGroupIndex, safeImportUrl } from "./util.js";
+import { exportableStashes, importStashes } from "./stash.js";
 
 export async function exportGroups(windowId) {
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
@@ -10,13 +11,16 @@ export async function exportGroups(windowId) {
     chrome.tabGroups.query({ windowId: targetWindowId })
   ]);
   const groupOrder = [...groups].sort((a, b) => firstGroupIndex(tabs, a.id) - firstGroupIndex(tabs, b.id));
+  // Stashes are regular-browsing data; an incognito export leaves them out.
+  const targetWindow = await chrome.windows.get(targetWindowId).catch(() => null);
   return {
     version: 1,
     groups: groupOrder.map((group) => ({
       name: group.title || "Tabs",
       color: group.color,
       urls: tabs.filter((tab) => tab.groupId === group.id && tab.url).sort((a, b) => a.index - b.index).map((tab) => tab.url)
-    }))
+    })),
+    stashes: targetWindow && !targetWindow.incognito ? await exportableStashes() : []
   };
 }
 
@@ -26,6 +30,12 @@ export async function importGroups(payload, windowId) {
     return { error: "Invalid Shelve JSON." };
   }
   const targetWindowId = windowId || (await chrome.windows.getCurrent()).id;
+  let stashCount = 0;
+  if (Array.isArray(data.stashes) && data.stashes.length) {
+    const targetWindow = await chrome.windows.get(targetWindowId).catch(() => null);
+    if (targetWindow?.incognito) return { error: "Stashes can't be imported in incognito windows." };
+    stashCount = await importStashes(data.stashes);
+  }
   let groupCount = 0;
   let tabCount = 0;
   for (const group of data.groups) {
@@ -50,5 +60,5 @@ export async function importGroups(payload, windowId) {
     groupCount++;
     tabCount += tabIds.length;
   }
-  return { done: true, groupCount, tabCount };
+  return { done: true, groupCount, tabCount, stashCount };
 }

@@ -25,6 +25,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      # manifest "key" pins the unpacked-install ID (so stashes survive
+      # reloading from a new folder); the Web Store rejects it.
+      - name: Strip manifest key
+        run: node -e 'const f="dist/manifest.json",m=JSON.parse(require("fs").readFileSync(f));delete m.key;require("fs").writeFileSync(f,JSON.stringify(m,null,2))'
       - name: Zip dist
         run: cd dist && zip -r ../shelve-draft.zip .
       - name: Upload as draft (no publish)
