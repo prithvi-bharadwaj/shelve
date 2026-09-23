@@ -305,3 +305,45 @@ describe("stash creation window safety", () => {
     expect(mock.chrome.tabs.remove).toHaveBeenCalledWith([21]);
   });
 });
+
+describe("stash backup via export/import", () => {
+  it("round-trips stashes without the resume journal and skips duplicates", async () => {
+    const { invokeMessage, mock } = await load((prepared) => {
+      prepared.seedLocal({
+        stashes: [stashFixture({ resume: { token: "t", startedAt: 1, targetWindowId: 1, opened: [] } })],
+      });
+      prepared.chrome.tabs.query.mockResolvedValue([]);
+      prepared.chrome.tabGroups.query.mockResolvedValue([]);
+    });
+    const exported = (await invokeMessage({ type: "exportGroups", windowId: 1 })) as { stashes: Array<Record<string, unknown>> };
+    expect(exported.stashes).toHaveLength(1);
+    expect(exported.stashes[0]).not.toHaveProperty("resume");
+
+    mock.localData.stashes = [];
+    const payload = {
+      ...exported,
+      stashes: [...exported.stashes, { name: "Bad", tabs: [{ url: "javascript:alert(1)" }, { url: "file:///etc/passwd" }] }],
+    };
+    const first = (await invokeMessage({ type: "importGroups", payload, windowId: 1 })) as { stashCount: number };
+    expect(first.stashCount).toBe(1);
+    expect(storedStashes(mock).map((s) => s.name)).toEqual(["Trip"]);
+    expect(storedStashes(mock)[0].tabs).toEqual([
+      { url: "https://a.test/", title: "A" },
+      { url: "https://b.test/", title: "B" },
+    ]);
+
+    const again = (await invokeMessage({ type: "importGroups", payload, windowId: 1 })) as { stashCount: number };
+    expect(again.stashCount).toBe(0);
+    expect(storedStashes(mock)).toHaveLength(1);
+  });
+
+  it("leaves stashes out of an incognito export", async () => {
+    const { invokeMessage } = await load((prepared) => {
+      prepared.seedLocal({ stashes: [stashFixture()] });
+      prepared.chrome.tabs.query.mockResolvedValue([]);
+      prepared.chrome.tabGroups.query.mockResolvedValue([]);
+    });
+    const exported = (await invokeMessage({ type: "exportGroups", windowId: 11 })) as { stashes: unknown[] };
+    expect(exported.stashes).toEqual([]);
+  });
+});

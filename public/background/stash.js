@@ -388,3 +388,47 @@ export async function deleteStash(stashId) {
   if (!ok) return { error: "Couldn't delete the stash. Try again." };
   return { done: true };
 }
+
+// Backup projection for export: tabs and brief only, never the resume journal.
+export async function exportableStashes() {
+  const stored = await chrome.storage.local.get({ [STASH_KEY]: [] });
+  const list = Array.isArray(stored[STASH_KEY]) ? stored[STASH_KEY] : [];
+  return list.map((stash) => ({
+    id: stash.id,
+    name: stash.name,
+    color: stash.color,
+    createdAt: stash.createdAt,
+    tabs: (stash.tabs || []).map((tab) => ({ url: tab.url, title: tab.title || "" })),
+    brief: stash.brief || ""
+  }));
+}
+
+// Restore exported stashes, skipping ids already present so re-importing the
+// same backup is a no-op. Returns how many were added.
+export async function importStashes(entries) {
+  const incoming = [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const tabs = (Array.isArray(entry?.tabs) ? entry.tabs : [])
+      .filter((tab) => typeof tab?.url === "string" && /^https?:/.test(tab.url))
+      .map((tab) => ({ url: tab.url, title: String(tab.title || "").slice(0, 300) }));
+    if (!tabs.length) continue;
+    const brief = String(entry.brief || "").slice(0, 220);
+    incoming.push({
+      id: typeof entry.id === "string" && entry.id ? entry.id.slice(0, 80) : `stash-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: String(entry.name || "Stashed tabs").slice(0, 80),
+      color: GROUP_COLORS.includes(entry.color) ? entry.color : "grey",
+      createdAt: Number.isFinite(entry.createdAt) ? entry.createdAt : Date.now(),
+      tabs,
+      brief,
+      briefStatus: brief ? "ready" : "unavailable"
+    });
+  }
+  let added = 0;
+  await mutateStashes((list) => {
+    const known = new Set(list.map((item) => item.id));
+    const fresh = incoming.filter((item) => !known.has(item.id) && known.add(item.id));
+    added = fresh.length;
+    return [...list, ...fresh];
+  });
+  return added;
+}
