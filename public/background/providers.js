@@ -17,7 +17,7 @@ export const PROVIDERS = {
   // a user credential. The model is pinned server-side.
   shelve: {
     async listModels() {
-      return [{ id: DEFAULT_MODELS.shelve, name: "Shelve Free (Gemini Flash Lite)" }];
+      return [{ id: DEFAULT_MODELS.shelve, name: "Shelve Free" }];
     },
 
     async classify(settings, system, user, schema) {
@@ -54,7 +54,13 @@ export const PROVIDERS = {
         error.quota = true; // out-of-quota, not a failure: surfaces the upgrade screen
         throw error;
       }
-      const data = await readApiResponse(resp);
+      if (!resp.ok) {
+        // Never surface upstream wording: it names the provider and model.
+        throw new Error(
+          "Shelve's free service is busy right now — try again in a minute, or add your own API key in Settings."
+        );
+      }
+      const data = await resp.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       const usage = {
         input: data.usageMetadata?.promptTokenCount || 0,

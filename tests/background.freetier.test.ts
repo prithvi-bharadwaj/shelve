@@ -18,7 +18,7 @@ describe("shelve free tier", () => {
     const res = (await harness.invokeMessage({ type: "listModels", provider: "shelve" })) as {
       models: Array<{ id: string; name: string }>;
     };
-    expect(res.models).toEqual([{ id: "gemini-3.1-flash-lite", name: "Shelve Free (Gemini Flash Lite)" }]);
+    expect(res.models).toEqual([{ id: "gemini-3.1-flash-lite", name: "Shelve Free" }]);
   });
 
   it("mints an install token, stores the remaining count, and maps 402 to a friendly error", async () => {
@@ -37,6 +37,24 @@ describe("shelve free tier", () => {
     await flushMicrotasks();
     expect(harness.mock.localData.installToken).toMatch(/^[0-9a-f-]{36}$/);
     expect(harness.mock.localData.freeActionsRemaining).toBe("0");
+  });
+
+  it("never relays upstream error wording (model names) to the user", async () => {
+    harness = await loadBackground();
+    const body = { error: { message: "This model models/gemini-2.5-flash-lite is no longer available to new users." } };
+    harness.fetchMock.mockResolvedValueOnce({
+      status: 404,
+      ok: false,
+      headers: { get: () => null },
+      json: async () => body,
+      text: async () => JSON.stringify(body),
+    });
+    const { PROVIDERS } = await import("../public/background/providers.js");
+    const err = await PROVIDERS.shelve
+      .classify({}, "system prompt", "user prompt", { type: "object", properties: {} })
+      .catch((e: Error) => e);
+    expect(String(err)).toMatch(/busy right now/i);
+    expect(String(err)).not.toMatch(/gemini/i);
   });
 
   it("maps a 403 challenge page to a friendly retry message", async () => {

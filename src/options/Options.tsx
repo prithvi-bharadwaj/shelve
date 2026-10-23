@@ -11,7 +11,7 @@ import { Divider, SectionHeading } from "@/options/section";
 import { DEFAULT_SETTINGS, GROUP_NAME_STYLES, type Provider, type Settings } from "@/types";
 
 const FALLBACK_MODELS: Record<Provider, Model[]> = {
-  shelve: [{ id: "gemini-3.1-flash-lite", name: "Shelve Free (Gemini Flash Lite)" }],
+  shelve: [{ id: "gemini-3.1-flash-lite", name: "Shelve Free" }],
   openai: [
     { id: "gpt-5.6-luna", name: "GPT-5.6 Luna" },
     { id: "gpt-5.6-terra", name: "GPT-5.6 Terra" },
